@@ -10,13 +10,9 @@ import h5py
 import numpy as np
 
 from ParProcCo.aggregator_interface import AggregatorInterface
+from ParProcCo.utils import decode_to_string
 
 from . import __version__
-
-
-def decode_to_string(any_string: AnyStr) -> str:
-    output = any_string.decode() if not isinstance(any_string, str) else any_string
-    return output
 
 
 class MSMAggregator(AggregatorInterface):

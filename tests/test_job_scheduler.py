@@ -13,6 +13,7 @@ from parameterized import parameterized
 
 from ParProcCo.job_scheduler import JobScheduler
 from ParProcCo.utils import slice_to_string
+from ParProcCo.simple_processing_mode_interface import SimpleProcessingModeInterface
 from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
 
 _sge_cell=os.getenv('SGE_CELL')
@@ -45,7 +46,10 @@ class TestJobScheduler(unittest.TestCase):
             cluster_output_dir = Path(working_directory) / 'cluster_output_dir'
             js = create_js(working_directory, cluster_output_dir)
             runner_script_args = ["--input-path", str(input_path)]
-            js._create_template(Path("some_script.py"), slice(0, 1, 2), 1, memory="4G", cores=6,
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters([slice(0, None, 2), slice(1, None, 2)], 2)
+
+            js._create_template(Path("some_script.py"), processing_mode, 1, memory="4G", cores=6,
                                 jobscript_args=runner_script_args, job_name="create_template_test")
             cluster_output_dir_exists = cluster_output_dir.is_dir()
         self.assertTrue(cluster_output_dir_exists, msg="Cluster output directory was not created\n")
@@ -59,10 +63,12 @@ class TestJobScheduler(unittest.TestCase):
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters(slices, 4)
 
             # run jobs
             js = create_js(working_directory, cluster_output_dir)
-            js.run(runner_script, slices, jobscript_args=runner_script_args)
+            js.run(processing_mode, runner_script, jobscript_args=runner_script_args)
 
             # check output files
             for output_file, expected_nums in zip(output_paths, out_nums):
@@ -90,9 +96,11 @@ class TestJobScheduler(unittest.TestCase):
             js.job_completion_status = {slice_to_string(s): False for s in slices}
             js.check_jobscript(runner_script)
             js.status_infos = []
-
             session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
-            js._run_jobs(session, runner_script, slices, memory="4G", cores=6, jobscript_args=runner_script_args,
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters(slices, 4)
+
+            js._run_jobs(session, processing_mode, runner_script, memory="4G", cores=6, jobscript_args=runner_script_args,
                          job_name="old_output_test")
             js._wait_for_jobs(session)
             js.start_time = datetime.now()
@@ -171,10 +179,12 @@ class TestJobScheduler(unittest.TestCase):
 
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters(slices, 4)
 
             # run jobs
             js = create_js(working_directory, cluster_output_dir, timeout=timedelta(seconds=1))
-            js.run(runner_script, slices, jobscript_args=runner_script_args)
+            js.run(processing_mode, runner_script, jobscript_args=runner_script_args)
             jh = js.job_history
             self.assertEqual(len(jh), 1, f"There should be one batch of jobs; job_history: {jh}\n")
             returned_jobs = jh[0]
@@ -200,6 +210,8 @@ class TestJobScheduler(unittest.TestCase):
             jobscript = Path(working_directory) / "test_jobscript"
             runner_script = Path(working_directory) / rs_name
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters(slices, 4)
 
             if open_rs:
                 f = open(runner_script, "x")
@@ -207,7 +219,7 @@ class TestJobScheduler(unittest.TestCase):
                 os.chmod(runner_script, permissions)
 
             with self.assertRaises(error_name) as context:
-                js.run(runner_script, slices, jobscript_args=runner_script_args)
+                js.run(processing_mode, runner_script, jobscript_args=runner_script_args)
 
             self.assertTrue(error_msg in str(context.exception))
 
@@ -221,8 +233,10 @@ class TestJobScheduler(unittest.TestCase):
             jobscript = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters(slices, 4)
 
-            js.run(runner_script, slices, jobscript_args=runner_script_args)
+            js.run(processing_mode, runner_script, jobscript_args=runner_script_args)
 
     def test_get_output_paths(self) -> None:
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
@@ -240,9 +254,8 @@ class TestJobScheduler(unittest.TestCase):
     def test_get_success(self, name, stat_0, stat_1, success) -> None:
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
-
             js = create_js(working_directory, cluster_output_dir)
-            js.job_completion_status = {"0:8:4": stat_0, "1:8:4": stat_1}
+            js.job_completion_status = {"0": stat_0, "1": stat_1}
             self.assertEqual(js.get_success(), success)
 
     @parameterized.expand([

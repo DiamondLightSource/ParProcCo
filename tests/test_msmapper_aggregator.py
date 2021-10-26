@@ -11,8 +11,8 @@ import h5py
 import numpy as np
 from parameterized import parameterized
 
-import ParProcCo.msmapper_aggregator
 from ParProcCo.msmapper_aggregator import MSMAggregator
+from ParProcCo.utils import decode_to_string
 
 
 class TestMSMAggregator(unittest.TestCase):
@@ -43,12 +43,12 @@ class TestMSMAggregator(unittest.TestCase):
 
     def test_decode_to_string_input_is_string(self):
         name = "name"
-        name = ParProcCo.msmapper_aggregator.decode_to_string(name)
+        name = decode_to_string(name)
         self.assertEqual(name, "name")
 
     def test_decode_to_string_input_is_bytes(self):
         name = b'name'
-        name = ParProcCo.msmapper_aggregator.decode_to_string(name)
+        name = decode_to_string(name)
         self.assertEqual(name, "name")
 
     def test_renormalise(self) -> None:
@@ -612,17 +612,18 @@ class TestMSMAggregator(unittest.TestCase):
             cluster_output_dir = Path(working_directory) / "cluster_output"
             if not cluster_output_dir.is_dir():
                 cluster_output_dir.mkdir(exist_ok=True, parents=True)
+            aggregation_file = cluster_output_dir / "aggregated_results.nxs"
 
             aggregator = MSMAggregator()
-            aggregator_filepath = aggregator.aggregate(2, cluster_output_dir, sliced_data_files)
+            aggregation_results = aggregator.aggregate(2, aggregation_file, sliced_data_files)
             with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
                 volumes_array = np.array(f["processed/reciprocal_space/volume"])
                 weights_array = np.array(f["processed/reciprocal_space/weight"])
             np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
             np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
 
-            self.assertEqual(aggregator_filepath, cluster_output_dir / "aggregated_results.nxs")
-            with h5py.File(aggregator_filepath, "r") as af:
+            self.assertEqual(aggregation_results, aggregation_file)
+            with h5py.File(aggregation_results, "r") as af:
                 aggregated_volumes = np.array(af["processed/reciprocal_space/volume"])
                 aggregated_weights = np.array(af["processed/reciprocal_space/weight"])
             np.testing.assert_allclose(volumes_array, aggregated_volumes, rtol=1e-12)

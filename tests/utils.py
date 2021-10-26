@@ -95,6 +95,48 @@ if __name__ == '__main__':
     return jobscript
 
 
+def setup_aggregation_script(working_directory: str) -> Path:
+    jobscript = Path(working_directory) / "aggregation_test_script"
+    with open(jobscript, "x") as f:
+        jobscript_lines = """
+#!/usr/bin/env python3
+
+import argparse
+from pathlib import Path
+
+from ParProcCo.simple_data_aggregator import SimpleDataAggregator
+
+
+def setup_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--jobs", help="int: number of sliced jobs", type=str)
+    parser.add_argument("--output", help="str: path to aggregation output file", type=str)
+    return parser
+
+
+def check_args(args):
+    empty_fields = [k for k, v in vars(args).items() if v is None]
+    if len(empty_fields) > 0:
+        raise ValueError(f"Missing arguments: {empty_fields}")
+
+
+if __name__ == '__main__':
+    '''
+    $ jobscript --jobs 4 --output aggregation_file_path .. [slice_data_files]
+    '''
+    parser = setup_parser()
+    args, other_args = parser.parse_known_args()
+    args.jobs = int(args.jobs)
+    args.output = Path(args.output)
+
+    SimpleDataAggregator().aggregate(args.jobs, args.output, other_args)
+"""
+        jobscript_lines = jobscript_lines.lstrip()
+        f.write(jobscript_lines)
+    os.chmod(jobscript, 0o777)
+    return jobscript
+
+
 def setup_runner_script(working_directory: str) -> Path:
     runner_script = Path(working_directory) / "test_runner_script"
     with open(runner_script, "x") as f:

@@ -104,7 +104,7 @@ class JobScheduler:
             jobscript_args = []
         self.jobscript_args = jobscript_args
         self.job_history[self.batch_number] = {}
-        self.job_completion_status = {str(i): False for i in scheduler_mode.number_jobs}
+        self.job_completion_status = {str(i): False for i in range(scheduler_mode.number_jobs)}
         jobscript = self.check_jobscript(jobscript)
         session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
         self._run_jobs(session, scheduler_mode, jobscript, memory, cores, jobscript_args, job_name)

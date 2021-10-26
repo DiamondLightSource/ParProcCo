@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Union
+from typing import AnyStr, Union
 
 
 def check_location(location: Union[Path, str]) -> Path:
@@ -10,6 +10,11 @@ def check_location(location: Union[Path, str]) -> Path:
     if Path("/dls") in location_path.parents or Path("/home") in location_path.parents or Path("/dls_sw") in location_path.parents:
         return location_path
     raise ValueError(f"{location_path} must be located within /dls, 'dls_sw or /home")
+
+
+def decode_to_string(any_string: AnyStr) -> str:
+    output = any_string.decode() if not isinstance(any_string, str) else any_string
+    return output
 
 
 def get_absolute_path(filename: Union[Path, str]) -> str:
