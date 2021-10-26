@@ -7,7 +7,7 @@ from typing import List, Tuple
 class SchedulerModeInterface:
 
     def __init__(self) -> None:
-        pass
+        self.number_jobs: int
 
     def set_parameters(self, *args, **kwargs) -> None:
         """Sets parameters for generating jobscript args for use within JobScheduler"""
