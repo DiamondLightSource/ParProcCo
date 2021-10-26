@@ -46,11 +46,11 @@ class MSMAggregator(AggregatorInterface):
         self.total_slices: int
         self.use_default_axes: bool = False
 
-    def aggregate(self, total_slices: int, aggregation_output_dir: Path, output_data_files: List[Path]) -> Path:
+    def aggregate(self, total_slices: int, aggregation_output: Path, output_data_files: List[Path]) -> Path:
         """Overrides AggregatorInterface.aggregate"""
         self._check_total_slices(total_slices, output_data_files)
         self._renormalise(output_data_files)
-        aggregated_data_file = self._write_aggregation_file(aggregation_output_dir, output_data_files)
+        aggregated_data_file = self._write_aggregation_file(aggregation_output, output_data_files)
         return aggregated_data_file
 
     def _check_total_slices(self, total_slices: int, output_data_files: List[Path]) -> None:
@@ -228,10 +228,9 @@ class MSMAggregator(AggregatorInterface):
                 aux_signal = aux_signal / self.accumulator_weights
                 aux_signal[np.isnan(aux_signal)] = 0
 
-    def _write_aggregation_file(self, aggregation_output_dir: Path, output_data_files: List[Path]) -> Path:
-        aggregated_data_file = aggregation_output_dir / "aggregated_results.nxs"
+    def _write_aggregation_file(self, aggregation_output: Path, output_data_files: List[Path]) -> Path:
 
-        with h5py.File(aggregated_data_file, "w") as f:
+        with h5py.File(aggregation_output, "w") as f:
             processed = f.create_group(self.nxentry_name)
             processed.attrs["NX_class"] = "NXentry"
             processed.attrs["default"] = self.nxdata_name
@@ -239,7 +238,7 @@ class MSMAggregator(AggregatorInterface):
             process = processed.create_group("process")
             process.attrs["NX_class"] = "NXprocess"
             process.create_dataset("date", data=str(datetime.now(timezone.utc)))
-            process.create_dataset("parameters", data=f"inputs: {output_data_files}, output: {aggregated_data_file}")
+            process.create_dataset("parameters", data=f"inputs: {output_data_files}, output: {aggregation_output}")
             process.create_dataset("program", data="ParProcCo")
             process.create_dataset("version", data=__version__)
 
@@ -279,4 +278,4 @@ class MSMAggregator(AggregatorInterface):
             if self.renormalisation:
                 binoculars["contributions"] = data_group["weight"]
 
-        return aggregated_data_file
+        return aggregation_output
