@@ -29,5 +29,5 @@ class MSMProcessingModeInterface(SchedulerModeInterface):
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i <= self.number_jobs)
         slice_param = slice_to_string(self.slice_params[i])
-        args = tuple([jobscript_args[0], "--output", output_fp, "-images", slice_param] + jobscript_args[1:])
+        args = tuple([jobscript_args[0], "--output", output_fp, "--images", slice_param] + jobscript_args[1:])
         return args
