@@ -84,7 +84,7 @@ if __name__ == '__main__':
     $ jobscript --input-path input_path --output output_path --images slice_param
     '''
     parser = setup_parser()
-    args = parser.parse_args()
+    args, other_args = parser.parse_known_args()
     check_args(args)
 
     write_lines(args.input_path, args.output, args.images)
@@ -111,6 +111,7 @@ def setup_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--jobs", help="int: number of sliced jobs", type=str)
     parser.add_argument("--output", help="str: path to aggregation output file", type=str)
+    parser.add_argument("--sliced-files", help="str: paths to sliced results files", type=str, nargs="+")
     return parser
 
 
@@ -129,7 +130,7 @@ if __name__ == '__main__':
     args.jobs = int(args.jobs)
     args.output = Path(args.output)
 
-    SimpleDataAggregator().aggregate(args.jobs, args.output, other_args)
+    SimpleDataAggregator().aggregate(args.jobs, args.output, args.sliced_files)
 """
         jobscript_lines = jobscript_lines.lstrip()
         f.write(jobscript_lines)

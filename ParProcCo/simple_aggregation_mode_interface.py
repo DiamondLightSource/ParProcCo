@@ -28,5 +28,5 @@ class SimpleAggregationModeInterface(SchedulerModeInterface):
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i == 0)
-        args = tuple([jobscript_args[0], "--jobs", str(self.sliced_jobs), "--memory", memory, "--cores", str(cores), "--output", output_fp] + self.sliced_results)
+        args = tuple([jobscript_args[0], "--jobs", str(self.sliced_jobs), "--memory", memory, "--cores", str(cores), "--output", output_fp, "--sliced-files"] + self.sliced_results)
         return args
