@@ -17,7 +17,7 @@ class SimpleAggregationModeInterface(SchedulerModeInterface):
 
     def generate_output_paths(self, output_dir: Path, error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
-        output_file = f"aggregated_results.nxs"
+        output_file = f"aggregated_results.txt"
         std_out_file = f"std_out_aggregated"
         err_file = f"err_aggregated"
         output_fp = str(output_dir / output_file)
@@ -28,6 +28,5 @@ class SimpleAggregationModeInterface(SchedulerModeInterface):
     def generate_args(self, i: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i == 0)
-        args = tuple([jobscript_args[0], "--jobs", str(self.sliced_jobs), "--output", output_fp] + jobscript_args[1:] +
-                     self.sliced_results)
+        args = tuple([jobscript_args[0], "--jobs", str(self.sliced_jobs), "--output", output_fp] + self.sliced_results)
         return args

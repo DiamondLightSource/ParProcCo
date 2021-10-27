@@ -27,6 +27,7 @@ class TestJobController(unittest.TestCase):
             logging.debug(f"Making directory {self.base_dir}")
             Path(self.base_dir).mkdir(exist_ok=True)
         self.current_dir = os.getcwd()
+        self.parprocco_path = Path(self.current_dir).parent
 
     def tearDown(self):
         os.chdir(self.current_dir)

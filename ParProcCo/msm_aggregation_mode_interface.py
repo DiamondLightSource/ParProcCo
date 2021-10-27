@@ -27,6 +27,6 @@ class MSMAggregationModeInterface(SchedulerModeInterface):
 
     def generate_args(self, i: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
-        assert(i == 1)
-        args = tuple([jobscript_args[0], "--output", output_fp] + jobscript_args[1:] + ["--sliced-files"] + self.sliced_results)
+        assert(i == 0)
+        args = tuple([jobscript_args[0], "--output", output_fp] + self.sliced_results)
         return args

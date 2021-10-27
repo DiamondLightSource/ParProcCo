@@ -145,6 +145,7 @@ def setup_runner_script(working_directory: str) -> Path:
 . /etc/profile.d/modules.sh
 
 module load python/3.9
+export PYTHONPATH="${PYTHONPATH}:/home/vaq49247/github/ParProcCo"
 
 echo "Executing |$@|"
 eval "$@"
