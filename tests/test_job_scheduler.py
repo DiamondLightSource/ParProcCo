@@ -88,24 +88,27 @@ class TestJobScheduler(unittest.TestCase):
 
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters(slices, 4)
 
             # run jobs
             js = create_js(working_directory, cluster_output_dir)
 
+            # run jobs
+            js.jobscript = runner_script
+            job_indices = list(range(processing_mode.number_jobs))
+            js.jobscript_args = runner_script_args
             js.job_history[js.batch_number] = {}
-            js.job_completion_status = {slice_to_string(s): False for s in slices}
-            js.check_jobscript(runner_script)
-            js.status_infos = []
-            session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
-            processing_mode = SimpleProcessingModeInterface()
-            processing_mode.set_parameters(slices, 4)
+            js.job_completion_status = {str(i): False for i in range(4)}
 
-            js._run_jobs(session, processing_mode, runner_script, memory="4G", cores=6, jobscript_args=runner_script_args,
+            # _run_and_monitor
+            js.jobscript = js.check_jobscript(js.jobscript)
+            session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
+            js._run_jobs(session, processing_mode, runner_script, job_indices, memory="4G", cores=6, jobscript_args=runner_script_args,
                          job_name="old_output_test")
             js._wait_for_jobs(session)
             js.start_time = datetime.now()
             js._report_job_info()
-
             job_stats = js.job_completion_status
             # check failure list
             self.assertFalse(js.get_success(), msg=f"JobScheduler.success is not False\n")

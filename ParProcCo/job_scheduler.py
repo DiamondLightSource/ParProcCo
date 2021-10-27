@@ -100,25 +100,26 @@ class JobScheduler:
     def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, memory: str = "4G", cores: int = 6,
             jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
         self.jobscript = jobscript
+        job_indices = list(range(scheduler_mode.number_jobs))
         if jobscript_args is None:
             jobscript_args = []
         self.jobscript_args = jobscript_args
         self.job_history[self.batch_number] = {}
         self.job_completion_status = {str(i): False for i in range(scheduler_mode.number_jobs)}
-        jobscript = self.check_jobscript(jobscript)
+        self.jobscript = self.check_jobscript(jobscript)
         session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
-        self._run_jobs(session, scheduler_mode, jobscript, memory, cores, jobscript_args, job_name)
+        self._run_jobs(session, scheduler_mode, jobscript, job_indices, memory, cores, jobscript_args, job_name)
         self._wait_for_jobs(session)
         self._report_job_info()
         return self.get_success()
 
-    def _run_jobs(self, session: drmaa2.JobSession, scheduler_mode: SchedulerModeInterface, jobscript: Path, memory: str, cores: int,
-                  jobscript_args: List, job_name: str) -> None:
+    def _run_jobs(self, session: drmaa2.JobSession, scheduler_mode: SchedulerModeInterface, jobscript: Path,
+                  job_indices: List[int], memory: str, cores: int, jobscript_args: List, job_name: str) -> None:
         logging.debug(f"Running jobs on cluster for jobscript {jobscript} and args {jobscript_args}")
         try:
             # Run all input paths in parallel:
             self.status_infos = []
-            for i in range(scheduler_mode.number_jobs):
+            for i in job_indices:
                 template = self._create_template(jobscript, scheduler_mode, i, memory, cores, jobscript_args, job_name)
                 logging.debug(f"Submitting drmaa job with jobscript {jobscript} and args {template.args}")
                 job = session.run_job(template)
@@ -249,29 +250,31 @@ class JobScheduler:
 
             self.job_history[self.batch_number][status_info.job.id] = status_info
 
-    # TODO: fix resubmission
-    def resubmit_jobs(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, memory: str, cores: int,
-                      jobscript_args: List, job_name: str) -> bool:
-        # failed_jobs list is list of lists [JobInfo, input_path, output_path]
+    def resubmit_jobs(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, job_indices: List[int],
+                      memory: str, cores: int, jobscript_args: List, job_name: str) -> bool:
         self.batch_number += 1
-        success = self.run(scheduler_mode, jobscript, memory, cores, jobscript_args, job_name)
-        return success
+        self.job_history[self.batch_number] = {}
+        self.job_completion_status = {str(i): False for i in job_indices}
+        self._run_and_monitor(scheduler_mode, jobscript, job_indices, memory, cores, jobscript_args, job_name)
+        return self.get_success()
 
     def filter_killed_jobs(self, jobs: List[drmaa2.Job]) -> List[drmaa2.Job]:
-        killed_jobs = [job for job in jobs if job["info"].terminating_signal == "SIGKILL"]
+        killed_jobs = [job for job in jobs if job.info.terminating_signal == "SIGKILL"]
         return killed_jobs
 
     def rerun_killed_jobs(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, memory: str, cores: int,
-                          jobscript_args: Optional[List], job_name: str, allow_all_failed: bool = False):
+                          jobscript_args: List, job_name: str, allow_all_failed: bool = False):
         job_history = self.job_history
         if all(self.job_completion_status.values()):
             warnings.warn("No failed jobs")
+            return True
         elif allow_all_failed or any(self.job_completion_status.values()):
             failed_jobs = [job_info for job_info in job_history[0].values() if job_info.final_state != "SUCCESS"]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
-            killed_jobs_inputs = [job["jobscript_args"] for job in killed_jobs]
-            if not all(x == killed_jobs_inputs[0] for x in killed_jobs_inputs):
-                raise RuntimeError(f"input paths in killed_jobs must all be the same\n")
-            self.resubmit_jobs(scheduler_mode, jobscript, memory, cores, killed_jobs_inputs[0], job_name)
-        else:
-            raise RuntimeError(f"All jobs failed\n")
+            if not all(job.jobscript_args == killed_jobs[0].jobscript_args for job in killed_jobs):
+                raise RuntimeError(f"jobscript_args in killed_jobs must all be the same\n")
+            killed_jobs_indices = [job.i for job in killed_jobs]
+            success = self.resubmit_jobs(scheduler_mode, jobscript, killed_jobs_indices, memory, cores, jobscript_args, job_name)
+            return success
+
+        raise RuntimeError(f"All jobs failed\n")
