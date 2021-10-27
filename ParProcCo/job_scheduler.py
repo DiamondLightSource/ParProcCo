@@ -148,7 +148,8 @@ class JobScheduler:
 
         output_fp, std_out_fp, err_fp = scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i)
         self.output_paths.append(Path(output_fp))
-        args = scheduler_mode.generate_args(i, jobscript_args, output_fp)
+        args = scheduler_mode.generate_args(i, memory, cores, jobscript_args, output_fp)
+        print(f"creating template with jobscript: {str(jobscript)} and args: {args}")
 
         self.resources["m_mem_free"] = memory
         jt = drmaa2.JobTemplate({

@@ -25,9 +25,9 @@ class SimpleProcessingModeInterface(SchedulerModeInterface):
         err_fp = str(error_dir / err_file)
         return output_fp, std_out_fp, err_fp
 
-    def generate_args(self, i: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
+    def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i < self.number_jobs)
         slice_param = slice_to_string(self.slice_params[i])
-        args = tuple([jobscript_args[0], "--output", output_fp, "--images", slice_param] + jobscript_args[1:])
+        args = tuple([jobscript_args[0], "--memory", memory, "--cores", str(cores), "--output", output_fp, "--images", slice_param] + jobscript_args[1:])
         return args
