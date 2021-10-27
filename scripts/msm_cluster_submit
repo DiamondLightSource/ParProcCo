@@ -58,7 +58,7 @@ def run_msm(args: argparse.Namespace, script_args: List) -> None:
     current_script_dir = Path(os.path.realpath(__file__)).parent
     runner_script_path = current_script_dir / "msm_cluster_runner"
     agg_runner_path = current_script_dir / "ms_agg_cluster_runner"
-    agg_script_path = current_script_dir / args.aggregation
+    agg_script_path = str(current_script_dir / args.aggregation)
     jc.run(MSMDataSlicer(), args.jobs, MSMProcessingModeInterface(), MSMAggregationModeInterface(), runner_script_path,
            agg_runner_path, script_args, [agg_script_path], args.memory, args.cores, args.job_name)
     print("complete")
