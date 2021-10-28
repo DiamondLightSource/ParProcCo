@@ -47,7 +47,7 @@ def run_msm(args: argparse.Namespace, script_args: List) -> None:
         raise ValueError('SGE_CELL value not known (HAMILTON or DLS_SCIENCE)')
 
     logging.info('Running for beamline {} on cluster {} in queue {}', beamline, cluster, cluster_queue)
-    jc = JobController(args.output_dir, beamline, cluster_queue)
+    jc = JobController(args.output, beamline, cluster_queue)
     args.jobs = int(args.jobs)
     args.cores = int(args.cores)
     current_script_dir = Path(os.path.realpath(__file__)).parent
