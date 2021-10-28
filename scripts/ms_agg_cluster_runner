@@ -2,7 +2,7 @@
 . /etc/profile.d/modules.sh
 
 module load python/3.9
-module load msmapper/1.4
+export PYTHONPATH="${PYTHONPATH}:/home/vaq49247/github/ParProcCo"
 
 echo "Executing |$@|"
 eval "$@"
