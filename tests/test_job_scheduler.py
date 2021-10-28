@@ -12,7 +12,6 @@ import drmaa2
 from parameterized import parameterized
 
 from ParProcCo.job_scheduler import JobScheduler
-from ParProcCo.utils import slice_to_string
 from ParProcCo.simple_processing_mode_interface import SimpleProcessingModeInterface
 from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
 
@@ -48,9 +47,10 @@ class TestJobScheduler(unittest.TestCase):
             runner_script_args = ["--input-path", str(input_path)]
             processing_mode = SimpleProcessingModeInterface()
             processing_mode.set_parameters([slice(0, None, 2), slice(1, None, 2)], 2)
+            js.jobscript = Path("some_script.py")
+            js.jobscript_args = runner_script_args
 
-            js._create_template(Path("some_script.py"), processing_mode, 1, memory="4G", cores=6,
-                                jobscript_args=runner_script_args, job_name="create_template_test")
+            js._create_template(processing_mode, 1, memory="4G", cores=6, job_name="create_template_test")
             cluster_output_dir_exists = cluster_output_dir.is_dir()
         self.assertTrue(cluster_output_dir_exists, msg="Cluster output directory was not created\n")
 
@@ -95,7 +95,7 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(working_directory, cluster_output_dir)
 
             # run jobs
-            js.jobscript = runner_script
+            js.jobscript = js.check_jobscript(runner_script)
             job_indices = list(range(processing_mode.number_jobs))
             js.jobscript_args = runner_script_args
             js.job_history[js.batch_number] = {}
@@ -104,8 +104,7 @@ class TestJobScheduler(unittest.TestCase):
             # _run_and_monitor
             js.jobscript = js.check_jobscript(js.jobscript)
             session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
-            js._run_jobs(session, processing_mode, runner_script, job_indices, memory="4G", cores=6, jobscript_args=runner_script_args,
-                         job_name="old_output_test")
+            js._run_jobs(session, processing_mode, job_indices, memory="4G", cores=6, job_name="old_output_test")
             js._wait_for_jobs(session)
             js.start_time = datetime.now()
             js._report_job_info()

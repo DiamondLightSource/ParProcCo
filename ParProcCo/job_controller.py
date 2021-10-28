@@ -60,8 +60,7 @@ class JobController:
                                                      job_name)
 
         if not sliced_jobs_success:
-            sliced_jobs_success = self.job_scheduler.rerun_killed_jobs(processing_mode, processing_script, memory,
-                                                                       cores, jobscript_args, job_name)
+            sliced_jobs_success = self.job_scheduler.rerun_killed_jobs(processing_mode, memory, cores, job_name)
 
         return sliced_jobs_success
 
@@ -69,7 +68,7 @@ class JobController:
                             aggregation_args: Optional[List], number_jobs: int, memory: str, cores: int,
                             job_name: str) -> None:
 
-        print(f"running aggregation job with args: aggregating_mode: {aggregating_mode}, aggregation_script: {aggregation_script}, aggregation_args: {aggregation_args}, number_jobs: {number_jobs}, memory: {memory}, cores: {cores}, job_name: {job_name}")
+        print(f"running aggregation job with args: mode: {aggregating_mode}, script: {aggregation_script}, args: {aggregation_args}, number_jobs: {number_jobs}, memory: {memory}, cores: {cores}, job_name: {job_name}")
 
         aggregation_script = check_location(get_absolute_path(aggregation_script))
         if aggregation_args is None:
@@ -85,5 +84,5 @@ class JobController:
                                                              aggregation_args, job_name)
 
         if not aggregation_success:
-            self.aggregation_scheduler.rerun_killed_jobs(aggregating_mode, aggregation_script, memory, cores,
-                                                         aggregation_args, job_name, allow_all_failed=True)
+            self.aggregation_scheduler.rerun_killed_jobs(aggregating_mode, memory, cores, job_name,
+                                                         allow_all_failed=True)
