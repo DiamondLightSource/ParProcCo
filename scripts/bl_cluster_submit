@@ -27,6 +27,6 @@ if [ $use_hamilton == "yes" ]; then
 else
     module load global/cluster
 fi
-    
+
 msm_cluster_submit $*
 

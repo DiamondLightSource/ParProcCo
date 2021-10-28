@@ -28,7 +28,7 @@ class TestClusterSubmit(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             os.chdir(working_directory)
             current_script_dir = Path(os.path.realpath(__file__)).parent
-            runner_script_path = str(current_script_dir.parent / "scripts" / "msm_cluster_submit")
+            runner_script_path = str(current_script_dir.parent / "scripts" / "b24_cluster_submit")
             cluster_output_name = "cluster_output"
 
             input_file_path = "/dls/science/groups/das/ExampleData/i07/i07-394487-applied.nxs"
