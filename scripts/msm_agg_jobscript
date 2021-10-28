@@ -23,7 +23,7 @@ def create_parser():
     return parser
 
 
-def run_aggergator(args: argparse.Namespace) -> None:
+def run_aggregator(args: argparse.Namespace) -> None:
     '''
     Run MSMAggregator
     '''
@@ -36,4 +36,4 @@ def run_aggergator(args: argparse.Namespace) -> None:
 
 if __name__ == '__main__':
     args, sliced_files = create_parser().parse_known_args()
-    run_aggergator(args)
+    run_aggregator(args)
