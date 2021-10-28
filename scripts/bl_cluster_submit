@@ -1,0 +1,32 @@
+#! /bin/bash
+
+# copied from python-dlstbx/__init__.py
+HAMILTON_BEAMLINES=(
+    "b07" "b07-1" "b18" "b21" "b22"
+    "i05" "i05-1" "i07" "i08" "i08-1"
+    "i09" "i09-1" "i09-2" "i10" "i10-1"
+    "i12" "i13" "i13-1" "i14" "i14-1"
+    "i19" "i19-1" "i19-2" "i20" "i20-1"
+    "i21" "k11" "p99"
+)
+
+script_name=`basename $0`
+beamline=${script_name%_cluster_submit}
+echo "Using $beamline as beamline"
+export BEAMLINE=$beamline
+use_hamilton=no
+for b in "${HAMILTON_BEAMLINES[@]}"; do
+    if [ "$b" == "$beamline" ]; then
+        use_hamilton=yes
+        break
+    fi
+done
+
+if [ $use_hamilton == "yes" ]; then
+    module load hamilton
+else
+    module load global/cluster
+fi
+    
+msm_cluster_submit $*
+

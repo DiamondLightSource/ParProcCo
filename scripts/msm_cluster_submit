@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 from pathlib import Path
 from typing import List
@@ -24,12 +25,29 @@ def create_parser():
     parser.add_argument('--cores', help='int: number of cores to use per cluster job', required=True)
     return parser
 
-
 def run_msm(args: argparse.Namespace, script_args: List) -> None:
     '''
     Run JobController
     '''
-    jc = JobController(args.output, "b24", "medium.q")
+    beamline = os.getenv('BEAMLINE')
+    if not beamline:
+        raise ValueError('BEAMLINE environment variable not defined')
+    cluster = os.getenv('SGE_CELL')
+    if not cluster:
+        raise ValueError('SGE_CELL environment variable not defined. Module load global/cluster or hamilton')
+    if cluster == 'HAMILTON':
+        cluster_queue = 'all.q'
+    elif cluster == 'DLS_SCIENCE':
+        if os.getlogin() == 'gda2':
+            cluster_queue = 'high.q'
+            logging.debug('User is gda2 so using cluster queue {}', cluster_queue)
+        else:
+            cluster_queue = 'medium.q'
+    else:
+        raise ValueError('SGE_CELL value not known (HAMILTON or DLS_SCIENCE)')
+
+    logging.info('Running for beamline {} on cluster {} in queue {}', beamline, cluster, cluster_queue)
+    jc = JobController(args.output_dir, beamline, cluster_queue)
     args.jobs = int(args.jobs)
     args.cores = int(args.cores)
     current_script_dir = Path(os.path.realpath(__file__)).parent
