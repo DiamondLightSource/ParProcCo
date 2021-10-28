@@ -39,7 +39,7 @@ class JobController:
         if sliced_jobs_success:
             self.run_aggregation_job(aggregating_mode, aggregation_script, aggregation_args, number_jobs, memory, cores, job_name)
         else:
-            raise RuntimeError(f"Sliced jobs failed\n")
+            raise RuntimeError("Sliced jobs failed\n")
 
     def create_slices(self, data_slicer: SlicerInterface, number_jobs: int) -> List[slice]:
         self.data_slicer = data_slicer
@@ -68,8 +68,6 @@ class JobController:
                             aggregation_args: Optional[List], number_jobs: int, memory: str, cores: int,
                             job_name: str) -> None:
 
-        print(f"running aggregation job with args: mode: {aggregating_mode}, script: {aggregation_script}, args: {aggregation_args}, number_jobs: {number_jobs}, memory: {memory}, cores: {cores}, job_name: {job_name}")
-
         aggregation_script = check_location(get_absolute_path(aggregation_script))
         if aggregation_args is None:
             aggregation_args = []
@@ -79,7 +77,6 @@ class JobController:
 
         self.aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
                                                   self.queue, self.timeout)
-        print(f"running aggregation scheduler with args: aggregating_script: {aggregation_script}")
         aggregation_success = self.aggregation_scheduler.run(aggregating_mode, aggregation_script, memory, cores,
                                                              aggregation_args, job_name)
 
