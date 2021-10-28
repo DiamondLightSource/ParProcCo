@@ -39,25 +39,13 @@ class MSMAggregator(AggregatorInterface):
         self.renormalisation: bool
         self.signal_name: str
         self.signal_shapes: List[Tuple]
-        self.total_slices: int
         self.use_default_axes: bool = False
 
-    def aggregate(self, total_slices: int, aggregation_output: Path, output_data_files: List[Path]) -> Path:
+    def aggregate(self, aggregation_output: Path, output_data_files: List[Path]) -> Path:
         """Overrides AggregatorInterface.aggregate"""
-        self._check_total_slices(total_slices, output_data_files)
         self._renormalise(output_data_files)
         aggregated_data_file = self._write_aggregation_file(aggregation_output, output_data_files)
         return aggregated_data_file
-
-    def _check_total_slices(self, total_slices: int, output_data_files: List[Path]) -> None:
-        if type(total_slices) is int:
-            self.total_slices = total_slices
-        else:
-            raise TypeError(f"total_slices is {type(total_slices)}, should be int\n")
-
-        if len(output_data_files) != self.total_slices:
-            raise ValueError(
-                f"Number of output files {len(output_data_files)} must equal total_slices {self.total_slices}")
 
     def _renormalise(self, output_data_files: List[Path]) -> None:
         self.output_data_files = output_data_files

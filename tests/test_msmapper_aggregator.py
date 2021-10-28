@@ -55,40 +55,12 @@ class TestMSMAggregator(unittest.TestCase):
         output_file_paths = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                              Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
         aggregator = MSMAggregator()
-        aggregator._check_total_slices(2, output_file_paths)
         aggregator._renormalise(output_file_paths)
         with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
             volumes_array = np.array(f["processed/reciprocal_space/volume"])
             weights_array = np.array(f["processed/reciprocal_space/weight"])
         np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
         np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
-
-    def test_check_total_slices_not_int(self) -> None:
-        total_slices = "1"
-        output_data_files = [Path("file/path/a"), Path("file/path/b")]
-        aggregator = MSMAggregator()
-
-        with self.assertRaises(TypeError) as context:
-            aggregator._check_total_slices(total_slices, output_data_files)
-        self.assertTrue("total_slices is <class 'str'>, should be int" in str(context.exception))
-        self.assertRaises(AttributeError, lambda: aggregator.total_slices)
-
-    def test_check_total_slices_length_wrong(self) -> None:
-        total_slices = 2
-        output_data_files = [Path("file/path/a")]
-        aggregator = MSMAggregator()
-
-        with self.assertRaises(ValueError) as context:
-            aggregator._check_total_slices(total_slices, output_data_files)
-        self.assertTrue("Number of output files 1 must equal total_slices 2" in str(context.exception))
-        self.assertEqual(total_slices, aggregator.total_slices)
-
-    def test_check_total_slices(self) -> None:
-        total_slices = 2
-        output_data_files = [Path("file/path/a"), Path("file/path/b")]
-        aggregator = MSMAggregator()
-        aggregator._check_total_slices(total_slices, output_data_files)
-        self.assertEqual(total_slices, aggregator.total_slices)
 
     def test_initialise_arrays_applied_data(self) -> None:
         aggregator = MSMAggregator()
@@ -615,7 +587,7 @@ class TestMSMAggregator(unittest.TestCase):
             aggregation_file = cluster_output_dir / "aggregated_results.nxs"
 
             aggregator = MSMAggregator()
-            aggregation_results = aggregator.aggregate(2, aggregation_file, sliced_data_files)
+            aggregation_results = aggregator.aggregate(aggregation_file, sliced_data_files)
             with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
                 volumes_array = np.array(f["processed/reciprocal_space/volume"])
                 weights_array = np.array(f["processed/reciprocal_space/weight"])

@@ -109,7 +109,6 @@ from ParProcCo.simple_data_aggregator import SimpleDataAggregator
 
 def setup_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--jobs", help="int: number of sliced jobs", type=str)
     parser.add_argument("--output", help="str: path to aggregation output file", type=str)
     parser.add_argument("--sliced-files", help="str: paths to sliced results files", type=str, nargs="+")
     return parser
@@ -123,14 +122,13 @@ def check_args(args):
 
 if __name__ == '__main__':
     '''
-    $ jobscript --jobs 4 --output aggregation_file_path .. [slice_data_files]
+    $ jobscript --output aggregation_file_path .. [sliced_data_files]
     '''
     parser = setup_parser()
     args, other_args = parser.parse_known_args()
-    args.jobs = int(args.jobs)
     args.output = Path(args.output)
 
-    SimpleDataAggregator().aggregate(args.jobs, args.output, args.sliced_files)
+    SimpleDataAggregator().aggregate(args.output, args.sliced_files)
 """
         jobscript_lines = jobscript_lines.lstrip()
         f.write(jobscript_lines)

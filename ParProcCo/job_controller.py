@@ -73,7 +73,7 @@ class JobController:
             aggregation_args = []
         sliced_results = self.job_scheduler.get_output_paths()
 
-        aggregating_mode.set_parameters(sliced_results, number_jobs)
+        aggregating_mode.set_parameters(sliced_results)
 
         self.aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
                                                   self.queue, self.timeout)

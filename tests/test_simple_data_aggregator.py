@@ -37,7 +37,7 @@ class TestDataAggregator(unittest.TestCase):
             self.assertEqual(written_data, [["0\n", "8\n"], ["2\n", "10\n"], ["4\n", "12\n"], ["6\n", "14\n"]])
 
             aggregator = SimpleDataAggregator()
-            agg_data_path = aggregator.aggregate(4, aggregation_output, sliced_data_files)
+            agg_data_path = aggregator.aggregate(aggregation_output, sliced_data_files)
             self.assertEqual(agg_data_path, aggregation_output)
             with open(agg_data_path, "r") as af:
                 agg_data = af.readlines()

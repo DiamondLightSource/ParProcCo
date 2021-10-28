@@ -6,7 +6,6 @@ import unittest
 from pathlib import Path
 
 from parameterized import parameterized
-
 from ParProcCo.simple_data_slicer import SimpleDataSlicer
 
 

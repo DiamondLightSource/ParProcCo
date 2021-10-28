@@ -15,7 +15,6 @@ def create_parser():
      '''
     parser = argparse.ArgumentParser(description='Miller Space Mapper run script for use with ParProcCo')
     parser.add_argument('--output', help='int: number of cluster jobs to split processing into', required=True)
-    parser.add_argument('--jobs', help='int: number of cluster jobs to split processing into', required=True)
     parser.add_argument('--memory', help='str: memory to use per cluster job', required=True)
     parser.add_argument('--cores', help='int: number of cores to use per cluster job', required=True)
     parser.add_argument("--sliced-files", help="str: paths to sliced results files", type=str, nargs="+")
@@ -27,11 +26,10 @@ def run_aggregator(args: argparse.Namespace) -> None:
     '''
     Run MSMAggregator
     '''
-    args.jobs = int(args.jobs)
     args.output = Path(args.output)
     sliced_file_paths = [Path(x) for x in args.sliced_files]
 
-    MSMAggregator().aggregate(args.jobs, args.output, sliced_file_paths)
+    MSMAggregator().aggregate(args.output, sliced_file_paths)
 
 
 if __name__ == '__main__':

@@ -8,11 +8,9 @@ from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
 
 class SimpleAggregationModeInterface(SchedulerModeInterface):
 
-    def set_parameters(self, sliced_results: List[Path], sliced_jobs: int) -> None:
+    def set_parameters(self, sliced_results: List[Path]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""
-        assert(len(sliced_results) == sliced_jobs)
         self.sliced_results = [str(res) for res in sliced_results]
-        self.sliced_jobs = sliced_jobs
         self.number_jobs: int = 1
 
     def generate_output_paths(self, output_dir: Path, error_dir: Path, i: int) -> Tuple[str, str, str]:
@@ -28,5 +26,5 @@ class SimpleAggregationModeInterface(SchedulerModeInterface):
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i == 0)
-        args = tuple([jobscript_args[0], "--jobs", str(self.sliced_jobs), "--memory", memory, "--cores", str(cores), "--output", output_fp, "--sliced-files"] + self.sliced_results)
+        args = tuple([jobscript_args[0], "--memory", memory, "--cores", str(cores), "--output", output_fp, "--sliced-files"] + self.sliced_results)
         return args
