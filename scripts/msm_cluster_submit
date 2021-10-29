@@ -37,17 +37,19 @@ def run_msm(args: argparse.Namespace, script_args: List) -> None:
         raise ValueError('SGE_CELL environment variable not defined. Module load global/cluster or hamilton')
     if cluster == 'HAMILTON':
         cluster_queue = 'all.q'
+        cluster_resources = None
     elif cluster == 'DLS_SCIENCE':
         if os.getlogin() == 'gda2':
             cluster_queue = 'high.q'
             logging.debug('User is gda2 so using cluster queue {}', cluster_queue)
         else:
             cluster_queue = 'medium.q'
+        cluster_resources = {"cpu_model": "intel-xeon"}
     else:
         raise ValueError('SGE_CELL value not known (HAMILTON or DLS_SCIENCE)')
 
-    logging.info('Running for beamline {} on cluster {} in queue {}', beamline, cluster, cluster_queue)
-    jc = JobController(args.output, beamline, cluster_queue)
+    logging.info('Running for beamline {} on cluster {} in queue {} with resources {}', beamline, cluster, cluster_queue, cluster_resources)
+    jc = JobController(args.output, beamline, cluster_queue, cluster_resources)
     args.jobs = int(args.jobs)
     args.cores = int(args.cores)
     current_script_dir = Path(os.path.realpath(__file__)).parent

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-import drmaa2 as drmaa2
+import drmaa2
 
 from ParProcCo.utils import slice_to_string
 
@@ -28,7 +28,7 @@ class StatusInfo:
 class JobScheduler:
 
     def __init__(self, working_directory: Union[Path, str], cluster_output_dir: Union[Path, str], project: str,
-                 queue: str, timeout: timedelta = timedelta(hours=2)):
+                 queue: str, cluster_resources: Optional[dict[str,str]] = None, timeout: timedelta = timedelta(hours=2)):
         """JobScheduler can be used for cluster job submissions"""
         self.batch_number = 0
         self.cluster_output_dir = Path(cluster_output_dir)
@@ -41,6 +41,9 @@ class JobScheduler:
         self.status_infos: List[StatusInfo]
         self.timeout = timeout
         self.working_directory = Path(working_directory)
+        self.resources: Dict[str, str] = {}
+        if cluster_resources:
+            self.resources.update(cluster_resources)
 
     def check_queue_list(self, queue: str) -> str:
         if not queue:
@@ -98,16 +101,12 @@ class JobScheduler:
             jobscript_args = []
         self.job_history[self.batch_number] = {}
         self.job_completion_status = {slice_to_string(s): False for s in slice_params}
-        self._run_and_monitor(jobscript, slice_params, memory, cores, jobscript_args, job_name)
-        return self.get_success()
-
-    def _run_and_monitor(self, jobscript: Path, slice_params: List[slice], memory: str, cores: int,
-                         jobscript_args: List, job_name: str) -> None:
         jobscript = self.check_jobscript(jobscript)
         session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
         self._run_jobs(session, jobscript, slice_params, memory, cores, jobscript_args, job_name)
         self._wait_for_jobs(session)
         self._report_job_info()
+        return self.get_success()
 
     def _run_jobs(self, session: drmaa2.JobSession, jobscript: Path, slice_params: List[slice], memory: str, cores: int,
                   jobscript_args: List, job_name: str) -> None:
@@ -153,16 +152,14 @@ class JobScheduler:
         slice_param_str = slice_to_string(slice_param)
         args = tuple([jobscript_args[0], "--output", str(output_fp), "--images", slice_param_str] + jobscript_args[1:])
 
+        self.resources["m_mem_free"] = memory
         jt = drmaa2.JobTemplate({
             "job_name": job_name,
             "job_category": self.project,
             "remote_command": str(jobscript),
             "min_slots": cores,
             "args": args,
-            "resource_limits": {
-                "cpu_model": "intel-xeon",
-                "m_mem_free": memory,
-            },
+            "resource_limits": self.resources,
             "working_directory": str(self.working_directory),
             "output_path": std_out_fp,
             "error_path": err_fp,

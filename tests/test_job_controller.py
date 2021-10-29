@@ -13,6 +13,7 @@ from ParProcCo.simple_data_aggregator import SimpleDataAggregator
 from ParProcCo.simple_data_slicer import SimpleDataSlicer
 from tests.utils import setup_data_file, setup_runner_script, setup_jobscript
 
+from tests.test_job_scheduler import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
 
 class TestJobController(unittest.TestCase):
 
@@ -42,8 +43,8 @@ class TestJobController(unittest.TestCase):
             input_path = setup_data_file(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
-            jc = JobController(cluster_output_name, project="b24", queue="medium.q",
-                               timeout=timedelta(seconds=1))
+            jc = JobController(cluster_output_name, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE,
+                               cluster_resources=CLUSTER_RESOURCES, timeout=timedelta(seconds=1))
             with self.assertRaises(RuntimeError) as context:
                 jc.run(SimpleDataSlicer(), SimpleDataAggregator(), 4, runner_script, jobscript_args=runner_script_args)
             self.assertTrue(f"All jobs failed\n" in str(context.exception))
@@ -59,7 +60,7 @@ class TestJobController(unittest.TestCase):
             input_path = setup_data_file(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
-            jc = JobController(cluster_output_name, project="b24", queue="medium.q")
+            jc = JobController(cluster_output_name, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
             agg_data_path = jc.run(SimpleDataSlicer(), SimpleDataAggregator(), 4, runner_script,
                                    jobscript_args=runner_script_args)
 

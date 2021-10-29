@@ -13,7 +13,7 @@ from ParProcCo.utils import check_location, get_absolute_path
 
 class JobController:
 
-    def __init__(self, cluster_output_dir_name: str, project: str, queue: str, timeout: timedelta = timedelta(hours=2)):
+    def __init__(self, cluster_output_dir_name: str, project: str, queue: str, cluster_resources: Optional[dict[str,str]] = None, timeout: timedelta = timedelta(hours=2)):
         """JobController is used to coordinate cluster job submissions with JobScheduler"""
 
         self.working_directory: Path = check_location(os.getcwd())
@@ -23,8 +23,9 @@ class JobController:
         self.data_slicer: SlicerInterface
         self.project = project
         self.queue = queue
-        self.scheduler: JobScheduler
+        self.cluster_resources = cluster_resources
         self.timeout = timeout
+        self.scheduler: JobScheduler
 
     def run(self, data_slicer: SlicerInterface, data_aggregator: AggregatorInterface, number_jobs: int,
             processing_script: Path, memory: str = "4G", cores: int = 6, jobscript_args: Optional[List] = None,
@@ -36,7 +37,7 @@ class JobController:
         if jobscript_args is None:
             jobscript_args = []
         self.scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project, self.queue,
-                                      self.timeout)
+                                      self.cluster_resources, self.timeout)
         success = self.scheduler.run(processing_script, slice_params, memory, cores, jobscript_args, job_name)
         if not success:
             self.scheduler.rerun_killed_jobs(processing_script)

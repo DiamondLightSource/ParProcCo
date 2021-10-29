@@ -8,13 +8,25 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import drmaa2 as drmaa2
+import drmaa2
 from parameterized import parameterized
 
 from ParProcCo.job_scheduler import JobScheduler
 from ParProcCo.utils import slice_to_string
 from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
 
+_sge_cell=os.getenv('SGE_CELL')
+if _sge_cell == 'HAMILTON':
+    CLUSTER_PROJ='p99'
+    CLUSTER_QUEUE='all.q'
+    CLUSTER_RESOURCES=None
+else:
+    CLUSTER_PROJ='b24'
+    CLUSTER_QUEUE='medium.q'
+    CLUSTER_RESOURCES={"cpu_model": "intel-xeon"}
+
+def create_js(work_dir, out_dir, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES, timeout=timedelta(hours=2)):
+    return JobScheduler(work_dir, out_dir, project, queue, cluster_resources, timeout)
 
 class TestJobScheduler(unittest.TestCase):
 
@@ -31,7 +43,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             input_path = Path('path/to/file.extension')
             cluster_output_dir = Path(working_directory) / 'cluster_output_dir'
-            js = JobScheduler(working_directory, cluster_output_dir, project="b24", queue="medium.q")
+            js = create_js(working_directory, cluster_output_dir)
             runner_script_args = ["--input-path", str(input_path)]
             js._create_template(Path("some_script.py"), slice(0, 1, 2), 1, memory="4G", cores=6,
                                 jobscript_args=runner_script_args, job_name="create_template_test")
@@ -49,7 +61,7 @@ class TestJobScheduler(unittest.TestCase):
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
             # run jobs
-            js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q")
+            js = create_js(working_directory, cluster_output_dir)
             js.run(runner_script, slices, jobscript_args=runner_script_args)
 
             # check output files
@@ -72,7 +84,7 @@ class TestJobScheduler(unittest.TestCase):
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
             # run jobs
-            js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q")
+            js = create_js(working_directory, cluster_output_dir)
 
             js.job_history[js.batch_number] = {}
             js.job_completion_status = {slice_to_string(s): False for s in slices}
@@ -108,31 +120,31 @@ class TestJobScheduler(unittest.TestCase):
         ("is_none", None, "project must be non-empty string"),
         ("is_empty", "", "project must be non-empty string"),
         ("is_bad", "bad_project_name", "bad_project_name must be in list of project names"),
-        ("is_good", "b24", None)
+        ("is_good", CLUSTER_PROJ, None)
     ])
     def test_project_name(self, name, project, error_msg) -> None:
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
             if not error_msg:
-                js = JobScheduler(working_directory, cluster_output_dir, project, "medium.q")
+                js = create_js(working_directory, cluster_output_dir, project=project)
                 self.assertEqual(js.project, project)
                 return
 
             with self.assertRaises(ValueError) as context:
-                JobScheduler(working_directory, cluster_output_dir, project, "medium.q")
+                create_js(working_directory, cluster_output_dir, project=project)
             self.assertTrue(error_msg in str(context.exception))
 
     @parameterized.expand([
-        ("is_lowercase", "medium.q"),
-        ("is_uppercase", "MEDIUM.Q")
+        ("is_lowercase", CLUSTER_QUEUE),
+        ("is_uppercase", CLUSTER_QUEUE.upper())
     ])
     def test_check_queue_list(self, name, queue) -> None:
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
-            js = JobScheduler(working_directory, cluster_output_dir, "b24", queue)
-            self.assertEqual(js.queue, "medium.q")
+            js = create_js(working_directory, cluster_output_dir, queue=queue)
+            self.assertEqual(js.queue, CLUSTER_QUEUE)
 
     @parameterized.expand([
         ("is_none", None, "queue must be non-empty string"),
@@ -144,7 +156,7 @@ class TestJobScheduler(unittest.TestCase):
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
             with self.assertRaises(ValueError) as context:
-                JobScheduler(working_directory, cluster_output_dir, "b24", queue)
+                create_js(working_directory, cluster_output_dir, queue=queue)
             self.assertTrue(error_msg in str(context.exception))
 
     def test_job_times_out(self) -> None:
@@ -161,8 +173,7 @@ class TestJobScheduler(unittest.TestCase):
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
             # run jobs
-            js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q",
-                              timeout=timedelta(seconds=1))
+            js = create_js(working_directory, cluster_output_dir, timeout=timedelta(seconds=1))
             js.run(runner_script, slices, jobscript_args=runner_script_args)
             jh = js.job_history
             self.assertEqual(len(jh), 1, f"There should be one batch of jobs; job_history: {jh}\n")
@@ -184,7 +195,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
-            js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q")
+            js = create_js(working_directory, cluster_output_dir)
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             jobscript = Path(working_directory) / "test_jobscript"
             runner_script = Path(working_directory) / rs_name
@@ -204,7 +215,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
-            js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q")
+            js = create_js(working_directory, cluster_output_dir)
 
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             jobscript = setup_jobscript(working_directory)
@@ -217,7 +228,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
-            js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q")
+            js = create_js(working_directory, cluster_output_dir)
             js.output_paths = [cluster_output_dir / "out1.nxs", cluster_output_dir / "out2.nxs"]
             self.assertEqual(js.get_output_paths(), [cluster_output_dir / "out1.nxs", cluster_output_dir / "out2.nxs"])
 
@@ -230,7 +241,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
-            js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q")
+            js = create_js(working_directory, cluster_output_dir)
             js.job_completion_status = {"0:8:4": stat_0, "1:8:4": stat_1}
             self.assertEqual(js.get_success(), success)
 
@@ -245,11 +256,11 @@ class TestJobScheduler(unittest.TestCase):
             filepath = cluster_output_dir / "out_0.nxs"
 
             if run_scheduler_last:
-                js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q")
+                js = create_js(working_directory, cluster_output_dir)
             f = open(filepath, "x")
             f.close()
             if not run_scheduler_last:
-                js = JobScheduler(working_directory, cluster_output_dir, "b24", "medium.q")
+                js = create_js(working_directory, cluster_output_dir)
             self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
 
 
