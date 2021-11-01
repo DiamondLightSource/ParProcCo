@@ -17,7 +17,7 @@ class MSMProcessingModeInterface(SchedulerModeInterface):
 
     def generate_output_paths(self, output_dir: Path, error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
-        output_file = f"out_{i}"
+        output_file = f"out_{i}.nxs"
         std_out_file = f"std_out_{i}"
         err_file = f"err_{i}"
         output_fp = str(output_dir / output_file)
