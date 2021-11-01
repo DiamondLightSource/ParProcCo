@@ -11,11 +11,11 @@ from ParProcCo.msmapper_aggregator import MSMAggregator
 
 def create_parser():
     '''
-     $ msm_agg_jobscript --output output_dir --sliced-files input files ...
+     $ msm_agg_jobscript --output output_dir input files ...
      '''
     parser = argparse.ArgumentParser(description='Miller Space Mapper run script for use with ParProcCo')
     parser.add_argument('--output', help='int: number of cluster jobs to split processing into', required=True)
-    parser.add_argument("--sliced-files", help="str: paths to sliced results files", type=str, nargs="+")
+    parser.add_argument("sliced_files", help="str: paths to sliced results files", type=str, nargs="+")
 
     return parser
 

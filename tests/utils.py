@@ -110,7 +110,7 @@ from ParProcCo.simple_data_aggregator import SimpleDataAggregator
 def setup_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", help="str: path to aggregation output file", type=str)
-    parser.add_argument("--sliced-files", help="str: paths to sliced results files", type=str, nargs="+")
+    parser.add_argument("sliced_files", help="str: paths to sliced results files", type=str, nargs="+")
     return parser
 
 
