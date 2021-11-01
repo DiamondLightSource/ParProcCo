@@ -137,14 +137,15 @@ if __name__ == '__main__':
 
 
 def setup_runner_script(working_directory: str) -> Path:
+    parent_dir = Path(os.getcwd()).parent
     runner_script = Path(working_directory) / "test_runner_script"
     with open(runner_script, "x") as f:
-        runner_script_lines = """
+        runner_script_lines = f"""
 #/usr/bin/bash
 . /etc/profile.d/modules.sh
 
 module load python/3.9
-export PYTHONPATH="${PYTHONPATH}:/home/vaq49247/github/ParProcCo"
+export PYTHONPATH="${{PYTHONPATH}}:{parent_dir}"
 
 echo "Executing |$@|"
 eval "$@"
