@@ -137,7 +137,7 @@ if __name__ == '__main__':
 
 
 def setup_runner_script(working_directory: str) -> Path:
-    parent_dir = Path(os.getcwd()).parent
+    parent_dir = Path(__file__).parent.resolve().parent
     runner_script = Path(working_directory) / "test_runner_script"
     with open(runner_script, "x") as f:
         runner_script_lines = f"""
