@@ -4,7 +4,7 @@ import string
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AnyStr, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import h5py
 import numpy as np

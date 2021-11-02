@@ -75,7 +75,7 @@ class JobController:
         aggregating_mode.set_parameters(sliced_results)
 
         self.aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
-                                                  self.queue, self.timeout)
+                                                  self.queue, self.cluster_resources, self.timeout)
         aggregation_success = self.aggregation_scheduler.run(aggregating_mode, aggregation_runner, memory, cores,
                                                              aggregation_args, job_name)
 
