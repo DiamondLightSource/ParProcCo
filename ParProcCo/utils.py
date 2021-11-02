@@ -36,13 +36,14 @@ def decode_to_string(any_string: AnyStr) -> str:
 
 
 def get_absolute_path(filename: Union[Path, str]) -> str:
+    if Path(filename).is_file():
+        return os.path.abspath(filename)
     python_path = os.environ['PYTHONPATH'].split(os.pathsep)
     for search_path in python_path:
         for root, dir, files in os.walk(search_path):
             if filename in files:
                 return os.path.join(root, filename)
-
-    return os.path.abspath(filename)
+    raise ValueError(f"{filename} not found")
 
 
 def slice_to_string(s: slice) -> str:
