@@ -1,8 +1,0 @@
-#/usr/bin/bash
-. /etc/profile.d/modules.sh
-
-module load python/3.9
-export PYTHONPATH="${PYTHONPATH}:/home/vaq49247/github/ParProcCo"
-
-echo "Executing |$@|"
-eval "$@"
