@@ -13,6 +13,7 @@ from parameterized import parameterized
 
 from ParProcCo.job_scheduler import JobScheduler
 from ParProcCo.simple_processing_mode_interface import SimpleProcessingModeInterface
+from ParProcCo.utils import check_jobscript_is_readable
 from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
 
 _sge_cell=os.getenv('SGE_CELL')
@@ -44,7 +45,8 @@ class TestJobScheduler(unittest.TestCase):
             input_path = Path('path/to/file.extension')
             cluster_output_dir = Path(working_directory) / 'cluster_output_dir'
             js = create_js(working_directory, cluster_output_dir)
-            runner_script_args = ["--input-path", str(input_path)]
+            jobscript = setup_jobscript(working_directory)
+            runner_script_args = [jobscript, "--input-path", str(input_path)]
             processing_mode = SimpleProcessingModeInterface()
             processing_mode.set_parameters([slice(0, None, 2), slice(1, None, 2)], 2)
             js.jobscript = Path("some_script.py")
@@ -95,14 +97,14 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(working_directory, cluster_output_dir)
 
             # run jobs
-            js.jobscript = js.check_jobscript(runner_script)
+            js.jobscript = check_jobscript_is_readable(runner_script)
             job_indices = list(range(processing_mode.number_jobs))
             js.jobscript_args = runner_script_args
             js.job_history[js.batch_number] = {}
             js.job_completion_status = {str(i): False for i in range(4)}
 
             # _run_and_monitor
-            js.jobscript = js.check_jobscript(js.jobscript)
+            js.jobscript = check_jobscript_is_readable(js.jobscript)
             session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
             js._run_jobs(session, processing_mode, job_indices, memory="4G", cores=6, job_name="old_output_test")
             js._wait_for_jobs(session)
@@ -177,7 +179,7 @@ class TestJobScheduler(unittest.TestCase):
             runner_script = setup_runner_script(working_directory)
 
             with open(jobscript, "a+") as f:
-                f.write("import time\ntime.sleep(5)\n")
+                f.write("import time\ntime.sleep(60)\n")
 
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]

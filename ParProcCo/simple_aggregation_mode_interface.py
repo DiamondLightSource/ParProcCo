@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
+from ParProcCo.utils import check_jobscript_is_readable, check_location, get_absolute_path
 
 
 class SimpleAggregationModeInterface(SchedulerModeInterface):
@@ -26,5 +27,6 @@ class SimpleAggregationModeInterface(SchedulerModeInterface):
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i == 0)
-        args = tuple([jobscript_args[0], "--output", output_fp] + self.sliced_results)
+        jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
+        args = tuple([jobscript, "--output", output_fp] + self.sliced_results)
         return args

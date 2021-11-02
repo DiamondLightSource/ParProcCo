@@ -5,6 +5,23 @@ from pathlib import Path
 from typing import AnyStr, Union
 
 
+def check_jobscript_is_readable(jobscript: Path) -> Path:
+    if not jobscript.is_file():
+        raise FileNotFoundError(f"{jobscript} does not exist\n")
+
+    if not (os.access(jobscript, os.R_OK) and os.access(jobscript, os.X_OK)):
+        raise PermissionError(f"{jobscript} must be readable and executable by user\n")
+
+    try:
+        js = jobscript.open()
+        js.close()
+    except IOError:
+        logging.error(f"{jobscript} cannot be opened\n")
+        raise
+
+    else:
+        return jobscript
+
 def check_location(location: Union[Path, str]) -> Path:
     location_path = Path(location)
     if Path("/dls") in location_path.parents or Path("/home") in location_path.parents or Path("/dls_sw") in location_path.parents:

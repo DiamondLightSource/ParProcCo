@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Union
 import drmaa2
 
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
+from ParProcCo.utils import check_jobscript_is_readable
 
 
 @dataclass
@@ -67,23 +68,6 @@ class JobScheduler:
         else:
             raise ValueError(f"{project} must be in list of project names: {prj_name_list}\n")
 
-    def check_jobscript(self, jobscript: Path) -> Path:
-        if not jobscript.is_file():
-            raise FileNotFoundError(f"{jobscript} does not exist\n")
-
-        if not (os.access(jobscript, os.R_OK) and os.access(jobscript, os.X_OK)):
-            raise PermissionError(f"{jobscript} must be readable and executable by user\n")
-
-        try:
-            js = jobscript.open()
-            js.close()
-        except IOError:
-            logging.error(f"{jobscript} cannot be opened\n")
-            raise
-
-        else:
-            return jobscript
-
     def get_output_paths(self) -> List[Path]:
         return self.output_paths
 
@@ -98,7 +82,7 @@ class JobScheduler:
 
     def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, memory: str = "4G", cores: int = 6,
             jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
-        self.jobscript = self.check_jobscript(jobscript)
+        self.jobscript = check_jobscript_is_readable(jobscript)
         job_indices = list(range(scheduler_mode.number_jobs))
         if jobscript_args is None:
             jobscript_args = []

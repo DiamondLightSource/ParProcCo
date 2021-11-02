@@ -40,7 +40,7 @@ class TestJobController(unittest.TestCase):
             jobscript = setup_jobscript(working_directory)
             aggregation_script = setup_aggregation_script(working_directory)
             with open(jobscript, "a+") as f:
-                f.write("import time\ntime.sleep(5)\n")
+                f.write("import time\ntime.sleep(60)\n")
 
             input_path = setup_data_file(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
