@@ -20,8 +20,8 @@ def create_parser():
      $ msm_cluster_submit rs_map --output cluster_output_dir --jobs --cores 6 --memory 4G -s 0.01 ... [input files]
      '''
     parser = argparse.ArgumentParser(description='Miller Space Mapper run script for use with ParProcCo')
-    parser.add_argument('--output', help='str: cluster output directory', required=True)
-    parser.add_argument('--jobs', help='int: number of cluster jobs to split processing into', required=True)
+    parser.add_argument('-o', '--output', help='str: cluster output directory', required=True)
+    parser.add_argument('--jobs', help='int: number of cluster jobs to split processing into', type=int, default=1)
     parser.add_argument('--memory', help='str: memory to use per cluster job', required=True)
     parser.add_argument('--cores', help='int: number of cores to use per cluster job', required=True)
     return parser
@@ -40,7 +40,8 @@ def run_msm(args: argparse.Namespace, script_args: List) -> None:
         cluster_queue = 'all.q'
         cluster_resources = None
     elif cluster == 'DLS_SCIENCE':
-        if os.getlogin() == 'gda2':
+        from getpass import getuser
+        if getuser() == 'gda2':
             cluster_queue = 'high.q'
             logging.debug('User is gda2 so using cluster queue {}', cluster_queue)
         else:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import AnyStr, Union
+from typing import Union
 
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
@@ -30,7 +30,7 @@ def check_location(location: Union[Path, str]) -> Path:
     raise ValueError(f"{location_path} must be located within /dls, 'dls_sw or /home")
 
 
-def decode_to_string(any_string: AnyStr) -> str:
+def decode_to_string(any_string: Union[bytes, str]) -> str:
     output = any_string.decode() if not isinstance(any_string, str) else any_string
     return output
 
@@ -40,7 +40,7 @@ def get_absolute_path(filename: Union[Path, str]) -> str:
         return os.path.abspath(filename)
     python_path = os.environ['PYTHONPATH'].split(os.pathsep)
     for search_path in python_path:
-        for root, dir, files in os.walk(search_path):
+        for root, _dir, files in os.walk(search_path):
             if filename in files:
                 return os.path.join(root, filename)
     raise ValueError(f"{filename} not found")
