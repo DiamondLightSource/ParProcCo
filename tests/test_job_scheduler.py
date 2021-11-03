@@ -48,7 +48,7 @@ class TestJobScheduler(unittest.TestCase):
             jobscript = setup_jobscript(working_directory)
             runner_script_args = [jobscript, "--input-path", str(input_path)]
             processing_mode = SimpleProcessingModeInterface()
-            processing_mode.set_parameters([slice(0, None, 2), slice(1, None, 2)], 2)
+            processing_mode.set_parameters([slice(0, None, 2), slice(1, None, 2)])
             js.jobscript = Path("some_script.py")
             js.jobscript_args = runner_script_args
 
@@ -66,7 +66,7 @@ class TestJobScheduler(unittest.TestCase):
             jobscript = setup_jobscript(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             processing_mode = SimpleProcessingModeInterface()
-            processing_mode.set_parameters(slices, 4)
+            processing_mode.set_parameters(slices)
 
             # run jobs
             js = create_js(working_directory, cluster_output_dir)
@@ -91,7 +91,7 @@ class TestJobScheduler(unittest.TestCase):
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             processing_mode = SimpleProcessingModeInterface()
-            processing_mode.set_parameters(slices, 4)
+            processing_mode.set_parameters(slices)
 
             # run jobs
             js = create_js(working_directory, cluster_output_dir)
@@ -187,7 +187,7 @@ class TestJobScheduler(unittest.TestCase):
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             processing_mode = SimpleProcessingModeInterface()
-            processing_mode.set_parameters(slices, 4)
+            processing_mode.set_parameters(slices)
 
             # run jobs
             js = create_js(working_directory, cluster_output_dir, timeout=timedelta(seconds=1))
@@ -218,7 +218,7 @@ class TestJobScheduler(unittest.TestCase):
             runner_script = Path(working_directory) / rs_name
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             processing_mode = SimpleProcessingModeInterface()
-            processing_mode.set_parameters(slices, 4)
+            processing_mode.set_parameters(slices)
 
             if open_rs:
                 f = open(runner_script, "x")
@@ -241,7 +241,7 @@ class TestJobScheduler(unittest.TestCase):
             runner_script = setup_runner_script(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             processing_mode = SimpleProcessingModeInterface()
-            processing_mode.set_parameters(slices, 4)
+            processing_mode.set_parameters(slices)
 
             js.run(processing_mode, runner_script, jobscript_args=runner_script_args)
 

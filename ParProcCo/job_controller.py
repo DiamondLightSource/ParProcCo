@@ -34,7 +34,7 @@ class JobController:
 
         slice_params = self.create_slices(data_slicer, number_jobs)
 
-        sliced_jobs_success = self.run_sliced_jobs(processing_mode, number_jobs, slice_params, processing_runner, jobscript_args, memory, cores, job_name)
+        sliced_jobs_success = self.run_sliced_jobs(processing_mode, slice_params, processing_runner, jobscript_args, memory, cores, job_name)
 
         if sliced_jobs_success:
             self.run_aggregation_job(aggregating_mode, aggregation_runner, aggregation_args, memory, cores, job_name)
@@ -46,13 +46,13 @@ class JobController:
         slice_params = self.data_slicer.slice(number_jobs)
         return slice_params
 
-    def run_sliced_jobs(self, processing_mode, number_jobs: int, slice_params: List[slice], processing_runner: Path,
+    def run_sliced_jobs(self, processing_mode, slice_params: List[slice], processing_runner: Path,
                         jobscript_args: Optional[List], memory: str, cores: int, job_name: str):
         processing_runner = check_location(get_absolute_path(processing_runner))
         if jobscript_args is None:
             jobscript_args = []
 
-        processing_mode.set_parameters(slice_params, number_jobs)
+        processing_mode.set_parameters(slice_params)
 
         self.job_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project, self.queue,
                                           self.cluster_resources, self.timeout)
@@ -67,12 +67,18 @@ class JobController:
     def run_aggregation_job(self, aggregating_mode: SchedulerModeInterface, aggregation_runner: Path,
                             aggregation_args: Optional[List], memory: str, cores: int, job_name: str) -> None:
 
+        sliced_results = self.job_scheduler.get_output_paths()
+        aggregating_mode.set_parameters(sliced_results)
+
+        if len(sliced_results) == 1:
+            error_dir = self.cluster_output_dir / "error_logs"
+            output_file = aggregating_mode.generate_output_paths(self.cluster_output_dir, error_dir, 0)[0]
+            os.rename(sliced_results[0], output_file)
+            return
+
         aggregation_runner = check_location(get_absolute_path(aggregation_runner))
         if aggregation_args is None:
             aggregation_args = []
-        sliced_results = self.job_scheduler.get_output_paths()
-
-        aggregating_mode.set_parameters(sliced_results)
 
         self.aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
                                                   self.queue, self.cluster_resources, self.timeout)

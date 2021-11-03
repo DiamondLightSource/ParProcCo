@@ -9,11 +9,10 @@ from ParProcCo.utils import slice_to_string, check_jobscript_is_readable, check_
 
 class MSMProcessingModeInterface(SchedulerModeInterface):
 
-    def set_parameters(self, slice_params: List[slice], number_jobs: int) -> None:
+    def set_parameters(self, slice_params: List[slice]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""
-        assert(len(slice_params) == number_jobs)
         self.slice_params = slice_params
-        self.number_jobs = number_jobs
+        self.number_jobs = len(slice_params)
 
     def generate_output_paths(self, output_dir: Path, error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
