@@ -158,6 +158,10 @@ class JobScheduler:
                 "uge_jt_pe": f"smp",
             },
         })
+        test_ppc_dir = os.getenv("TEST_PPC_DIR")
+        if test_ppc_dir:
+            logging.debug('Adding TEST_PPC_DIR=%s to environment', test_ppc_dir)
+            jt.job_environment = { "TEST_PPC_DIR": test_ppc_dir }
         return jt
 
     def _wait_for_jobs(self, session: drmaa2.JobSession) -> None:
