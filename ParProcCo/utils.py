@@ -8,26 +8,27 @@ from typing import Union
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
     if not jobscript.is_file():
-        raise FileNotFoundError(f"{jobscript} does not exist\n")
+        raise FileNotFoundError(f"{jobscript} does not exist")
 
     if not (os.access(jobscript, os.R_OK) and os.access(jobscript, os.X_OK)):
-        raise PermissionError(f"{jobscript} must be readable and executable by user\n")
+        raise PermissionError(f"{jobscript} must be readable and executable by user")
 
     try:
         js = jobscript.open()
         js.close()
     except IOError:
-        logging.error(f"{jobscript} cannot be opened\n")
+        logging.error(f"{jobscript} cannot be opened")
         raise
 
     else:
         return jobscript
 
 def check_location(location: Union[Path, str]) -> Path:
-    location_path = Path(location)
-    if Path("/dls") in location_path.parents or Path("/home") in location_path.parents or Path("/dls_sw") in location_path.parents:
+    location_path = Path(location).resolve()
+    top = location_path.parts[0]
+    if top in ("dls", "dls_sw", "home"):
         return location_path
-    raise ValueError(f"{location_path} must be located within /dls, 'dls_sw or /home")
+    raise ValueError(f"{location_path} must be located within /dls, /dls_sw or /home (to be accessible from the cluster)")
 
 
 def decode_to_string(any_string: Union[bytes, str]) -> str:
@@ -36,13 +37,13 @@ def decode_to_string(any_string: Union[bytes, str]) -> str:
 
 
 def get_absolute_path(filename: Union[Path, str]) -> str:
-    if Path(filename).is_file():
-        return os.path.abspath(filename)
-    python_path = os.environ['PYTHONPATH'].split(os.pathsep)
-    for search_path in python_path:
-        for root, _dir, files in os.walk(search_path):
-            if filename in files:
-                return os.path.join(root, filename)
+    p = Path(filename).resolve()
+    if p.is_file():
+        return str(p)
+    from shutil import which
+    f = which(str(p))
+    if f:
+        return f
     raise ValueError(f"{filename} not found")
 
 
