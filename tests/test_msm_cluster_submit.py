@@ -38,6 +38,7 @@ class TestClusterSubmit(unittest.TestCase):
             # these are inherited by sub-processes
             os.environ["TEST_PPC_DIR"] = repo_dir
             os.environ["PYTHONPATH"] = f"{repo_dir}:{os.environ['PYTHONPATH']}" if 'PYTHONPATH' in os.environ else repo_dir
+            os.environ["PATH"] = f"{repo_dir}/scripts:{os.environ['PATH']}"
 
             args = [runner_script_path, "rs_map", "--jobs", "4", "-s", "0.01",
                     "--output", cluster_output_name, "--cores", "6", "--memory", "4G", input_file_path]

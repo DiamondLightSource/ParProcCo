@@ -6,8 +6,7 @@ from typing import List, Tuple
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
 from ParProcCo.utils import check_jobscript_is_readable, check_location, get_absolute_path
 
-
-class MSMAggregationModeInterface(SchedulerModeInterface):
+class NXdataAggregationMode(SchedulerModeInterface):
 
     def set_parameters(self, sliced_results: List[Path]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""

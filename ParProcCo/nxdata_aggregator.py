@@ -15,7 +15,7 @@ from ParProcCo.utils import decode_to_string
 from . import __version__
 
 
-class MSMAggregator(AggregatorInterface):
+class NXdataAggregator(AggregatorInterface):
 
     def __init__(self) -> None:
         self.accumulator_aux_signals: List[np.ndarray]
@@ -35,20 +35,21 @@ class MSMAggregator(AggregatorInterface):
         self.nxdata_name: str
         self.nxdata_path_name: str
         self.nxentry_name: str
-        self.output_data_files: List[Path]
+        self.data_files: List[Path]
         self.renormalisation: bool
         self.signal_name: str
         self.signal_shapes: List[Tuple]
         self.use_default_axes: bool = False
+        self.is_binoculars: bool = False
 
-    def aggregate(self, aggregation_output: Path, output_data_files: List[Path]) -> Path:
+    def aggregate(self, aggregation_output: Path, data_files: List[Path]) -> Path:
         """Overrides AggregatorInterface.aggregate"""
-        self._renormalise(output_data_files)
-        aggregated_data_file = self._write_aggregation_file(aggregation_output, output_data_files)
+        self._renormalise(data_files)
+        aggregated_data_file = self._write_aggregation_file(aggregation_output, data_files)
         return aggregated_data_file
 
-    def _renormalise(self, output_data_files: List[Path]) -> None:
-        self.output_data_files = output_data_files
+    def _renormalise(self, data_files: List[Path]) -> None:
+        self.data_files = data_files
         self._get_nxdata()
         self._initialise_arrays()
         self._accumulate_volumes()
@@ -97,8 +98,11 @@ class MSMAggregator(AggregatorInterface):
 
     def _get_nxdata(self):
         """sets self.nxentry_name, self.nxdata_name and self.axes_names """
-        data_file = self.output_data_files[0]
+        data_file = self.data_files[0]
+        self.is_binoculars = False
         with h5py.File(data_file, "r") as root:
+            if not self.is_binoculars:
+                self.is_binoculars = "binoculars" in root
             self.nxentry_name = self._get_default_nxgroup(root, "NXentry")
             nxentry = root[self.nxentry_name]
             self.nxdata_name = self._get_default_nxgroup(nxentry, "NXdata")
@@ -168,7 +172,7 @@ class MSMAggregator(AggregatorInterface):
     def _get_all_axes(self) -> None:
         self.signal_shapes = []
         self.all_axes = []
-        for data_file in self.output_data_files:
+        for data_file in self.data_files:
             with h5py.File(data_file, "r") as f:
                 signal_shape = f[self.nxdata_path_name][self.signal_name].shape
                 assert len(signal_shape) == self.data_dimensions
@@ -186,7 +190,7 @@ class MSMAggregator(AggregatorInterface):
                              for axis_set in [list(x) for x in zip(*self.all_axes)]]
 
     def _accumulate_volumes(self) -> None:
-        for data_file, slices in zip(self.output_data_files, self.all_slices):
+        for data_file, slices in zip(self.data_files, self.all_slices):
             with h5py.File(data_file, "r") as f:
                 aux_signals = []
                 volume = np.array(f[self.nxdata_path_name][self.signal_name])
@@ -222,7 +226,7 @@ class MSMAggregator(AggregatorInterface):
             process = processed.create_group("process")
             process.attrs["NX_class"] = "NXprocess"
             process.create_dataset("date", data=str(datetime.now(timezone.utc)))
-            process.create_dataset("parameters", data=f"inputs: {output_data_files}, output: {aggregation_output}")
+            process.create_dataset("parameters", data=f"inputs: {self.data_files}, output: {aggregation_output}")
             process.create_dataset("program", data="ParProcCo")
             process.create_dataset("version", data=__version__)
 
@@ -246,20 +250,21 @@ class MSMAggregator(AggregatorInterface):
             for i, filepath in enumerate(output_data_files):
                 f[f"entry{i}"] = h5py.ExternalLink(str(filepath), self.nxentry_name)
 
-            binoculars = f.create_group("binoculars")
-            binoculars.attrs["type"] = "space"
-
-            f.create_group("binoculars/axes")
-            binocular_axes = [axis.split("-axis")[0].upper() for axis in self.axes_names]
-            for i, axis in enumerate(binocular_axes):
-                axis_min = self.axes_mins[i]
-                axis_max = self.axes_maxs[i]
-                scaling = (self.accumulator_axis_lengths[i] - 1) / (axis_max - axis_min)
-                axis_dataset = [i, axis_min, axis_max, self.axes_spacing[i], axis_min * scaling, axis_max * scaling]
-                f.create_dataset(f"binoculars/axes/{axis}", data=axis_dataset)
-
-            binoculars["counts"] = data_group[self.signal_name]
-            if self.renormalisation:
-                binoculars["contributions"] = data_group["weight"]
+            if self.is_binoculars:
+                binoculars = f.create_group("binoculars")
+                binoculars.attrs["type"] = "space"
+    
+                f.create_group("binoculars/axes")
+                binocular_axes = [axis.split("-axis")[0].upper() for axis in self.axes_names]
+                for i, axis in enumerate(binocular_axes):
+                    axis_min = self.axes_mins[i]
+                    axis_max = self.axes_maxs[i]
+                    scaling = (self.accumulator_axis_lengths[i] - 1) / (axis_max - axis_min)
+                    axis_dataset = [i, axis_min, axis_max, self.axes_spacing[i], axis_min * scaling, axis_max * scaling]
+                    f.create_dataset(f"binoculars/axes/{axis}", data=axis_dataset)
+    
+                binoculars["counts"] = data_group[self.signal_name]
+                if self.renormalisation:
+                    binoculars["contributions"] = data_group["weight"]
 
         return aggregation_output

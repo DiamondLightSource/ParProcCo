@@ -11,11 +11,11 @@ class SimpleDataAggregator(AggregatorInterface):
     def __init__(self) -> None:
         pass
 
-    def aggregate(self, aggregation_output: Path, output_data_files: List[Path]) -> Path:
+    def aggregate(self, aggregation_output: Path, data_files: List[Path]) -> Path:
         """Overrides AggregatorInterface.aggregate"""
         aggregated_lines = []
-        for output_file in output_data_files:
-            with open(output_file) as f:
+        for data_file in data_files:
+            with open(data_file) as f:
                 for line in f.readlines():
                     aggregated_lines.append(line)
 

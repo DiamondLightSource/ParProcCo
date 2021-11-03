@@ -4,21 +4,21 @@ from pathlib import Path
 from typing import List, Tuple
 
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
-from ParProcCo.utils import slice_to_string, check_jobscript_is_readable, check_location, get_absolute_path
+from ParProcCo.utils import check_jobscript_is_readable, check_location, get_absolute_path
 
 
-class SimpleProcessingModeInterface(SchedulerModeInterface):
+class SimpleAggregationMode(SchedulerModeInterface):
 
-    def set_parameters(self, slice_params: List[slice]) -> None:
+    def set_parameters(self, sliced_results: List[Path]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""
-        self.slice_params = slice_params
-        self.number_jobs = len(slice_params)
+        self.sliced_results = [str(res) for res in sliced_results]
+        self.number_jobs: int = 1
 
     def generate_output_paths(self, output_dir: Path, error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
-        output_file = f"out_{i}"
-        std_out_file = f"std_out_{i}"
-        err_file = f"err_{i}"
+        output_file = f"aggregated_results.txt"
+        std_out_file = f"std_out_aggregated"
+        err_file = f"err_aggregated"
         output_fp = str(output_dir / output_file)
         std_out_fp = str(error_dir / std_out_file)
         err_fp = str(error_dir / err_file)
@@ -26,8 +26,7 @@ class SimpleProcessingModeInterface(SchedulerModeInterface):
 
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
-        assert(i < self.number_jobs)
-        slice_param = slice_to_string(self.slice_params[i])
+        assert(i == 0)
         jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
-        args = tuple([jobscript, "--memory", memory, "--cores", str(cores), "--output", output_fp, "--images", slice_param] + jobscript_args[1:])
+        args = tuple([jobscript, "--output", output_fp] + self.sliced_results)
         return args

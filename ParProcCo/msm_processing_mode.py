@@ -7,7 +7,7 @@ from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
 from ParProcCo.utils import slice_to_string, check_jobscript_is_readable, check_location, get_absolute_path
 
 
-class MSMProcessingModeInterface(SchedulerModeInterface):
+class MSMProcessingMode(SchedulerModeInterface):
 
     def set_parameters(self, slice_params: List[slice]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""

@@ -104,7 +104,7 @@ def setup_aggregation_script(working_directory: str) -> Path:
 import argparse
 from pathlib import Path
 
-from ParProcCo.simple_data_aggregator import SimpleDataAggregator
+from example.simple_data_aggregator import SimpleDataAggregator
 
 
 def setup_parser():
@@ -112,13 +112,6 @@ def setup_parser():
     parser.add_argument("--output", help="str: path to aggregation output file", type=str)
     parser.add_argument("sliced_files", help="str: paths to sliced results files", type=str, nargs="+")
     return parser
-
-
-def check_args(args):
-    empty_fields = [k for k, v in vars(args).items() if v is None]
-    if len(empty_fields) > 0:
-        raise ValueError(f"Missing arguments: {empty_fields}")
-
 
 if __name__ == '__main__':
     '''

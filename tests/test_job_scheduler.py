@@ -11,8 +11,8 @@ from tempfile import TemporaryDirectory
 import drmaa2
 from parameterized import parameterized
 
+from example.simple_processing_mode import SimpleProcessingMode
 from ParProcCo.job_scheduler import JobScheduler, StatusInfo
-from ParProcCo.simple_processing_mode_interface import SimpleProcessingModeInterface
 from ParProcCo.utils import check_jobscript_is_readable
 from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
 
@@ -47,7 +47,7 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(working_directory, cluster_output_dir)
             jobscript = setup_jobscript(working_directory)
             runner_script_args = [jobscript, "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingModeInterface()
+            processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters([slice(0, None, 2), slice(1, None, 2)])
             js.jobscript = Path("some_script.py")
             js.jobscript_args = runner_script_args
@@ -65,7 +65,7 @@ class TestJobScheduler(unittest.TestCase):
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingModeInterface()
+            processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters(slices)
 
             # run jobs
@@ -90,7 +90,7 @@ class TestJobScheduler(unittest.TestCase):
 
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingModeInterface()
+            processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters(slices)
 
             # run jobs
@@ -186,7 +186,7 @@ class TestJobScheduler(unittest.TestCase):
 
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingModeInterface()
+            processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters(slices)
 
             # run jobs
@@ -217,7 +217,7 @@ class TestJobScheduler(unittest.TestCase):
             jobscript = Path(working_directory) / "test_jobscript"
             runner_script = Path(working_directory) / rs_name
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingModeInterface()
+            processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters(slices)
 
             if open_rs:
@@ -240,7 +240,7 @@ class TestJobScheduler(unittest.TestCase):
             jobscript = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingModeInterface()
+            processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters(slices)
 
             js.run(processing_mode, runner_script, jobscript_args=runner_script_args)
@@ -312,7 +312,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             input_path, output_paths, _, slices = setup_data_files(working_directory, cluster_output_dir)
-            processing_mode = SimpleProcessingModeInterface()
+            processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters(slices)
 
             js = create_js(working_directory, cluster_output_dir)
@@ -377,7 +377,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             input_path, output_paths, _, slices = setup_data_files(working_directory, cluster_output_dir)
-            processing_mode = SimpleProcessingModeInterface()
+            processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters(slices)
             js = create_js(working_directory, cluster_output_dir)
             js.jobscript = setup_runner_script(working_directory)

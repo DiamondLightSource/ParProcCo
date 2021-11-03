@@ -11,7 +11,7 @@ import h5py
 import numpy as np
 from parameterized import parameterized
 
-from ParProcCo.msmapper_aggregator import MSMAggregator
+from ParProcCo.nxdata_aggregator import NXdataAggregator
 from ParProcCo.utils import decode_to_string
 
 
@@ -54,7 +54,7 @@ class TestMSMAggregator(unittest.TestCase):
     def test_renormalise(self) -> None:
         output_file_paths = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                              Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         aggregator._renormalise(output_file_paths)
         with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
             volumes_array = np.array(f["processed/reciprocal_space/volume"])
@@ -63,9 +63,9 @@ class TestMSMAggregator(unittest.TestCase):
         np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
 
     def test_initialise_arrays_applied_data(self) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         aggregator.data_dimensions = 3
-        aggregator.output_data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
+        aggregator.data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                                         Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
         aggregator.nxentry_name = "processed"
         aggregator.nxdata_name = "reciprocal_space"
@@ -106,7 +106,7 @@ class TestMSMAggregator(unittest.TestCase):
         ("non_weight_signals_plus_weight", (2, 3, 4), True, ["weight", "other_0", "other_1"], ["other_0", "other_1"], None, None)
     ])
     def test_initialise_arrays(self, name, shape, has_weight, aux_signal_names, non_weight_names, error_name, error_msg) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         aggregator.data_dimensions = 3
         aggregator.nxentry_name = "default_entry"
         aggregator.nxdata_name = "default_data"
@@ -122,9 +122,9 @@ class TestMSMAggregator(unittest.TestCase):
             file_path_0 = Path(working_directory) / "output0.nxs"
             file_path_1 = Path(working_directory) / "output1.nxs"
 
-            aggregator.output_data_files = [file_path_0, file_path_1]
+            aggregator.data_files = [file_path_0, file_path_1]
 
-            for file_path in aggregator.output_data_files:
+            for file_path in aggregator.data_files:
                 self.create_basic_nexus_file(file_path, has_weight)
 
             with h5py.File(file_path_0, 'r+') as f:
@@ -186,8 +186,8 @@ class TestMSMAggregator(unittest.TestCase):
     def test_get_nxdata_applied_data(self) -> None:
         output_data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                              Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
-        aggregator = MSMAggregator()
-        aggregator.output_data_files = output_data_files
+        aggregator = NXdataAggregator()
+        aggregator.data_files = output_data_files
         aggregator._get_nxdata()
         self.assertEqual(aggregator.nxentry_name, "processed")
         self.assertEqual(aggregator.nxdata_name, "reciprocal_space")
@@ -205,10 +205,10 @@ class TestMSMAggregator(unittest.TestCase):
         ("dims_wrong", (2, 12), True, AssertionError, "signal and weight dimensions must match")
     ])
     def test_get_nx_data_param(self, name, shape, has_weight, error_name, error_msg) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             file_path = Path(working_directory) / "output.nxs"
-            aggregator.output_data_files = [file_path]
+            aggregator.data_files = [file_path]
 
             self.create_basic_nexus_file(file_path, has_weight)
             with h5py.File(file_path, 'r+') as f:
@@ -256,7 +256,7 @@ class TestMSMAggregator(unittest.TestCase):
         ("no_groups", None, None, False, ValueError, "no NXentry group found")
     ])
     def test_get_default_nxgroup(self, name, default_class, default_name, has_default, error_name, error_msg) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             file_path = Path(working_directory) / "output.nxs"
             with h5py.File(file_path, 'w') as f:
@@ -277,7 +277,7 @@ class TestMSMAggregator(unittest.TestCase):
         self.assertEqual(nxentry_name, "default_entry")
 
     def test_get_nxgroup_missing_external_file(self) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             file_path = Path(working_directory) / "output.nxs"
             linked_file_path = Path(working_directory) / "linked_file.nxs"
@@ -305,7 +305,7 @@ class TestMSMAggregator(unittest.TestCase):
     ])
     def test_get_default_signals_and_axes(
             self, name, signal, aux_signals, renormalisation, non_weight_signals, error_name) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         aggregator.nxentry_name = "entry_group"
         aggregator.nxdata_name = "data_group"
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
@@ -336,15 +336,15 @@ class TestMSMAggregator(unittest.TestCase):
             self.assertEqual(aggregator.axes_names, ["a-axis", "b-axis", "c-axis"])
 
     def test_get_default_signals_and_axes_no_axes(self) -> None:
-        aggregator = MSMAggregator()
-        aggregator.output_data_files = []
+        aggregator = NXdataAggregator()
+        aggregator.data_files = []
         aggregator.nxentry_name = "entry_group"
         aggregator.nxdata_name = "data_group"
         aggregator.nxdata_path_name = "entry_group/data_group"
 
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
-            aggregator.output_data_files = [Path(working_directory) / f"output{i}.nxs" for i in range(3)]
-            for file_path in aggregator.output_data_files:
+            aggregator.data_files = [Path(working_directory) / f"output{i}.nxs" for i in range(3)]
+            for file_path in aggregator.data_files:
                 with h5py.File(file_path, 'w') as f:
                     entry_group = f.create_group("entry_group")
                     data_group = entry_group.create_group("data_group")
@@ -355,7 +355,7 @@ class TestMSMAggregator(unittest.TestCase):
                     volume_data = np.reshape(np.array([i for i in range(24)]), (2, 3, 4))
                     data_group.create_dataset("volume", data=volume_data)
 
-            with h5py.File(aggregator.output_data_files[0], 'r') as f:
+            with h5py.File(aggregator.data_files[0], 'r') as f:
                 data_group = f[aggregator.nxdata_path_name]
                 aggregator._get_default_signals_and_axes(data_group)
 
@@ -366,7 +366,7 @@ class TestMSMAggregator(unittest.TestCase):
             self.assertEqual(aggregator.axes_names, ["a-axis", "b-axis", "c-axis"])
 
     def test_generate_axes_names(self) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         aggregator.signal_name = "volume"
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             file_path = Path(working_directory) / "output.nxs"
@@ -391,7 +391,7 @@ class TestMSMAggregator(unittest.TestCase):
         ("no_axes", ["weight"], False)
     ])
     def test_get_all_axes(self, name, aux_signal_names, use_default_axes) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         aggregator.nxdata_path_name = "default_entry/default_data"
         aggregator.signal_name = "volume"
         aggregator.axes_names = ["a-axis", "b-axis", "c-axis"]
@@ -402,9 +402,9 @@ class TestMSMAggregator(unittest.TestCase):
             file_path_0 = Path(working_directory) / "output0.nxs"
             file_path_1 = Path(working_directory) / "output1.nxs"
 
-            aggregator.output_data_files = [file_path_0, file_path_1]
+            aggregator.data_files = [file_path_0, file_path_1]
 
-            for file_path in aggregator.output_data_files:
+            for file_path in aggregator.data_files:
                 self.create_basic_nexus_file(file_path, True)
 
             with h5py.File(file_path_0, 'r+') as f:
@@ -453,7 +453,7 @@ class TestMSMAggregator(unittest.TestCase):
         ("no_weight_aux", False, ["aux_signal_0", "aux_signal_1"], ["aux_signal_0", "aux_signal_1"])
     ])
     def test_accumulate_volumes(self, name, renormalisation, aux_signal_names, non_weight_aux_signal_names) -> None:
-        aggregator = MSMAggregator()
+        aggregator = NXdataAggregator()
         aggregator.nxdata_path_name = "default_entry/default_data"
         aggregator.signal_name = "volume"
         aggregator.renormalisation = renormalisation
@@ -472,9 +472,9 @@ class TestMSMAggregator(unittest.TestCase):
             file_path_0 = Path(working_directory) / "output0.nxs"
             file_path_1 = Path(working_directory) / "output1.nxs"
 
-            aggregator.output_data_files = [file_path_0, file_path_1]
+            aggregator.data_files = [file_path_0, file_path_1]
 
-            for file_path in aggregator.output_data_files:
+            for file_path in aggregator.data_files:
                 self.create_basic_nexus_file(file_path, True)
 
             with h5py.File(file_path_0, 'r+') as f:
@@ -547,8 +547,8 @@ class TestMSMAggregator(unittest.TestCase):
                 np.testing.assert_allclose(aux_signal, np.array(signal).reshape(3, 3, 5), rtol=1e-14)
 
     def test_accumulate_volumes_applied_data(self) -> None:
-        aggregator = MSMAggregator()
-        aggregator.output_data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
+        aggregator = NXdataAggregator()
+        aggregator.data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                                         Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
         aggregator.nxentry_name = "processed"
         aggregator.nxdata_name = "reciprocal_space"
@@ -586,7 +586,7 @@ class TestMSMAggregator(unittest.TestCase):
                 cluster_output_dir.mkdir(exist_ok=True, parents=True)
             aggregation_file = cluster_output_dir / "aggregated_results.nxs"
 
-            aggregator = MSMAggregator()
+            aggregator = NXdataAggregator()
             aggregation_results = aggregator.aggregate(aggregation_file, sliced_data_files)
             with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
                 volumes_array = np.array(f["processed/reciprocal_space/volume"])

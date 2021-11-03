@@ -28,16 +28,16 @@ class JobController:
         self.scheduler: JobScheduler
 
     def run(self, data_slicer: SlicerInterface, number_jobs: int, processing_mode: SchedulerModeInterface,
-            aggregating_mode: SchedulerModeInterface, processing_runner: Path, aggregation_runner: Path,
-            jobscript_args: Optional[List] = None, aggregation_args: Optional[List] = None, memory: str = "4G", cores: int = 6,
+            aggregating_mode: SchedulerModeInterface, cluster_runner: Path,
+            jobscript_args: Optional[List] = None, aggregator_path: Optional[Path] = None, memory: str = "4G", cores: int = 6,
             job_name: str = "ParProcCo") -> None:
 
         slice_params = self.create_slices(data_slicer, number_jobs)
 
-        sliced_jobs_success = self.run_sliced_jobs(processing_mode, slice_params, processing_runner, jobscript_args, memory, cores, job_name)
+        sliced_jobs_success = self.run_sliced_jobs(processing_mode, slice_params, cluster_runner, jobscript_args, memory, cores, job_name)
 
         if sliced_jobs_success:
-            self.run_aggregation_job(aggregating_mode, aggregation_runner, aggregation_args, memory, cores, job_name)
+            self.run_aggregation_job(aggregating_mode, cluster_runner, aggregator_path, memory, cores, job_name)
         else:
             raise RuntimeError("Sliced jobs failed\n")
 
@@ -65,7 +65,7 @@ class JobController:
         return sliced_jobs_success
 
     def run_aggregation_job(self, aggregating_mode: SchedulerModeInterface, aggregation_runner: Path,
-                            aggregation_args: Optional[List], memory: str, cores: int, job_name: str) -> None:
+                            aggregator_path: Optional[Path], memory: str, cores: int, job_name: str) -> None:
 
         sliced_results = self.job_scheduler.get_output_paths()
         aggregating_mode.set_parameters(sliced_results)
@@ -77,13 +77,15 @@ class JobController:
             return
 
         aggregation_runner = check_location(get_absolute_path(aggregation_runner))
-        if aggregation_args is None:
-            aggregation_args = []
+        aggregation_args = []
+        if aggregator_path is not None:
+            aggregator_path = check_location(get_absolute_path(aggregator_path))
+            aggregation_args.append(aggregator_path)
 
         self.aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
                                                   self.queue, self.cluster_resources, self.timeout)
         aggregation_success = self.aggregation_scheduler.run(aggregating_mode, aggregation_runner, memory, cores,
-                                                             aggregation_args, job_name)
+                                                             aggregation_args, aggregating_mode.__class__.__name__)
 
         if not aggregation_success:
             self.aggregation_scheduler.rerun_killed_jobs(aggregating_mode, allow_all_failed=True)
