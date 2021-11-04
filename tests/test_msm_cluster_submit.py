@@ -43,12 +43,10 @@ class TestClusterSubmit(unittest.TestCase):
             output_files = [cluster_output_dir / f"out_{i}.nxs" for i in range(4)]
 
             for output_file in output_files:
-                self.assertTrue(output_file.is_file())
+                self.assertFalse(output_file.is_file())
 
             aggregated_file = cluster_output_dir / "aggregated_results.nxs"
             self.assertTrue(aggregated_file.is_file())
-
-            print("job finished")
 
 
 if __name__ == '__main__':

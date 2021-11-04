@@ -65,6 +65,7 @@ class TestJobController(unittest.TestCase):
             input_path = setup_data_file(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             agg_script_args = [str(aggregation_script)]
+            sliced_results = [Path(working_directory) / f"out_{i}" for i in range(4)]
 
             jc = JobController(cluster_output_name, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
             jc.run(SimpleDataSlicer(), 4, SimpleProcessingModeInterface(), SimpleAggregationModeInterface(),
@@ -74,6 +75,8 @@ class TestJobController(unittest.TestCase):
                 agg_data = af.readlines()
 
             self.assertEqual(agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"])
+            for result in sliced_results:
+                self.assertFalse(result.is_file())
 
 
 if __name__ == '__main__':

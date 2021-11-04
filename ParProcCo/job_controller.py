@@ -87,3 +87,7 @@ class JobController:
 
         if not aggregation_success:
             self.aggregation_scheduler.rerun_killed_jobs(aggregating_mode, allow_all_failed=True)
+
+        if aggregation_success:
+            for result in sliced_results:
+                os.remove(str(result))
