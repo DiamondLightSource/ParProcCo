@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List
 
 from ParProcCo.job_controller import JobController
-from ParProcCo.msm_data_slicer import MSMDataSlicer
+from ParProcCo.simple_data_slicer import SimpleDataSlicer
 from ParProcCo.msm_processing_mode_interface import MSMProcessingModeInterface
 from ParProcCo.msm_aggregation_mode_interface import MSMAggregationModeInterface
 
@@ -58,7 +58,7 @@ def run_msm(args: argparse.Namespace, script_args: List) -> None:
     runner_script_path = current_script_dir / "msm_cluster_runner"
     agg_runner_path = current_script_dir / "msm_cluster_runner"
     agg_script_path = str(current_script_dir / "msm_agg_jobscript")
-    jc.run(MSMDataSlicer(), args.jobs, MSMProcessingModeInterface(), MSMAggregationModeInterface(), runner_script_path,
+    jc.run(SimpleDataSlicer(), args.jobs, MSMProcessingModeInterface(), MSMAggregationModeInterface(), runner_script_path,
            agg_runner_path, script_args, [agg_script_path], args.memory, args.cores, "MSM")
     print("complete")
 
