@@ -78,6 +78,34 @@ class TestJobController(unittest.TestCase):
             for result in sliced_results:
                 self.assertFalse(result.is_file())
 
+    def test_single_job_does_not_aggregate(self) -> None:
+        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+            os.chdir(working_directory)
+            cluster_output_name = "cluster_output"
+
+            runner_script = setup_runner_script(working_directory)
+            jobscript = setup_jobscript(working_directory)
+            aggregation_script = setup_aggregation_script(working_directory)
+
+            input_path = setup_data_file(working_directory)
+            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
+            agg_script_args = [str(aggregation_script)]
+            sliced_result = Path(working_directory) / cluster_output_name / f"out_0"
+            aggregated_file = Path(working_directory) / cluster_output_name / "aggregated_results.txt"
+
+            jc = JobController(cluster_output_name, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
+            jc.run(SimpleDataSlicer(), 1, SimpleProcessingModeInterface(), SimpleAggregationModeInterface(),
+                   runner_script, runner_script, jobscript_args=runner_script_args, aggregation_args=agg_script_args)
+
+            self.assertEqual([sliced_result], jc.job_scheduler.get_output_paths())
+            self.assertTrue(aggregated_file.is_file())
+            self.assertFalse(sliced_result.is_file())
+            self.assertFalse(hasattr(jc, "aggregation_scheduler"))
+            with open(aggregated_file, "r") as af:
+                agg_data = af.readlines()
+
+            self.assertEqual(agg_data, ["0\n", "2\n", "4\n", "6\n", "8\n", "10\n", "12\n", "14\n"])
+
 
 if __name__ == '__main__':
     unittest.main()
