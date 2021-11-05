@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 import drmaa2
 from parameterized import parameterized
 
-from ParProcCo.job_scheduler import JobScheduler
+from ParProcCo.job_scheduler import JobScheduler, StatusInfo
 from ParProcCo.simple_processing_mode_interface import SimpleProcessingModeInterface
 from ParProcCo.utils import check_jobscript_is_readable
 from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
@@ -282,6 +282,132 @@ class TestJobScheduler(unittest.TestCase):
             if not run_scheduler_last:
                 js = create_js(working_directory, cluster_output_dir)
             self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
+
+    @parameterized.expand([
+        ("all_killed", [
+            StatusInfo(None, Path(f"to/somewhere_{i}"), i, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                       drmaa2.JobState(8), "FAILED") for i in range(2)],
+            [StatusInfo(None, Path(f"to/somewhere_{i}"), i, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                        drmaa2.JobState(8), "FAILED") for i in range(2)]),
+        ("none_killed", [
+            StatusInfo(None, Path("to/somewhere"), i, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(8),
+                       "FAILED") for i in range(2)], []),
+        ("one_killed", [
+            StatusInfo(None, Path("to/somewhere_0"), 0, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                       drmaa2.JobState(8), "FAILED"),
+            StatusInfo(None, Path("to/somewhere_1"), 1, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(8),
+                       "FAILED")],
+            [StatusInfo(None, Path("to/somewhere_0"), 0, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                        drmaa2.JobState(8), "FAILED")])
+    ])
+    def test_filter_killed_jobs(self, name, failed_jobs, result):
+        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+            cluster_output_dir = Path(working_directory) / "cluster_output"
+
+            js = create_js(working_directory, cluster_output_dir)
+            killed_jobs = js.filter_killed_jobs(failed_jobs)
+            self.assertEqual(killed_jobs, result)
+
+    def test_resubmit_jobs(self):
+        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+            cluster_output_dir = Path(working_directory) / "cluster_output"
+            input_path, output_paths, _, slices = setup_data_files(working_directory, cluster_output_dir)
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters(slices)
+
+            js = create_js(working_directory, cluster_output_dir)
+            js.jobscript = setup_runner_script(working_directory)
+            js.jobscript_args = [str(setup_jobscript(working_directory)), "--input-path", str(input_path)]
+            js.memory = "4G"
+            js.cores = 6
+            js.job_name = "test_resubmit_jobs"
+            js.output_paths = output_paths
+            js.job_history = {0: {
+                0: StatusInfo(None, output_paths[0], 0, drmaa2.JobInfo({"terminating_signal": "0"}),
+                              drmaa2.JobState(8), "FAILED"),
+                1: StatusInfo(None, output_paths[1], 1, drmaa2.JobInfo({"terminating_signal": "0"}),
+                              drmaa2.JobState(7), "DONE"),
+                2: StatusInfo(None, output_paths[2], 2, drmaa2.JobInfo({"terminating_signal": "0"}),
+                              drmaa2.JobState(8), "FAILED"),
+                3: StatusInfo(None, output_paths[3], 3, drmaa2.JobInfo({"terminating_signal": "0"}),
+                              drmaa2.JobState(7), "DONE")}}
+
+            js.job_completion_status = {"0": False, "1": True, "2": False, '3': True}
+
+            success = js.resubmit_jobs(processing_mode, [0, 2])
+            self.assertTrue(success)
+            resubmitted_output_paths = [output_paths[i] for i in [0, 2]]
+            for output in resubmitted_output_paths:
+                self.assertTrue(output.is_file())
+
+    @parameterized.expand([
+        ("all_success", False, [
+            StatusInfo(None, Path(), i, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(7),
+                       "DONE") for i in range(4)], {str(i): True for i in range(4)}, False, None, True, False),
+        ("all_failed_do_not_allow", False, [
+            StatusInfo(None, Path(), i, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                       drmaa2.JobState(8), "FAILED") for i in range(4)], {str(i): False for i in range(4)},
+            False, None, False, True),
+        ("all_failed_do_allow", True, [
+            StatusInfo(None, Path(), i, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                       drmaa2.JobState(8), "FAILED") for i in range(4)],
+            {str(i): False for i in range(4)}, True, [0, 1, 2, 3], True, False),
+        ("some_failed_do_allow", True, [
+            StatusInfo(None, Path(), 0, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                       drmaa2.JobState(8), "FAILED"),
+            StatusInfo(None, Path(), 1, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(7),
+                       "DONE"),
+            StatusInfo(None, Path(), 2, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                       drmaa2.JobState(8), "FAILED"),
+            StatusInfo(None, Path(), 3, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(7),
+                       "DONE")], {"0": False, "1": True, "2": False, "3": True}, True, [0, 2], True, False),
+        ("some_failed_do_not_allow", False, [
+            StatusInfo(None, Path(), 0, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                       drmaa2.JobState(8), "FAILED"),
+            StatusInfo(None, Path(), 1, drmaa2.JobInfo({"terminating_signal": "0"}),
+                       drmaa2.JobState(7), "DONE"),
+            StatusInfo(None, Path(), 2, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
+                       drmaa2.JobState(8), "FAILED"),
+            StatusInfo(None, Path(), 3, drmaa2.JobInfo({"terminating_signal": "0"}),
+                       drmaa2.JobState(7), "DONE")],
+            {"0": False, "1": True, "2": False, "3": True}, True, [0, 2], True, False)
+    ])
+    def test_rerun_killed_jobs(self, name, allow_all_failed, job_history, job_completion_status, runs, indices,
+                               expected_success, raises_error):
+        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+            cluster_output_dir = Path(working_directory) / "cluster_output"
+            input_path, output_paths, _, slices = setup_data_files(working_directory, cluster_output_dir)
+            processing_mode = SimpleProcessingModeInterface()
+            processing_mode.set_parameters(slices)
+            js = create_js(working_directory, cluster_output_dir)
+            js.jobscript = setup_runner_script(working_directory)
+            js.jobscript_args = [str(setup_jobscript(working_directory)), "--input-path", str(input_path)]
+            js.memory = "4G"
+            js.cores = 6
+            js.job_name = "test_resubmit_jobs"
+            for output_path, status_info in zip(output_paths, job_history):
+                status_info.output = output_path
+            js.job_history = {0: {i: job_history[i] for i in range(4)}}
+            js.job_completion_status = job_completion_status
+            js.output_paths = output_paths
+
+            if raises_error:
+                with self.assertRaises(RuntimeError) as context:
+                    js.rerun_killed_jobs(processing_mode, allow_all_failed)
+                self.assertTrue("All jobs failed" in str(context.exception))
+                self.assertEquals(js.batch_number, 0)
+                return
+
+            success = js.rerun_killed_jobs(processing_mode, allow_all_failed)
+            self.assertEqual(success, expected_success)
+            self.assertEqual(js.output_paths, output_paths)
+            if runs:
+                self.assertEquals(js.batch_number, 1)
+                resubmitted_output_paths = [output_paths[i] for i in indices]
+                for output in resubmitted_output_paths:
+                    self.assertTrue(output.is_file())
+            else:
+                self.assertEquals(js.batch_number, 0)
 
 
 if __name__ == '__main__':
