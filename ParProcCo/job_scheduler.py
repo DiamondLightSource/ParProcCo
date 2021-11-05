@@ -138,7 +138,8 @@ class JobScheduler:
             logging.debug(f"Directory {error_dir} already exists")
 
         output_fp, std_out_fp, err_fp = scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i)
-        self.output_paths.append(Path(output_fp))
+        if output_fp not in self.output_paths:
+            self.output_paths.append(Path(output_fp))
         args = scheduler_mode.generate_args(i, memory, cores, self.jobscript_args, output_fp)
         print(f"creating template with jobscript: {str(self.jobscript)} and args: {args}")
 
