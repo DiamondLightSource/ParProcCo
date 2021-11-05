@@ -45,7 +45,7 @@ class NXdataAggregator(AggregatorInterface):
     def aggregate(self, aggregation_output: Path, data_files: List[Path]) -> Path:
         """Overrides AggregatorInterface.aggregate"""
         self._renormalise(data_files)
-        aggregated_data_file = self._write_aggregation_file(aggregation_output, data_files)
+        aggregated_data_file = self._write_aggregation_file(aggregation_output)
         return aggregated_data_file
 
     def _renormalise(self, data_files: List[Path]) -> None:
@@ -216,7 +216,7 @@ class NXdataAggregator(AggregatorInterface):
                 aux_signal = aux_signal / self.accumulator_weights
                 aux_signal[np.isnan(aux_signal)] = 0
 
-    def _write_aggregation_file(self, aggregation_output: Path, output_data_files: List[Path]) -> Path:
+    def _write_aggregation_file(self, aggregation_output: Path) -> Path:
 
         with h5py.File(aggregation_output, "w") as f:
             processed = f.create_group(self.nxentry_name)
@@ -247,7 +247,7 @@ class NXdataAggregator(AggregatorInterface):
 
             f.attrs["default"] = self.nxentry_name
 
-            for i, filepath in enumerate(output_data_files):
+            for i, filepath in enumerate(self.data_files):
                 f[f"entry{i}"] = h5py.ExternalLink(str(filepath), self.nxentry_name)
 
             if self.is_binoculars:
