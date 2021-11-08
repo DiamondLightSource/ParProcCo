@@ -10,8 +10,8 @@ from typing import Dict, List, Optional, Union
 
 import drmaa2
 
-from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
-from ParProcCo.utils import check_jobscript_is_readable
+from .scheduler_mode_interface import SchedulerModeInterface
+from .utils import check_jobscript_is_readable
 
 
 @dataclass
@@ -46,6 +46,7 @@ class JobScheduler:
         self.resources: Dict[str, str] = {}
         if cluster_resources:
             self.resources.update(cluster_resources)
+        self.scheduler_mode : SchedulerModeInterface
         self.memory : str
         self.cores : int
         self.job_name : str
@@ -86,6 +87,7 @@ class JobScheduler:
     def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, memory: str = "4G", cores: int = 6,
             jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
         self.jobscript = check_jobscript_is_readable(jobscript)
+        self.scheduler_mode = scheduler_mode
         self.memory = memory
         self.cores = cores
         self.job_name = job_name
@@ -95,22 +97,22 @@ class JobScheduler:
         self.jobscript_args = jobscript_args
         self.job_history[self.batch_number] = {}
         self.job_completion_status = {str(i): False for i in range(scheduler_mode.number_jobs)}
-        return self._run_and_monitor(scheduler_mode, job_indices)
+        return self._run_and_monitor(job_indices)
 
-    def _run_and_monitor(self, scheduler_mode: SchedulerModeInterface, job_indices: List[int]) -> bool:
+    def _run_and_monitor(self, job_indices: List[int]) -> bool:
         session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
-        self._run_jobs(session, scheduler_mode, job_indices)
+        self._run_jobs(session, job_indices)
         self._wait_for_jobs(session)
         self._report_job_info()
         return self.get_success()
 
-    def _run_jobs(self, session: drmaa2.JobSession, scheduler_mode: SchedulerModeInterface, job_indices: List[int]) -> None:
+    def _run_jobs(self, session: drmaa2.JobSession, job_indices: List[int]) -> None:
         logging.debug(f"Running jobs on cluster for jobscript {self.jobscript} and args {self.jobscript_args}")
         try:
             # Run all input paths in parallel:
             self.status_infos = []
             for i in job_indices:
-                template = self._create_template(scheduler_mode, i, self.memory, self.cores, self.job_name)
+                template = self._create_template(i)
                 logging.debug(f"Submitting drmaa job with jobscript {self.jobscript} and args {template.args}")
                 job = session.run_job(template)
                 self.status_infos.append(StatusInfo(job, Path(template.output_path), i))
@@ -122,8 +124,7 @@ class JobScheduler:
             logging.error(f"Unknown error occurred running drmaa job", exc_info=True)
             raise
 
-    def _create_template(self, scheduler_mode: SchedulerModeInterface, i: int, memory: str, cores: int,
-                         job_name: str) -> drmaa2.JobTemplate:
+    def _create_template(self, i: int) -> drmaa2.JobTemplate:
         if not self.cluster_output_dir.is_dir():
             logging.debug(f"Making directory {self.cluster_output_dir}")
             self.cluster_output_dir.mkdir(exist_ok=True, parents=True)
@@ -137,18 +138,18 @@ class JobScheduler:
         else:
             logging.debug(f"Directory {error_dir} already exists")
 
-        output_fp, std_out_fp, err_fp = scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i)
+        output_fp, std_out_fp, err_fp = self.scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i)
         if output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
-        args = scheduler_mode.generate_args(i, memory, cores, self.jobscript_args, output_fp)
+        args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
         print(f"creating template with jobscript: {str(self.jobscript)} and args: {args}")
 
-        self.resources["m_mem_free"] = memory
+        self.resources["m_mem_free"] = self.memory
         jt = drmaa2.JobTemplate({
-            "job_name": job_name,
+            "job_name": self.job_name,
             "job_category": self.project,
             "remote_command": str(self.jobscript),
-            "min_slots": cores,
+            "min_slots": self.cores,
             "args": args,
             "resource_limits": self.resources,
             "working_directory": str(self.working_directory),
@@ -245,17 +246,17 @@ class JobScheduler:
 
             self.job_history[self.batch_number][status_info.job.id] = status_info
 
-    def resubmit_jobs(self, scheduler_mode: SchedulerModeInterface, job_indices: List[int]) -> bool:
+    def resubmit_jobs(self, job_indices: List[int]) -> bool:
         self.batch_number += 1
         self.job_history[self.batch_number] = {}
         self.job_completion_status = {str(i): False for i in job_indices}
-        return self._run_and_monitor(scheduler_mode, job_indices)
+        return self._run_and_monitor(job_indices)
 
     def filter_killed_jobs(self, jobs: List[drmaa2.Job]) -> List[drmaa2.Job]:
         killed_jobs = [job for job in jobs if job.info.terminating_signal == "SIGKILL"]
         return killed_jobs
 
-    def rerun_killed_jobs(self, scheduler_mode: SchedulerModeInterface, allow_all_failed: bool = False):
+    def rerun_killed_jobs(self, allow_all_failed: bool = False):
         job_history = self.job_history
         if all(self.job_completion_status.values()):
             warnings.warn("No failed jobs")
@@ -264,7 +265,7 @@ class JobScheduler:
             failed_jobs = [job_info for job_info in job_history[0].values() if job_info.final_state != "SUCCESS"]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             killed_jobs_indices = [job.i for job in killed_jobs]
-            success = self.resubmit_jobs(scheduler_mode, killed_jobs_indices)
+            success = self.resubmit_jobs(killed_jobs_indices)
             return success
 
         raise RuntimeError(f"All jobs failed\n")

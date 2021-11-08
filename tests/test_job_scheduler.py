@@ -52,7 +52,11 @@ class TestJobScheduler(unittest.TestCase):
             js.jobscript = Path("some_script.py")
             js.jobscript_args = runner_script_args
 
-            js._create_template(processing_mode, 1, memory="4G", cores=6, job_name="create_template_test")
+            js.memory = '4G'
+            js.cores = 5
+            js.job_name = "create_template_test"
+            js.scheduler_mode = processing_mode
+            js._create_template(1)
             cluster_output_dir_exists = cluster_output_dir.is_dir()
         self.assertTrue(cluster_output_dir_exists, msg="Cluster output directory was not created\n")
 
@@ -109,7 +113,8 @@ class TestJobScheduler(unittest.TestCase):
             js.memory="4G"
             js.cores=6
             js.job_name="old_output_test"
-            js._run_jobs(session, processing_mode, job_indices)
+            js.scheduler_mode = processing_mode
+            js._run_jobs(session, job_indices)
             js._wait_for_jobs(session)
             js.start_time = datetime.now()
             js._report_job_info()
@@ -321,6 +326,7 @@ class TestJobScheduler(unittest.TestCase):
             js.memory = "4G"
             js.cores = 6
             js.job_name = "test_resubmit_jobs"
+            js.scheduler_mode = processing_mode
             js.output_paths = output_paths
             js.job_history = {0: {
                 0: StatusInfo(None, output_paths[0], 0, drmaa2.JobInfo({"terminating_signal": "0"}),
@@ -334,7 +340,7 @@ class TestJobScheduler(unittest.TestCase):
 
             js.job_completion_status = {"0": False, "1": True, "2": False, '3': True}
 
-            success = js.resubmit_jobs(processing_mode, [0, 2])
+            success = js.resubmit_jobs([0, 2])
             self.assertTrue(success)
             resubmitted_output_paths = [output_paths[i] for i in [0, 2]]
             for output in resubmitted_output_paths:
@@ -385,6 +391,7 @@ class TestJobScheduler(unittest.TestCase):
             js.memory = "4G"
             js.cores = 6
             js.job_name = "test_resubmit_jobs"
+            js.scheduler_mode = processing_mode
             for output_path, status_info in zip(output_paths, job_history):
                 status_info.output = output_path
             js.job_history = {0: {i: job_history[i] for i in range(4)}}
@@ -393,12 +400,12 @@ class TestJobScheduler(unittest.TestCase):
 
             if raises_error:
                 with self.assertRaises(RuntimeError) as context:
-                    js.rerun_killed_jobs(processing_mode, allow_all_failed)
+                    js.rerun_killed_jobs(allow_all_failed)
                 self.assertTrue("All jobs failed" in str(context.exception))
                 self.assertEquals(js.batch_number, 0)
                 return
 
-            success = js.rerun_killed_jobs(processing_mode, allow_all_failed)
+            success = js.rerun_killed_jobs(allow_all_failed)
             self.assertEqual(success, expected_success)
             self.assertEqual(js.output_paths, output_paths)
             if runs:

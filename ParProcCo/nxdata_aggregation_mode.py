@@ -23,7 +23,7 @@ class NXdataAggregationMode(SchedulerModeInterface):
         err_fp = str(error_dir / err_file)
         return output_fp, std_out_fp, err_fp
 
-    def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
+    def generate_args(self, i: int, _memory: str, _cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i == 0)
         jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
