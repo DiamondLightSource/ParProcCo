@@ -402,19 +402,19 @@ class TestJobScheduler(unittest.TestCase):
                 with self.assertRaises(RuntimeError) as context:
                     js.rerun_killed_jobs(allow_all_failed)
                 self.assertTrue("All jobs failed" in str(context.exception))
-                self.assertEquals(js.batch_number, 0)
+                self.assertEqual(js.batch_number, 0)
                 return
 
             success = js.rerun_killed_jobs(allow_all_failed)
             self.assertEqual(success, expected_success)
             self.assertEqual(js.output_paths, output_paths)
             if runs:
-                self.assertEquals(js.batch_number, 1)
+                self.assertEqual(js.batch_number, 1)
                 resubmitted_output_paths = [output_paths[i] for i in indices]
                 for output in resubmitted_output_paths:
                     self.assertTrue(output.is_file())
             else:
-                self.assertEquals(js.batch_number, 0)
+                self.assertEqual(js.batch_number, 0)
 
 
 if __name__ == '__main__':

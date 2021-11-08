@@ -96,10 +96,9 @@ class TestJobController(unittest.TestCase):
             jc.run(1, runner_script, jobscript_args=runner_script_args, aggregator_path=aggregation_script)
 
             self.assertEqual([sliced_result], jc.sliced_results)
-            self.assertTrue(aggregated_file.is_file())
-            self.assertFalse(sliced_result.is_file())
-            self.assertFalse(hasattr(jc, "aggregation_scheduler"))
-            with open(aggregated_file, "r") as af:
+            self.assertFalse(aggregated_file.is_file())
+            self.assertTrue(sliced_result.is_file())
+            with open(sliced_result, "r") as af:
                 agg_data = af.readlines()
 
             self.assertEqual(agg_data, ["0\n", "2\n", "4\n", "6\n", "8\n", "10\n", "12\n", "14\n"])
