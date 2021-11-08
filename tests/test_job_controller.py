@@ -95,7 +95,7 @@ class TestJobController(unittest.TestCase):
             jc = JobController(wrapper, cluster_output_name, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
             jc.run(1, runner_script, jobscript_args=runner_script_args, aggregator_path=aggregation_script)
 
-            self.assertEqual([sliced_result], jc.job_scheduler.get_output_paths())
+            self.assertEqual([sliced_result], jc.sliced_results)
             self.assertTrue(aggregated_file.is_file())
             self.assertFalse(sliced_result.is_file())
             self.assertFalse(hasattr(jc, "aggregation_scheduler"))
