@@ -17,7 +17,7 @@ class PassThruProcessingMode(SchedulerModeInterface):
         """Overrides SchedulerModeInterface.generate_output_paths"""
         std_out_fp = str(error_dir / f"std_out_{i}")
         err_fp = str(error_dir / f"err_{i}")
-        return output_dir, std_out_fp, err_fp
+        return str(output_dir), std_out_fp, err_fp
 
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""

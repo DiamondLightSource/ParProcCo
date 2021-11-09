@@ -13,5 +13,7 @@ class ProgramWrapper:
         self.aggregating_mode = aggregating_mode
 
     def create_slices(self, number_jobs: int, stop: Optional[int] = None) -> List[slice]:
+        if number_jobs == 1 or self.slicer is None:
+            return [None]
         return self.slicer.slice(number_jobs, stop)
 

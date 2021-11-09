@@ -28,7 +28,7 @@ class JobController:
             jobscript_args: Optional[List] = None, aggregator_path: Optional[Path] = None,
             memory: str = "4G", cores: int = 6, job_name: str = "ParProcCo") -> None:
 
-        slice_params = self.program_wrapper.create_slices(number_jobs) if number_jobs > 1 else []
+        slice_params = self.program_wrapper.create_slices(number_jobs)
 
         sliced_jobs_success = self.run_sliced_jobs(slice_params, cluster_runner, jobscript_args, memory, cores, job_name)
 
