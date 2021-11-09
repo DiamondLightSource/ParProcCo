@@ -49,7 +49,7 @@ class JobController:
                 out_file = self.sliced_results[0]
             else:
                 self._run_aggregation_job(memory, cores)
-                out_file = self.aggregated_result[0]
+                out_file = self.aggregated_result
 
             if self.output_file is not None:
                 os.rename(out_file, self.output_file)
