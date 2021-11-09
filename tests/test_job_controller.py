@@ -36,6 +36,7 @@ class TestJobController(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             os.chdir(working_directory)
             cluster_output_name = "cluster_output"
+            os.mkdir(cluster_output_name, 0o775)
 
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
@@ -59,6 +60,7 @@ class TestJobController(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             os.chdir(working_directory)
             cluster_output_name = "cluster_output"
+            os.mkdir(cluster_output_name, 0o775)
 
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
@@ -85,6 +87,7 @@ class TestJobController(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             os.chdir(working_directory)
             cluster_output_name = "cluster_output"
+            os.mkdir(cluster_output_name, 0o775)
 
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
