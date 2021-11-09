@@ -46,7 +46,7 @@ class TestJobController(unittest.TestCase):
             input_path = setup_data_file(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
-            wrapper = ProgramWrapper(SimpleDataSlicer(), SimpleProcessingMode(), SimpleAggregationMode())
+            wrapper = ProgramWrapper(SimpleProcessingMode(), SimpleDataSlicer(), SimpleAggregationMode())
             wrapper.cluster_runner_path = runner_script
             wrapper.agg_script_path = aggregation_script
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES,
@@ -68,7 +68,7 @@ class TestJobController(unittest.TestCase):
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             sliced_results = [Path(working_directory) / f"out_{i}" for i in range(4)]
 
-            wrapper = ProgramWrapper(SimpleDataSlicer(), SimpleProcessingMode(), SimpleAggregationMode())
+            wrapper = ProgramWrapper(SimpleProcessingMode(), SimpleDataSlicer(), SimpleAggregationMode())
             wrapper.cluster_runner_path = runner_script
             wrapper.agg_script_path = aggregation_script
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
@@ -95,7 +95,7 @@ class TestJobController(unittest.TestCase):
             sliced_result = Path(working_directory) / cluster_output_name / f"out_0"
             aggregated_file = Path(working_directory) / cluster_output_name / "aggregated_results.txt"
 
-            wrapper = ProgramWrapper(SimpleDataSlicer(), SimpleProcessingMode(), SimpleAggregationMode())
+            wrapper = ProgramWrapper(SimpleProcessingMode(), SimpleDataSlicer(), SimpleAggregationMode())
             wrapper.cluster_runner_path = runner_script
             wrapper.agg_script_path = aggregation_script
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
