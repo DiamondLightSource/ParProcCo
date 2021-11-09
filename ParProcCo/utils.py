@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
@@ -47,7 +47,9 @@ def get_absolute_path(filename: Union[Path, str]) -> str:
     raise ValueError(f"{filename} not found")
 
 
-def slice_to_string(s: slice) -> str:
+def slice_to_string(s: Optional[slice]) -> str:
+    if s is None:
+        return '::'
     start = s.start
     stop = '' if s.stop is None else s.stop
     step = s.step

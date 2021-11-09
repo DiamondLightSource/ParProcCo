@@ -66,7 +66,7 @@ def write_lines(input_path, output_path, images):
     start, stop, step = images.split(":")
     start = int(start) if start else 0
     stop = int(stop) if stop else None
-    step = int(step)
+    step = int(step) if step else 1
     with open(input_path, "r") as in_f:
         for i, line in enumerate(in_f):
             if stop and i >= stop:
