@@ -97,6 +97,7 @@ class JobScheduler:
         self.jobscript_args = jobscript_args
         self.job_history[self.batch_number] = {}
         self.job_completion_status = {str(i): False for i in range(scheduler_mode.number_jobs)}
+        self.output_paths.clear()
         return self._run_and_monitor(job_indices)
 
     def _run_and_monitor(self, job_indices: List[int]) -> bool:
