@@ -24,7 +24,7 @@ class ProgramWrapper:
         return self.slicer.slice(number_jobs, stop)
 
     def get_output(self, output: str, _program_args: Optional[List[str]]) -> Path:
-        return output
+        return Path(output)
 
     def get_aggregate_script(self) -> str:
         return str(self.agg_script_path)
