@@ -13,6 +13,7 @@ class MSMProcessingMode(SchedulerModeInterface):
         """Overrides SchedulerModeInterface.set_parameters"""
         self.slice_params = slice_params
         self.number_jobs = len(slice_params)
+        assert(self.number_jobs > 1)
 
     def generate_output_paths(self, output_dir: Path, error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""

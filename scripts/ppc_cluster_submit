@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from pathlib import Path
 from typing import List
 
 from ParProcCo.job_controller import JobController
@@ -18,16 +17,16 @@ from ParProcCo.program_wrapper import ProgramWrapper
 
 def create_parser():
     '''
-     $ msm_cluster_submit rs_map --output cluster_output_dir --jobs 4 --cores 6 --memory 4G -s 0.01 ... [input files]
+     $ ppc_cluster_submit rs_map [--output cluster_output_dir] [--jobs 4] --cores 6 --memory 4G -s 0.01 ... [input files]
      '''
-    parser = argparse.ArgumentParser(description='Miller Space Mapper run script for use with ParProcCo')
-    parser.add_argument('-o', '--output', help='str: cluster output file or directory', required=True)
+    parser = argparse.ArgumentParser(description='ParProcCo run script')
+    parser.add_argument('-o', '--output', help='str: cluster output file or directory')
     parser.add_argument('--jobs', help='int: number of cluster jobs to split processing into', type=int, default=1)
     parser.add_argument('--memory', help='str: memory to use per cluster job', required=True)
     parser.add_argument('--cores', help='int: number of cores to use per cluster job', type=int, required=True)
     return parser
 
-def run_msm(args: argparse.Namespace, script_args: List) -> None:
+def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     '''
     Run JobController
     '''
@@ -52,25 +51,22 @@ def run_msm(args: argparse.Namespace, script_args: List) -> None:
         raise ValueError('SGE_CELL value not known (HAMILTON or DLS_SCIENCE)')
 
     logging.info('Running for beamline {} on cluster {} in queue {} with resources {}', beamline, cluster, cluster_queue, cluster_resources)
-    current_script_dir = Path(os.path.realpath(__file__)).parent
-    cluster_runner_path = current_script_dir / "msm_cluster_runner"
-    agg_script_path = current_script_dir / "nxdata_aggregate"
+    program = script_args[0]
     if args.jobs == 1:
-        wrapper = ProgramWrapper(SimpleDataSlicer(), PassThruProcessingMode())
+        wrapper = ProgramWrapper(PassThruProcessingMode())
     elif args.jobs > 1:
-        program = script_args[0]
         if program =='rs_map':
-            wrapper = ProgramWrapper(SimpleDataSlicer(), MSMProcessingMode(), NXdataAggregationMode())
+            wrapper = ProgramWrapper(MSMProcessingMode(), SimpleDataSlicer(), NXdataAggregationMode())
         else:
             raise ValueError(f'Program submitted {program} not supported for more than one job')
     else:
         raise ValueError(f'Number of jobs must be one or more, given {args.jobs}')
 
-    jc = JobController(wrapper, args.output, beamline, cluster_queue, cluster_resources)
-    jc.run(args.jobs, cluster_runner_path,
-       script_args, agg_script_path, args.memory, args.cores, "MSM")
+    output = wrapper.get_output(args.output, script_args)
+    jc = JobController(wrapper, output, beamline, cluster_queue, cluster_resources)
+    jc.run(args.jobs, script_args, args.memory, args.cores, "PPC-" + program)
     print("complete")
 
 if __name__ == '__main__':
     args, script_args = create_parser().parse_known_args()
-    run_msm(args, script_args)
+    run_ppc(args, script_args)

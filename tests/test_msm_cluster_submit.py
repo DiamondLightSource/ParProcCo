@@ -29,7 +29,7 @@ class TestClusterSubmit(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             os.chdir(working_directory)
             current_script_dir = Path(os.path.realpath(__file__)).parent
-            runner_script_path = str(current_script_dir.parent / "scripts" / f"{CLUSTER_PROJ}_cluster_submit")
+            submit_script_path = str(current_script_dir.parent / "scripts" / f"{CLUSTER_PROJ}_cluster_submit")
             cluster_output_name = "cluster_output"
 
             input_file_path = "/dls/science/groups/das/ExampleData/i07/i07-394487-applied.nxs"
@@ -40,7 +40,7 @@ class TestClusterSubmit(unittest.TestCase):
             os.environ["PYTHONPATH"] = f"{repo_dir}:{os.environ['PYTHONPATH']}" if 'PYTHONPATH' in os.environ else repo_dir
             os.environ["PATH"] = f"{repo_dir}/scripts:{os.environ['PATH']}"
 
-            args = [runner_script_path, "rs_map", "--jobs", "4", "-s", "0.01",
+            args = [submit_script_path, "rs_map", "--jobs", "4", "-s", "0.01",
                     "--output", cluster_output_name, "--cores", "6", "--memory", "4G", input_file_path]
             proc = subprocess.Popen(args)
             proc.communicate()
