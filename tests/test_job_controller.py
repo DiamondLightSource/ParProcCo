@@ -48,10 +48,11 @@ class TestJobController(unittest.TestCase):
 
             wrapper = ProgramWrapper(SimpleDataSlicer(), SimpleProcessingMode(), SimpleAggregationMode())
             wrapper.cluster_runner_path = runner_script
+            wrapper.agg_script_path = aggregation_script
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES,
                                 timeout=timedelta(seconds=1))
             with self.assertRaises(RuntimeError) as context:
-                jc.run(4, jobscript_args=runner_script_args, aggregator_path=aggregation_script)
+                jc.run(4, jobscript_args=runner_script_args)
             self.assertTrue(f"All jobs failed\n" in str(context.exception))
 
     def test_end_to_end(self) -> None:
@@ -69,8 +70,9 @@ class TestJobController(unittest.TestCase):
 
             wrapper = ProgramWrapper(SimpleDataSlicer(), SimpleProcessingMode(), SimpleAggregationMode())
             wrapper.cluster_runner_path = runner_script
+            wrapper.agg_script_path = aggregation_script
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
-            jc.run(4, jobscript_args=runner_script_args, aggregator_path=aggregation_script)
+            jc.run(4, jobscript_args=runner_script_args)
 
             with open(Path(working_directory) / cluster_output_name / "aggregated_results.txt", "r") as af:
                 agg_data = af.readlines()
@@ -95,8 +97,9 @@ class TestJobController(unittest.TestCase):
 
             wrapper = ProgramWrapper(SimpleDataSlicer(), SimpleProcessingMode(), SimpleAggregationMode())
             wrapper.cluster_runner_path = runner_script
+            wrapper.agg_script_path = aggregation_script
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
-            jc.run(1, jobscript_args=runner_script_args, aggregator_path=aggregation_script)
+            jc.run(1, jobscript_args=runner_script_args)
 
             self.assertEqual([sliced_result], jc.sliced_results)
             self.assertFalse(aggregated_file.is_file())
