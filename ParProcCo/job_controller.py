@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -24,9 +25,9 @@ class JobController:
         self.cluster_output_dir = check_location(output_dir)
         try:
             self.working_directory: Path = check_location(os.getcwd())
-        except:
+        except Exception:
+            logging.warning(f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir, exc_info=True)
             self.working_directory = self.cluster_output_dir
-            pass
         self.data_slicer: SlicerInterface
         self.project = project
         self.queue = queue
