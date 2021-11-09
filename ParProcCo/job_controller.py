@@ -48,7 +48,7 @@ class JobController:
             if number_jobs == 1:
                 out_file = self.sliced_results[0]
             else:
-                self.run_aggregation_job(memory, cores)
+                self._run_aggregation_job(memory, cores)
                 out_file = self.aggregated_result[0]
 
             if self.output_file is not None:
