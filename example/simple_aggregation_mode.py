@@ -9,6 +9,10 @@ from ParProcCo.utils import check_jobscript_is_readable, check_location, get_abs
 
 class SimpleAggregationMode(SchedulerModeInterface):
 
+    def __init__(self, program: Path) -> None:
+        self.program_path = program
+        self.cores = 1
+
     def set_parameters(self, sliced_results: List[Path]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""
         self.sliced_results = [str(res) for res in sliced_results]

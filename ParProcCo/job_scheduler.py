@@ -35,6 +35,7 @@ class JobScheduler:
         self.job_completion_status: Dict[str, bool] = {}
         self.job_history: Dict[int, Dict[int, StatusInfo]] = {}
         self.jobscript: Path
+        self.job_env: Optional[Dict[str, str]] = None
         self.jobscript_args: List
         self.output_paths: List[Path] = []
         self.project = self.check_project_list(project)
@@ -84,9 +85,10 @@ class JobScheduler:
             return True
         return False
 
-    def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, memory: str = "4G", cores: int = 6,
+    def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, job_env: Dict[str,str], memory: str = "4G", cores: int = 6,
             jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
         self.jobscript = check_jobscript_is_readable(jobscript)
+        self.job_env = job_env
         self.scheduler_mode = scheduler_mode
         self.memory = memory
         self.cores = cores
@@ -161,10 +163,12 @@ class JobScheduler:
                 "uge_jt_pe": f"smp",
             },
         })
+        job_env = dict(self.job_env) if self.job_env is not None else {}
         test_ppc_dir = os.getenv("TEST_PPC_DIR")
         if test_ppc_dir:
             logging.debug('Adding TEST_PPC_DIR=%s to environment', test_ppc_dir)
-            jt.job_environment = { "TEST_PPC_DIR": test_ppc_dir }
+            job_env.update(TEST_PPC_DIR=test_ppc_dir)
+        jt.job_environment = job_env
         return jt
 
     def _wait_for_jobs(self, session: drmaa2.JobSession) -> None:

@@ -31,6 +31,7 @@ class TestClusterSubmit(unittest.TestCase):
             current_script_dir = Path(os.path.realpath(__file__)).parent
             submit_script_path = str(current_script_dir.parent / "scripts" / f"{CLUSTER_PROJ}_cluster_submit")
             cluster_output_name = "cluster_output"
+            os.mkdir(cluster_output_name, 0o775)
 
             input_file_path = "/dls/science/groups/das/ExampleData/i07/i07-394487-applied.nxs"
 
@@ -42,7 +43,7 @@ class TestClusterSubmit(unittest.TestCase):
 
             args = [submit_script_path, "rs_map", "--jobs", "4", "-s", "0.01",
                     "--output", cluster_output_name, "--cores", "6", "--memory", "4G", input_file_path]
-            proc = subprocess.Popen(args)
+            proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             proc.communicate()
             cluster_output_dir = Path(working_directory) / cluster_output_name
             self.assertTrue(cluster_output_dir.is_dir())

@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
 from ParProcCo.utils import slice_to_string, check_jobscript_is_readable, check_location, get_absolute_path
 
 
 class SimpleProcessingMode(SchedulerModeInterface):
+    PPC_Modules = "python/3.9"
+
+    def __init__(self, program: Optional[Path] = None) -> None:
+        self.program_path = program
+        self.cores = 1
+        self.environment = {"PPC_MODULES":SimpleProcessingMode.PPC_Modules}
 
     def set_parameters(self, slice_params: List[slice]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""

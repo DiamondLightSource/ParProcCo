@@ -8,11 +8,8 @@ from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from example.simple_processing_mode import SimpleProcessingMode
-from example.simple_aggregation_mode import SimpleAggregationMode
+from example.simple_wrapper import SimpleWrapper
 from ParProcCo.job_controller import JobController
-from ParProcCo.program_wrapper import ProgramWrapper
-from ParProcCo.simple_data_slicer import SimpleDataSlicer
 from tests.utils import setup_aggregation_script, setup_data_file, setup_runner_script, setup_jobscript
 
 from tests.test_job_scheduler import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
@@ -47,9 +44,8 @@ class TestJobController(unittest.TestCase):
             input_path = setup_data_file(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
-            wrapper = ProgramWrapper(SimpleProcessingMode(), SimpleDataSlicer(), SimpleAggregationMode())
-            wrapper.cluster_runner_path = runner_script
-            wrapper.agg_script_path = aggregation_script
+            wrapper = SimpleWrapper(runner_script, aggregation_script)
+            wrapper.set_cores(6)
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES,
                                 timeout=timedelta(seconds=1))
             with self.assertRaises(RuntimeError) as context:
@@ -70,9 +66,8 @@ class TestJobController(unittest.TestCase):
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             sliced_results = [Path(working_directory) / f"out_{i}" for i in range(4)]
 
-            wrapper = ProgramWrapper(SimpleProcessingMode(), SimpleDataSlicer(), SimpleAggregationMode())
-            wrapper.cluster_runner_path = runner_script
-            wrapper.agg_script_path = aggregation_script
+            wrapper = SimpleWrapper(runner_script, aggregation_script)
+            wrapper.set_cores(6)
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
             jc.run(4, jobscript_args=runner_script_args)
 
@@ -98,9 +93,8 @@ class TestJobController(unittest.TestCase):
             sliced_result = Path(working_directory) / cluster_output_name / f"out_0"
             aggregated_file = Path(working_directory) / cluster_output_name / "aggregated_results.txt"
 
-            wrapper = ProgramWrapper(SimpleProcessingMode(), SimpleDataSlicer(), SimpleAggregationMode())
-            wrapper.cluster_runner_path = runner_script
-            wrapper.agg_script_path = aggregation_script
+            wrapper = SimpleWrapper(runner_script, aggregation_script)
+            wrapper.set_cores(6)
             jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
             jc.run(1, jobscript_args=runner_script_args)
 

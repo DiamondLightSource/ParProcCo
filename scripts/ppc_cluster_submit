@@ -9,11 +9,8 @@ import os
 from typing import List
 
 from ParProcCo.job_controller import JobController
-from ParProcCo.simple_data_slicer import SimpleDataSlicer
-from ParProcCo.msm_processing_mode import MSMProcessingMode
-from ParProcCo.nxdata_aggregation_mode import NXdataAggregationMode
-from ParProcCo.passthru_processing_mode import PassThruProcessingMode
-from ParProcCo.program_wrapper import ProgramWrapper
+from ParProcCo.msm_wrapper import MSMWrapper
+from ParProcCo.passthru_wrapper import PassThruWrapper
 
 def create_parser():
     '''
@@ -53,18 +50,18 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     logging.info('Running for beamline {} on cluster {} in queue {} with resources {}', beamline, cluster, cluster_queue, cluster_resources)
     program = script_args[0]
     if args.jobs == 1:
-        wrapper = ProgramWrapper(PassThruProcessingMode())
+        wrapper = PassThruWrapper()
     elif args.jobs > 1:
         if program =='rs_map':
-            wrapper = ProgramWrapper(MSMProcessingMode(), SimpleDataSlicer(), NXdataAggregationMode())
+            wrapper = MSMWrapper()
         else:
             raise ValueError(f'Program submitted {program} not supported for more than one job')
     else:
         raise ValueError(f'Number of jobs must be one or more, given {args.jobs}')
-
+    wrapper.set_cores(args.cores)
     output = wrapper.get_output(args.output, script_args)
     jc = JobController(wrapper, output, beamline, cluster_queue, cluster_resources)
-    jc.run(args.jobs, script_args, args.memory, args.cores, "PPC-" + program)
+    jc.run(args.jobs, script_args, args.memory, "PPC-" + program)
     print("complete")
 
 if __name__ == '__main__':

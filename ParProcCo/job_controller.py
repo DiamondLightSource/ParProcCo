@@ -37,18 +37,19 @@ class JobController:
         self.aggregated_result: Optional[Path] = None
 
     def run(self, number_jobs: int, jobscript_args: Optional[List] = None,
-            memory: str = "4G", cores: int = 6, job_name: str = "ParProcCo") -> None:
+            memory: str = "4G", job_name: str = "ParProcCo") -> None:
 
         self.cluster_runner = check_location(get_absolute_path(self.program_wrapper.get_cluster_runner_script()))
+        self.cluster_env = self.program_wrapper.get_environment()
         slice_params = self.program_wrapper.create_slices(number_jobs)
 
-        sliced_jobs_success = self._run_sliced_jobs(slice_params, jobscript_args, memory, cores, job_name)
+        sliced_jobs_success = self._run_sliced_jobs(slice_params, jobscript_args, memory, job_name)
 
         if sliced_jobs_success:
             if number_jobs == 1:
                 out_file = self.sliced_results[0]
             else:
-                self._run_aggregation_job(memory, cores)
+                self._run_aggregation_job(memory)
                 out_file = self.aggregated_result
 
             if self.output_file is not None:
@@ -57,7 +58,7 @@ class JobController:
             raise RuntimeError("Sliced jobs failed\n")
 
     def _run_sliced_jobs(self, slice_params: List[slice],
-                        jobscript_args: Optional[List], memory: str, cores: int, job_name: str):
+                        jobscript_args: Optional[List], memory: str, job_name: str):
         if jobscript_args is None:
             jobscript_args = []
 
@@ -66,7 +67,7 @@ class JobController:
 
         job_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project, self.queue,
                                           self.cluster_resources, self.timeout)
-        sliced_jobs_success = job_scheduler.run(processing_mode, self.cluster_runner, memory, cores, jobscript_args,
+        sliced_jobs_success = job_scheduler.run(processing_mode, self.cluster_runner, self.cluster_env, memory, processing_mode.cores, jobscript_args,
                                                      job_name)
 
         if not sliced_jobs_success:
@@ -75,7 +76,7 @@ class JobController:
         self.sliced_results = job_scheduler.get_output_paths() if sliced_jobs_success else None
         return sliced_jobs_success
 
-    def _run_aggregation_job(self, memory: str, cores: int) -> None:
+    def _run_aggregation_job(self, memory: str) -> None:
 
         aggregator_path = self.program_wrapper.get_aggregate_script()
         aggregating_mode = self.program_wrapper.aggregating_mode
@@ -91,7 +92,7 @@ class JobController:
 
         aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
                                                   self.queue, self.cluster_resources, self.timeout)
-        aggregation_success = aggregation_scheduler.run(aggregating_mode, self.cluster_runner, memory, cores,
+        aggregation_success = aggregation_scheduler.run(aggregating_mode, self.cluster_runner, self.cluster_env, memory, aggregating_mode.cores,
                                                              aggregation_args, aggregating_mode.__class__.__name__)
 
         if not aggregation_success:

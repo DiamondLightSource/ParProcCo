@@ -15,7 +15,7 @@ from ParProcCo.nxdata_aggregator import NXdataAggregator
 from ParProcCo.utils import decode_to_string
 
 
-class TestMSMAggregator(unittest.TestCase):
+class TestNXdataAggregator(unittest.TestCase):
 
     # TODO: need tests for all code paths
     def setUp(self) -> None:

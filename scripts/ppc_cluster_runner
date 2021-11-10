@@ -1,0 +1,18 @@
+#/usr/bin/bash
+if [ -z $MODULESHOME ]; then
+  . /etc/profile.d/modules.sh
+fi
+
+if [ $PPC_MODULES ]; then
+  for m in ${PPC_MODULES//:/ }; do
+     module load $m
+  done
+fi
+
+if [ $TEST_PPC_DIR ]; then
+  export PATH=$TEST_PPC_DIR/scripts:$PATH
+  export PYTHONPATH=$TEST_PPC_DIR:$PYTHONPATH
+fi
+
+echo "Executing |$@|"
+eval "$@"

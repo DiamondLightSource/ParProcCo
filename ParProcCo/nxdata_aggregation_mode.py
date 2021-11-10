@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import List, Tuple
 
@@ -7,6 +8,10 @@ from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
 from ParProcCo.utils import check_jobscript_is_readable, check_location, get_absolute_path
 
 class NXdataAggregationMode(SchedulerModeInterface):
+    def __init__(self):
+        current_script_dir = Path(os.path.realpath(__file__)).parent.parent / "scripts"
+        self.program_path = current_script_dir / "nxdata_aggregate"
+        self.cores = 1
 
     def set_parameters(self, sliced_results: List[Path]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""

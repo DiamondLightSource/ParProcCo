@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pathlib import Path
 
@@ -13,10 +13,9 @@ class ProgramWrapper:
         self.processing_mode = processing_mode
         self.slicer = slicer
         self.aggregating_mode = aggregating_mode
-        import os
-        current_script_dir = Path(os.path.realpath(__file__)).parent.parent / "scripts"
-        self.cluster_runner_path = current_script_dir / "msm_cluster_runner"
-        self.agg_script_path = current_script_dir / "nxdata_aggregate"
+
+    def set_cores(self, cores: int):
+        self.processing_mode.cores = cores
 
     def create_slices(self, number_jobs: int, stop: Optional[int] = None) -> List[slice]:
         if number_jobs == 1 or self.slicer is None:
@@ -27,7 +26,10 @@ class ProgramWrapper:
         return Path(output)
 
     def get_aggregate_script(self) -> str:
-        return str(self.agg_script_path)
+        return str(self.aggregating_mode.program_path)
 
     def get_cluster_runner_script(self) -> str:
-        return str(self.cluster_runner_path)
+        return str(self.processing_mode.program_path)
+
+    def get_environment(self) -> Dict[str,str]:
+        return self.processing_mode.environment

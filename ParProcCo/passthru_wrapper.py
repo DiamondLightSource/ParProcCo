@@ -3,11 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Tuple
 
-from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
-from ParProcCo.utils import check_jobscript_is_readable, check_location, get_absolute_path
+from .program_wrapper import ProgramWrapper
+from .scheduler_mode_interface import SchedulerModeInterface
+from .utils import check_jobscript_is_readable, check_location, get_absolute_path
 
 
 class PassThruProcessingMode(SchedulerModeInterface):
+    def __init__(self):
+        self.cores = 6
 
     def set_parameters(self, slice_params: List[slice]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""
@@ -25,3 +28,8 @@ class PassThruProcessingMode(SchedulerModeInterface):
         jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
         args = [jobscript, "--memory", memory, "--cores", str(cores), "--output", output_fp] + jobscript_args[1:]
         return tuple(args)
+
+class PassThruWrapper(ProgramWrapper):
+
+    def __init__(self):
+        super().__init__(PassThruProcessingMode())
