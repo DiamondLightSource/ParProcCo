@@ -19,9 +19,7 @@ def check_jobscript_is_readable(jobscript: Path) -> Path:
     except IOError:
         logging.error(f"{jobscript} cannot be opened")
         raise
-
-    else:
-        return jobscript
+    return jobscript
 
 def check_location(location: Union[Path, str]) -> Path:
     location_path = Path(location).resolve()
@@ -56,19 +54,20 @@ def slice_to_string(s: Optional[slice]) -> str:
     return f"{start}:{stop}:{step}"
 
 PPC_YAML='par_proc_co.yaml'
-def get_allowed_programs() -> Tuple[set[str], Path]:
+def get_allowed_programs() -> Tuple[dict[str,str], Path]:
     '''
     Get set of allowed program names from par_proc_co.yaml
     
     allowed_programs:
-        - rs_map
-        - blah2
-        - blah2
+        rs_map: msmapper_utils
+        blah1: whatever_package1
+        blah2: whatever_package2
     '''
     cfg = find_cfg_file(PPC_YAML)
     import yaml
-    d = yaml.safe_load(cfg)
-    return set(d['allowed_programs']), cfg
+    with open(cfg, 'r') as cff:
+        d = yaml.safe_load(cff)
+        return d['allowed_programs'], cfg
 
 def find_cfg_file(name: str) -> Path:
     '''
@@ -77,8 +76,8 @@ def find_cfg_file(name: str) -> Path:
     if cp.is_file():
         return cp
     
-    gg_parent = Path(os.path.realpath(__file__)).parent.parent.parent
-    places = (gg_parent, Path(os.getenv('CONDA_PREFIX', '')) / 'etc', Path('/etc'))
+    g_parent = Path(os.path.realpath(__file__)).parent.parent
+    places = (g_parent, Path(os.getenv('CONDA_PREFIX', '')) / 'etc', Path('/etc'))
     for p in places:
         cp = p / name
         if cp.is_file():

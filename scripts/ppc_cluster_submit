@@ -13,7 +13,7 @@ from ParProcCo.passthru_wrapper import PassThruWrapper
 
 def create_parser():
     '''
-     $ ppc_cluster_submit rs_map [--output cluster_output_dir] [--jobs 4] --cores 6 --memory 4G -s 0.01 ... [input files]
+     $ ppc_cluster_submit program [--output cluster_output_dir] [--jobs 4] --cores 6 --memory 4G -s 0.01 ... [input files]
      '''
     parser = argparse.ArgumentParser(description='ParProcCo run script')
     parser.add_argument('-o', '--output', help='str: cluster output file or directory')
@@ -58,13 +58,14 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
 
         import importlib
         try:
-            wrapper_module = importlib.import_module(f'{program}_wrapper')
-        except Exception:
-            raise ValueError(f'Cannot import {program}_wrapper as a Python module')
+            package = allowed[program]
+            wrapper_module = importlib.import_module(f'{package}.{program}_wrapper')
+        except Exception as exc:
+            raise ValueError(f'Cannot import {program}_wrapper as a Python module from package {package}') from exc
         try:
             wrapper = wrapper_module.Wrapper()
-        except Exception:
-            raise ValueError(f'Cannot create Wrapper from {program}_wrapper module')
+        except Exception as exc:
+            raise ValueError(f'Cannot create Wrapper from {program}_wrapper module') from exc
     else:
         raise ValueError(f'Number of jobs must be one or more, given {args.jobs}')
     wrapper.set_cores(args.cores)

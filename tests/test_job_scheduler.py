@@ -16,15 +16,7 @@ from ParProcCo.job_scheduler import JobScheduler, StatusInfo
 from ParProcCo.utils import check_jobscript_is_readable
 from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
 
-_sge_cell=os.getenv('SGE_CELL')
-if _sge_cell == 'HAMILTON':
-    CLUSTER_PROJ='p99'
-    CLUSTER_QUEUE='all.q'
-    CLUSTER_RESOURCES=None
-else:
-    CLUSTER_PROJ='b24'
-    CLUSTER_QUEUE='medium.q'
-    CLUSTER_RESOURCES={"cpu_model": "intel-xeon"}
+from .utils import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
 
 def create_js(work_dir, out_dir, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES, timeout=timedelta(hours=2)):
     return JobScheduler(work_dir, out_dir, project, queue, cluster_resources, timeout)

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-import warnings
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -264,7 +263,7 @@ class JobScheduler:
     def rerun_killed_jobs(self, allow_all_failed: bool = False):
         job_history = self.job_history
         if all(self.job_completion_status.values()):
-            warnings.warn("No failed jobs")
+            logging.info("No failed jobs")
             return True
         elif allow_all_failed or any(self.job_completion_status.values()):
             failed_jobs = [job_info for job_info in job_history[0].values() if job_info.final_state != "SUCCESS"]

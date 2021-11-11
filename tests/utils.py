@@ -4,6 +4,15 @@ import os
 from pathlib import Path
 from typing import List, Tuple
 
+_sge_cell=os.getenv('SGE_CELL')
+if _sge_cell == 'HAMILTON':
+    CLUSTER_PROJ='p99'
+    CLUSTER_QUEUE='all.q'
+    CLUSTER_RESOURCES=None
+else:
+    CLUSTER_PROJ='b24'
+    CLUSTER_QUEUE='medium.q'
+    CLUSTER_RESOURCES={"cpu_model": "intel-xeon"}
 
 def setup_aggregator_data_files(working_directory: Path) -> List[Path]:
     # create test files
