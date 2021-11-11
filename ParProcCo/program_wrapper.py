@@ -7,6 +7,8 @@ from pathlib import Path
 from .slicer_interface import SlicerInterface
 from .scheduler_mode_interface import SchedulerModeInterface
 
+import os
+
 class ProgramWrapper:
 
     def __init__(self, processing_mode: SchedulerModeInterface, slicer : Optional[SlicerInterface] = None, aggregating_mode: Optional[SchedulerModeInterface] = None):
@@ -32,4 +34,7 @@ class ProgramWrapper:
         return str(self.processing_mode.program_path)
 
     def get_environment(self) -> Dict[str,str]:
+        test_modules = os.getenv('TEST_PPC_MODULES')
+        if test_modules:
+            return {"PPC_MODULES":test_modules}
         return self.processing_mode.environment
