@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+log_cli = true
+
+[tool.mypy]
+plugins = "numpy.typing.mypy_plugin"
