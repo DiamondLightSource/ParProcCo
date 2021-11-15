@@ -69,7 +69,7 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     else:
         raise ValueError(f'Number of jobs must be one or more, given {args.jobs}')
     wrapper.set_cores(args.cores)
-    output = wrapper.get_output(args.output, script_args)
+    output = wrapper.get_output(args.output, script_args[1:])
     jc = JobController(wrapper, output, beamline, cluster_queue, cluster_resources)
     jc.run(args.jobs, script_args, args.memory, "PPC-" + program)
     print("complete")

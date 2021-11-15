@@ -27,11 +27,11 @@ class ProgramWrapper:
     def get_output(self, output: str, _program_args: Optional[List[str]]) -> Path:
         return Path(output)
 
-    def get_aggregate_script(self) -> str:
-        return str(self.aggregating_mode.program_path)
+    def get_aggregate_script(self) -> Optional[Path]:
+        return self.aggregating_mode.program_path if self.aggregating_mode else None
 
-    def get_cluster_runner_script(self) -> str:
-        return str(self.processing_mode.program_path)
+    def get_cluster_runner_script(self) -> Path:
+        return self.processing_mode.program_path
 
     def get_environment(self) -> Dict[str,str]:
         test_modules = os.getenv('TEST_PPC_MODULES')

@@ -52,8 +52,8 @@ class JobController:
                 self._run_aggregation_job(memory)
                 out_file = self.aggregated_result
 
-            if self.output_file is not None:
-                os.rename(out_file, self.output_file)
+            if out_file is not None and self.output_file is not None:
+                out_file.rename(self.output_file)
         else:
             raise RuntimeError("Sliced jobs failed\n")
 
