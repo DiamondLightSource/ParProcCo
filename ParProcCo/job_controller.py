@@ -17,14 +17,16 @@ class JobController:
         """JobController is used to coordinate cluster job submissions with JobScheduler"""
         self.program_wrapper = program_wrapper
         self.output_file: Optional[Path] = None
-        if output_dir_or_file.is_dir():
-            output_dir = output_dir_or_file
-        else:
-            output_dir = output_dir_or_file.parent
-            self.output_file = output_dir_or_file
-        self.cluster_output_dir = check_location(output_dir)
+        self.cluster_output_dir: Optional[Path] = None
+        if output_dir_or_file is not None:
+            if output_dir_or_file.is_dir():
+                output_dir = output_dir_or_file
+            else:
+                output_dir = output_dir_or_file.parent
+                self.output_file = output_dir_or_file
+            self.cluster_output_dir = check_location(output_dir)
         try:
-            self.working_directory: Path = check_location(os.getcwd())
+            self.working_directory: Optional[Path]= check_location(os.getcwd())
         except Exception:
             logging.warning(f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir, exc_info=True)
             self.working_directory = self.cluster_output_dir
@@ -47,7 +49,7 @@ class JobController:
 
         if sliced_jobs_success:
             if number_jobs == 1:
-                out_file = self.sliced_results[0]
+                out_file = self.sliced_results[0] if len(self.sliced_results) > 0 else None
             else:
                 self._run_aggregation_job(memory)
                 out_file = self.aggregated_result

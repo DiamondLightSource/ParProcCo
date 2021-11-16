@@ -26,11 +26,11 @@ class StatusInfo:
 
 class JobScheduler:
 
-    def __init__(self, working_directory: Union[Path, str], cluster_output_dir: Union[Path, str], project: str,
+    def __init__(self, working_directory: Optional[Union[Path, str]], cluster_output_dir: Optional[Union[Path, str]], project: str,
                  queue: str, cluster_resources: Optional[dict[str,str]] = None, timeout: timedelta = timedelta(hours=2)):
         """JobScheduler can be used for cluster job submissions"""
         self.batch_number = 0
-        self.cluster_output_dir = Path(cluster_output_dir)
+        self.cluster_output_dir = Path(cluster_output_dir) if cluster_output_dir else None
         self.job_completion_status: Dict[str, bool] = {}
         self.job_history: Dict[int, Dict[int, StatusInfo]] = {}
         self.jobscript: Path
@@ -42,7 +42,7 @@ class JobScheduler:
         self.start_time = datetime.now()
         self.status_infos: List[StatusInfo]
         self.timeout = timeout
-        self.working_directory = Path(working_directory)
+        self.working_directory = Path(working_directory) if working_directory else Path.home()
         self.resources: Dict[str, str] = {}
         if cluster_resources:
             self.resources.update(cluster_resources)
@@ -127,13 +127,16 @@ class JobScheduler:
             raise
 
     def _create_template(self, i: int) -> drmaa2.JobTemplate:
-        if not self.cluster_output_dir.is_dir():
-            logging.debug(f"Making directory {self.cluster_output_dir}")
-            self.cluster_output_dir.mkdir(exist_ok=True, parents=True)
-        else:
-            logging.debug(f"Directory {self.cluster_output_dir} already exists")
+        if self.cluster_output_dir:
+            if not self.cluster_output_dir.is_dir():
+                logging.debug(f"Making directory {self.cluster_output_dir}")
+                self.cluster_output_dir.mkdir(exist_ok=True, parents=True)
+            else:
+                logging.debug(f"Directory {self.cluster_output_dir} already exists")
 
-        error_dir = self.cluster_output_dir / "error_logs"
+            error_dir = self.cluster_output_dir / "error_logs"
+        else:
+            error_dir = self.working_directory / "error_logs"
         if not error_dir.is_dir():
             logging.debug(f"Making directory {error_dir}")
             error_dir.mkdir(exist_ok=True, parents=True)
@@ -141,7 +144,7 @@ class JobScheduler:
             logging.debug(f"Directory {error_dir} already exists")
 
         output_fp, std_out_fp, err_fp = self.scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i)
-        if output_fp not in self.output_paths:
+        if output_fp and output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
         args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
         print(f"creating template with jobscript: {str(self.jobscript)} and args: {args}")

@@ -24,8 +24,8 @@ class ProgramWrapper:
             return [None]
         return self.slicer.slice(number_jobs, stop)
 
-    def get_output(self, output: str, _program_args: Optional[List[str]]) -> Path:
-        return Path(output)
+    def get_output(self, output: Optional[str], _program_args: Optional[List[str]]) -> Optional[Path]:
+        return Path(output) if output else None
 
     def get_aggregate_script(self) -> Optional[Path]:
         return self.aggregating_mode.program_path if self.aggregating_mode else None
