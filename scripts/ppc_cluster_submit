@@ -75,5 +75,6 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     print("complete")
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.INFO)
     args, script_args = create_parser().parse_known_args()
     run_ppc(args, script_args)

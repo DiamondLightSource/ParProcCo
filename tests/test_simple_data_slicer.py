@@ -12,6 +12,7 @@ from ParProcCo.simple_data_slicer import SimpleDataSlicer
 class TestDataSlicer(unittest.TestCase):
 
     def setUp(self) -> None:
+        logging.getLogger().setLevel(logging.INFO)
         current_user = getpass.getuser()
         tmp_dir = f"/dls/tmp/{current_user}/"
         self.base_dir = f"/dls/tmp/{current_user}/tests/"

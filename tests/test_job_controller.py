@@ -17,6 +17,7 @@ from tests.test_job_scheduler import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOUR
 class TestJobController(unittest.TestCase):
 
     def setUp(self) -> None:
+        logging.getLogger().setLevel(logging.INFO)
         current_user = getpass.getuser()
         tmp_dir = f"/dls/tmp/{current_user}/"
         self.base_dir = f"/dls/tmp/{current_user}/tests/"
@@ -50,7 +51,7 @@ class TestJobController(unittest.TestCase):
                                 timeout=timedelta(seconds=1))
             with self.assertRaises(RuntimeError) as context:
                 jc.run(4, jobscript_args=runner_script_args)
-            self.assertTrue(f"All jobs failed\n" in str(context.exception))
+            self.assertTrue(f"All jobs failed. job_history: " in str(context.exception))
 
     def test_end_to_end(self) -> None:
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:

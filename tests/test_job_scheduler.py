@@ -24,12 +24,13 @@ def create_js(work_dir, out_dir, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, clus
 class TestJobScheduler(unittest.TestCase):
 
     def setUp(self) -> None:
+        logging.getLogger().setLevel(logging.INFO)
         current_user = getpass.getuser()
         tmp_dir = f"/dls/tmp/{current_user}/"
         self.base_dir = f"/dls/tmp/{current_user}/tests/"
         self.assertTrue(Path(tmp_dir).is_dir(), f"{tmp_dir} is not a directory")
         if not Path(self.base_dir).is_dir():
-            logging.debug(f"Making directory {self.base_dir}")
+            logging.info(f"Making directory {self.base_dir}")
             Path(self.base_dir).mkdir(exist_ok=True)
 
     def test_create_template_with_cluster_output_dir(self) -> None:
@@ -53,7 +54,6 @@ class TestJobScheduler(unittest.TestCase):
         self.assertTrue(cluster_output_dir_exists, msg="Cluster output directory was not created\n")
 
     def test_job_scheduler_runs(self) -> None:
-        # create directory for test files
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
@@ -78,7 +78,6 @@ class TestJobScheduler(unittest.TestCase):
                 self.assertEqual(expected_nums, file_content, msg=f"Output file {output_file} content was incorrect\n")
 
     def test_old_output_timestamps(self) -> None:
-        # create directory for test files
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             runner_script = setup_runner_script(working_directory)
@@ -393,7 +392,7 @@ class TestJobScheduler(unittest.TestCase):
             if raises_error:
                 with self.assertRaises(RuntimeError) as context:
                     js.rerun_killed_jobs(allow_all_failed)
-                self.assertTrue("All jobs failed" in str(context.exception))
+                self.assertTrue("All jobs failed. job_history: " in str(context.exception))
                 self.assertEqual(js.batch_number, 0)
                 return
 
