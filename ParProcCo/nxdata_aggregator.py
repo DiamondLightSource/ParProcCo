@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import string
 import warnings
 from datetime import datetime, timezone
@@ -49,10 +50,13 @@ class NXdataAggregator(AggregatorInterface):
         return aggregated_data_file
 
     def _renormalise(self, data_files: List[Path]) -> None:
+        start = datetime.now()
         self.data_files = data_files
         self._get_nxdata()
         self._initialise_arrays()
         self._accumulate_volumes()
+        aggregation_time = datetime.now() - start
+        logging.info(f"Aggregation completed in {aggregation_time}. Sliced file paths: {data_files}.")
 
     def _initialise_arrays(self) -> None:
         self._get_all_axes()
@@ -136,6 +140,7 @@ class NXdataAggregator(AggregatorInterface):
                     return group_name
             except KeyError:
                 warnings.warn(f"KeyError: {group_name} could not be accessed in {f}")
+                logging.warning(f"KeyError: {group_name} could not be accessed in {f}")
         raise ValueError(f"no {class_name} group found")
 
     def _get_default_signals_and_axes(self, nxdata: h5py.Group) -> None:
@@ -217,7 +222,7 @@ class NXdataAggregator(AggregatorInterface):
                 aux_signal[np.isnan(aux_signal)] = 0
 
     def _write_aggregation_file(self, aggregation_output: Path) -> Path:
-
+        logging.info(f"Writing aggregated data to file: {aggregation_output}")
         with h5py.File(aggregation_output, "w") as f:
             processed = f.create_group(self.nxentry_name)
             processed.attrs["NX_class"] = "NXentry"
@@ -267,4 +272,5 @@ class NXdataAggregator(AggregatorInterface):
                 if self.renormalisation:
                     binoculars["contributions"] = data_group["weight"]
 
+        logging.info(f"Aggregated data written to file: {aggregation_output}")
         return aggregation_output

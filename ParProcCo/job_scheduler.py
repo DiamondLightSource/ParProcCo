@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -147,7 +148,7 @@ class JobScheduler:
         if output_fp and output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
         args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
-        print(f"creating template with jobscript: {str(self.jobscript)} and args: {args}")
+        logging.info(f"creating template with jobscript: {str(self.jobscript)} and args: {args}")
 
         self.resources["m_mem_free"] = self.memory
         jt = drmaa2.JobTemplate({
@@ -185,10 +186,9 @@ class JobScheduler:
             jobs_running = False
             for job in job_list:
                 if job.get_state()[0] == drmaa2.JobState.RUNNING:
-                    logging.info(f"Job {job.id} timed out. Terminating job now.")
+                    logging.warning(f"Job {job.id} timed out. Terminating job now.")
                     jobs_running = True
                     job.terminate()
-                    print(f"terminating job {job.id}")
             if jobs_running:
                 # Termination takes some time, wait a max of 2 mins
                 session.wait_all_terminated(job_list, 120)
@@ -257,6 +257,7 @@ class JobScheduler:
         self.batch_number += 1
         self.job_history[self.batch_number] = {}
         self.job_completion_status = {str(i): False for i in job_indices}
+        logging.info(f"Resubmitting jobs with job_indices: {job_indices}")
         return self._run_and_monitor(job_indices)
 
     def filter_killed_jobs(self, jobs: List[drmaa2.Job]) -> List[drmaa2.Job]:
@@ -264,15 +265,17 @@ class JobScheduler:
         return killed_jobs
 
     def rerun_killed_jobs(self, allow_all_failed: bool = False):
+        logging.info("Rerunning killed jobs")
         job_history = self.job_history
         if all(self.job_completion_status.values()):
-            logging.info("No failed jobs")
+            logging.warning("No failed jobs to rerun")
             return True
         elif allow_all_failed or any(self.job_completion_status.values()):
             failed_jobs = [job_info for job_info in job_history[0].values() if job_info.final_state != "SUCCESS"]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             killed_jobs_indices = [job.i for job in killed_jobs]
+            logging.info(f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}")
             success = self.resubmit_jobs(killed_jobs_indices)
             return success
 
-        raise RuntimeError(f"All jobs failed\n")
+        raise RuntimeError(f"All jobs failed. job_history: {job_history}\n")

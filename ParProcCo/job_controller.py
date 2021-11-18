@@ -48,6 +48,7 @@ class JobController:
         sliced_jobs_success = self._run_sliced_jobs(slice_params, jobscript_args, memory, job_name)
 
         if sliced_jobs_success and self.sliced_results:
+            logging.info("Sliced jobs ran successfully.")
             if number_jobs == 1:
                 out_file = self.sliced_results[0] if len(self.sliced_results) > 0 else None
             else:
@@ -57,7 +58,8 @@ class JobController:
             if out_file is not None and self.output_file is not None:
                 out_file.rename(self.output_file)
         else:
-            raise RuntimeError("Sliced jobs failed\n")
+            logging.error(f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args}, memory: {memory}, job_name: {job_name}")
+            raise RuntimeError(f"Sliced jobs failed\n")
 
     def _run_sliced_jobs(self, slice_params: List[Optional[slice]],
                         jobscript_args: Optional[List], memory: str, job_name: str):
@@ -105,4 +107,5 @@ class JobController:
             for result in self.sliced_results:
                 os.remove(str(result))
         else:
+            logging.warning(f"Aggregated job was unsuccessful with aggregating_mode: {aggregating_mode}, cluster_runner: {self.cluster_runner}, cluster_env: {self.cluster_env}, aggregator_path: {aggregator_path}, aggregation_args: {aggregation_args}")
             self.aggregated_result = None
