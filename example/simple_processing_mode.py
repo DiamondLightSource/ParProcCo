@@ -11,7 +11,7 @@ class SimpleProcessingMode(SchedulerModeInterface):
     PPC_Modules = "python/3.9"
 
     def __init__(self, program: Optional[Path] = None) -> None:
-        self.program_path = program
+        self.program_path: Optional[Path] = program
         self.cores = 1
         self.environment = {"PPC_MODULES":SimpleProcessingMode.PPC_Modules}
 
@@ -20,12 +20,12 @@ class SimpleProcessingMode(SchedulerModeInterface):
         self.slice_params = slice_params
         self.number_jobs = len(slice_params)
 
-    def generate_output_paths(self, output_dir: Path, error_dir: Path, i: int) -> Tuple[str, str, str]:
+    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
         output_file = f"out_{i}"
         std_out_file = f"std_out_{i}"
         err_file = f"err_{i}"
-        output_fp = str(output_dir / output_file)
+        output_fp = str(output_dir / output_file) if output_dir else output_file
         std_out_fp = str(error_dir / std_out_file)
         err_fp = str(error_dir / err_file)
         return output_fp, std_out_fp, err_fp

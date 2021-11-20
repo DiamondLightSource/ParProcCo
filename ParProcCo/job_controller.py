@@ -28,7 +28,7 @@ class JobController:
         try:
             self.working_directory: Optional[Path]= check_location(os.getcwd())
         except Exception:
-            logging.warning(f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir, exc_info=True)
+            logging.warning(f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir)
             self.working_directory = self.cluster_output_dir
         self.data_slicer: SlicerInterface
         self.project = project
@@ -47,7 +47,7 @@ class JobController:
 
         sliced_jobs_success = self._run_sliced_jobs(slice_params, jobscript_args, memory, job_name)
 
-        if sliced_jobs_success:
+        if sliced_jobs_success and self.sliced_results:
             if number_jobs == 1:
                 out_file = self.sliced_results[0] if len(self.sliced_results) > 0 else None
             else:
@@ -59,7 +59,7 @@ class JobController:
         else:
             raise RuntimeError("Sliced jobs failed\n")
 
-    def _run_sliced_jobs(self, slice_params: List[slice],
+    def _run_sliced_jobs(self, slice_params: List[Optional[slice]],
                         jobscript_args: Optional[List], memory: str, job_name: str):
         if jobscript_args is None:
             jobscript_args = []
@@ -82,7 +82,7 @@ class JobController:
 
         aggregator_path = self.program_wrapper.get_aggregate_script()
         aggregating_mode = self.program_wrapper.aggregating_mode
-        if aggregating_mode is None:
+        if aggregating_mode is None or self.sliced_results is None:
             return
 
         aggregating_mode.set_parameters(self.sliced_results)

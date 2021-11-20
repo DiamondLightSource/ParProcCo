@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from .program_wrapper import ProgramWrapper
 from .scheduler_mode_interface import SchedulerModeInterface
@@ -22,7 +22,7 @@ class PassThruProcessingMode(SchedulerModeInterface):
         """Overrides SchedulerModeInterface.set_parameters"""
         self.number_jobs = 1
 
-    def generate_output_paths(self, output_dir: Path, error_dir: Path, i: int) -> Tuple[str, str, str]:
+    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
         std_out_fp = str(error_dir / f"std_out_{i}")
         err_fp = str(error_dir / f"err_{i}")

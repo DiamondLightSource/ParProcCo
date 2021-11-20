@@ -30,7 +30,7 @@ class JobScheduler:
                  queue: str, cluster_resources: Optional[dict[str,str]] = None, timeout: timedelta = timedelta(hours=2)):
         """JobScheduler can be used for cluster job submissions"""
         self.batch_number = 0
-        self.cluster_output_dir = Path(cluster_output_dir) if cluster_output_dir else None
+        self.cluster_output_dir: Optional[Path] = Path(cluster_output_dir) if cluster_output_dir else None
         self.job_completion_status: Dict[str, bool] = {}
         self.job_history: Dict[int, Dict[int, StatusInfo]] = {}
         self.jobscript: Path

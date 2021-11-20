@@ -19,7 +19,7 @@ class ProgramWrapper:
     def set_cores(self, cores: int):
         self.processing_mode.cores = cores
 
-    def create_slices(self, number_jobs: int, stop: Optional[int] = None) -> List[slice]:
+    def create_slices(self, number_jobs: int, stop: Optional[int] = None) -> List[Optional[slice]]:
         if number_jobs == 1 or self.slicer is None:
             return [None]
         return self.slicer.slice(number_jobs, stop)
@@ -30,7 +30,7 @@ class ProgramWrapper:
     def get_aggregate_script(self) -> Optional[Path]:
         return self.aggregating_mode.program_path if self.aggregating_mode else None
 
-    def get_cluster_runner_script(self) -> Path:
+    def get_cluster_runner_script(self) -> Optional[Path]:
         return self.processing_mode.program_path
 
     def get_environment(self) -> Dict[str,str]:

@@ -10,7 +10,7 @@ class SimpleDataSlicer(SlicerInterface):
     def __init__(self):
         pass
 
-    def slice(self, number_jobs: int, stop: Optional[int] = None) -> List[slice]:
+    def slice(self, number_jobs: int, stop: Optional[int] = None) -> List[Optional[slice]]:
         """Overrides SlicerInterface.slice"""
         if type(number_jobs) is not int:
             raise TypeError(f"number_jobs is {type(number_jobs)}, should be int\n")
@@ -20,5 +20,5 @@ class SimpleDataSlicer(SlicerInterface):
 
         if stop:
             number_jobs = min(stop, number_jobs)
-        slices = [slice(i, stop, number_jobs) for i in range(number_jobs)]
+        slices: List[Optional[slice]] = [slice(i, stop, number_jobs) for i in range(number_jobs)]
         return slices
