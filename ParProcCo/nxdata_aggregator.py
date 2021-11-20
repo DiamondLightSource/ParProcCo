@@ -255,7 +255,7 @@ class NXdataAggregator(AggregatorInterface):
                 binoculars.attrs["type"] = "space"
     
                 f.create_group("binoculars/axes")
-                binocular_axes = [axis.split("-axis")[0].upper() for axis in self.axes_names]
+                binocular_axes = [axis.split("-axis")[0].capitalize() for axis in self.axes_names]
                 for i, axis in enumerate(binocular_axes):
                     axis_min = self.axes_mins[i]
                     axis_max = self.axes_maxs[i]
