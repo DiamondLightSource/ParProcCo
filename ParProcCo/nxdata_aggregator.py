@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import string
-import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
@@ -139,7 +138,6 @@ class NXdataAggregator(AggregatorInterface):
                     group_name = decode_to_string(group_name)
                     return group_name
             except KeyError:
-                warnings.warn(f"KeyError: {group_name} could not be accessed in {f}")
                 logging.warning(f"KeyError: {group_name} could not be accessed in {f}")
         raise ValueError(f"no {class_name} group found")
 

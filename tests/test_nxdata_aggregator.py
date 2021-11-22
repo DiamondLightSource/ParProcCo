@@ -3,7 +3,6 @@ from __future__ import annotations
 import getpass
 import logging
 import unittest
-import warnings
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -286,11 +285,9 @@ class TestNXdataAggregator(unittest.TestCase):
                 entry_group = f.create_group("entry1")
                 entry_group.attrs["NX_class"] = "NXentry"
 
-                with warnings.catch_warnings(record=True) as w:
-                    warnings.simplefilter("always")
+                with self.assertLogs(level='WARNING') as cm:
                     aggregator._get_default_nxgroup(f, "NXentry")
-                self.assertEqual(len(w), 1)
-                self.assertTrue("KeyError: entry0 could not be accessed" in str(w[0].message))
+                    self.assertEqual(cm.output, ['WARNING:root:KeyError: entry0 could not be accessed in <HDF5 file "output.nxs" (mode r+)>'])
 
     @parameterized.expand([
         ("normal", "volume", ["weight"], True, [], None),
