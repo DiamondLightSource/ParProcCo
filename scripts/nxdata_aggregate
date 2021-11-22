@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 from ParProcCo.nxdata_aggregator import NXdataAggregator
@@ -31,5 +32,6 @@ def run_aggregator(args: argparse.Namespace) -> None:
 
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.INFO)
     args = create_parser().parse_args()
     run_aggregator(args)
