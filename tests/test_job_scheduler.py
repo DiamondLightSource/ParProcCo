@@ -109,7 +109,18 @@ class TestJobScheduler(unittest.TestCase):
             js._run_jobs(session, job_indices)
             js._wait_for_jobs(session)
             js.start_time = datetime.now()
+
+            with self.assertLogs(level='WARNING') as context:
+                js._report_job_info()
+                self.assertEqual(len(context.output), 4)
+                for i, err_msg in enumerate(context.output):
+                    self.assertTrue(err_msg.startswith("ERROR:root:drmaa job "))
+                    test_msg = f"with args ['{working_directory + '/test_script'}', '--input-path',"\
+                    f"'{working_directory + '/test_raw_data.txt'}'] has not created a new output file"\
+                    f" {working_directory + '/cluster_output/error_logs/std_out_' + str(i)} Terminating signal: 0."
+                    self.assertTrue(err_msg.endswith(test_msg))
             js._report_job_info()
+
             job_stats = js.job_completion_status
             # check failure list
             self.assertFalse(js.get_success(), msg=f"JobScheduler.success is not False\n")
@@ -188,7 +199,17 @@ class TestJobScheduler(unittest.TestCase):
 
             # run jobs
             js = create_js(working_directory, cluster_output_dir, timeout=timedelta(seconds=1))
-            js.run(processing_mode, runner_script, {}, jobscript_args=runner_script_args)
+
+            with self.assertLogs(level='WARNING') as context:
+                js.run(processing_mode, runner_script, {}, jobscript_args=runner_script_args)
+                self.assertEqual(len(context.output), 8)
+                for warn_msg in context.output[:4]:
+                    self.assertTrue(warn_msg.startswith("WARNING:root:Job "))
+                    self.assertTrue(warn_msg.endswith(" timed out. Terminating job now."))
+                for err_msg in context.output[4:]:
+                    self.assertTrue(err_msg.startswith("ERROR:root:drmaa job "))
+                    self.assertTrue(err_msg.endswith(" failed. Terminating signal: SIGKILL."))
+
             jh = js.job_history
             self.assertEqual(len(jh), 1, f"There should be one batch of jobs; job_history: {jh}\n")
             returned_jobs = jh[0]
