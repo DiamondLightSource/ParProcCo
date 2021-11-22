@@ -56,7 +56,7 @@ class NXdataAggregator(AggregatorInterface):
         self._initialise_arrays()
         self._accumulate_volumes()
         aggregation_time = datetime.now() - start
-        logging.info(f"Aggregation completed in {aggregation_time}. Sliced file paths: {data_files}.")
+        logging.info(f"Aggregation completed in {aggregation_time.seconds}. Sliced file paths: {data_files}.")
 
     def _initialise_arrays(self) -> None:
         self._get_all_axes()
@@ -222,6 +222,7 @@ class NXdataAggregator(AggregatorInterface):
                 aux_signal[np.isnan(aux_signal)] = 0
 
     def _write_aggregation_file(self, aggregation_output: Path) -> Path:
+        start = datetime.now()
         logging.info(f"Writing aggregated data to file: {aggregation_output}")
         with h5py.File(aggregation_output, "w") as f:
             processed = f.create_group(self.nxentry_name)
@@ -272,5 +273,6 @@ class NXdataAggregator(AggregatorInterface):
                 if self.renormalisation:
                     binoculars["contributions"] = data_group["weight"]
 
-        logging.info(f"Aggregated data written to file: {aggregation_output}")
+        elapsed_time = datetime.now() - start
+        logging.info(f"Aggregated data written in {elapsed_time.total_seconds()}. Aggregation file: {aggregation_output}")
         return aggregation_output
