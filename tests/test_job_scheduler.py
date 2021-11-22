@@ -18,7 +18,8 @@ from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
 
 from .utils import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
 
-def create_js(work_dir, out_dir, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES, timeout=timedelta(hours=2)):
+def create_js(work_dir, out_dir, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES,
+              timeout=timedelta(hours=2)):
     return JobScheduler(work_dir, out_dir, project, queue, cluster_resources, timeout)
 
 class TestJobScheduler(unittest.TestCase):

@@ -85,8 +85,8 @@ class JobScheduler:
             return True
         return False
 
-    def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, job_env: Dict[str,str], memory: str = "4G", cores: int = 6,
-            jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
+    def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, job_env: Dict[str,str], memory: str = "4G",
+            cores: int = 6, jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
         self.jobscript = check_jobscript_is_readable(jobscript)
         self.job_env = job_env
         self.scheduler_mode = scheduler_mode
@@ -119,7 +119,9 @@ class JobScheduler:
                 logging.debug(f"Submitting drmaa job with jobscript {self.jobscript} and args {template.args}")
                 job = session.run_job(template)
                 self.status_infos.append(StatusInfo(job, Path(template.output_path), i))
-                logging.debug(f"drmaa job for jobscript {self.jobscript} and args {template.args} has been submitted with id {job.id}")
+                logging.debug(
+                    f"drmaa job for jobscript {self.jobscript} and args {template.args}"
+                    f" has been submitted with id {job.id}")
         except drmaa2.Drmaa2Exception:
             logging.error(f"Drmaa exception", exc_info=True)
             raise
@@ -217,8 +219,7 @@ class JobScheduler:
             elif status_info.state == drmaa2.JobState.FAILED:
                 status_info.final_state = "FAILED"
                 logging.error(
-                    f"drmaa job {status_info.job.id} processing file filename failed."
-                    f" Terminating signal: {status_info.info.terminating_signal}."
+                    f"drmaa job {status_info.job.id} failed. Terminating signal: {status_info.info.terminating_signal}."
                 )
 
             elif not status_info.output_path.is_file():
@@ -234,7 +235,7 @@ class JobScheduler:
                 logging.error(
                     f"drmaa job {status_info.job.id} with args {self.jobscript_args} has not created"
                     f" a new output file {status_info.output_path}"
-                    f"Terminating signal: {status_info.info.terminating_signal}."
+                    f" Terminating signal: {status_info.info.terminating_signal}."
                 )
 
             elif status_info.state == drmaa2.JobState.DONE:
@@ -248,7 +249,8 @@ class JobScheduler:
             else:
                 status_info.final_state = "UNSPECIFIED"
                 logging.error(
-                    f"Unexpected job state for job {status_info.job.id} with args {self.jobscript_args}, job info: {status_info.info}"
+                    f"Unexpected job state for job {status_info.job.id}"
+                    f" with args {self.jobscript_args}, job info: {status_info.info}"
                 )
 
             self.job_history[self.batch_number][status_info.job.id] = status_info

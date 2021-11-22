@@ -11,7 +11,8 @@ import os
 
 class ProgramWrapper:
 
-    def __init__(self, processing_mode: SchedulerModeInterface, slicer : Optional[SlicerInterface] = None, aggregating_mode: Optional[SchedulerModeInterface] = None):
+    def __init__(self, processing_mode: SchedulerModeInterface, slicer : Optional[SlicerInterface] = None,
+                 aggregating_mode: Optional[SchedulerModeInterface] = None):
         self.processing_mode = processing_mode
         self.slicer = slicer
         self.aggregating_mode = aggregating_mode

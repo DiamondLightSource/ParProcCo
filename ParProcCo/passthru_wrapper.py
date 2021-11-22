@@ -28,7 +28,8 @@ class PassThruProcessingMode(SchedulerModeInterface):
         err_fp = str(error_dir / f"err_{i}")
         return str(output_dir) if output_dir else '', std_out_fp, err_fp
 
-    def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
+    def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str],
+                      output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i < self.number_jobs)
         jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))

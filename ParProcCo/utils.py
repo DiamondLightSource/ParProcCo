@@ -26,7 +26,8 @@ def check_location(location: Union[Path, str]) -> Path:
     top = location_path.parts[1]
     if top in ("dls", "dls_sw", "home"):
         return location_path
-    raise ValueError(f"{location_path} must be located within /dls, /dls_sw or /home (to be accessible from the cluster)")
+    raise ValueError(
+        f"{location_path} must be located within /dls, /dls_sw or /home (to be accessible from the cluster)")
 
 
 def decode_to_string(any_string: Union[bytes, str]) -> str:

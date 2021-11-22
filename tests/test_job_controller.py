@@ -69,7 +69,8 @@ class TestJobController(unittest.TestCase):
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
-            jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
+            jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE,
+                               cluster_resources=CLUSTER_RESOURCES)
             jc.run(4, jobscript_args=runner_script_args)
 
             with open(Path(working_directory) / cluster_output_name / "aggregated_results.txt", "r") as af:
@@ -96,7 +97,8 @@ class TestJobController(unittest.TestCase):
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
-            jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES)
+            jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE,
+                               cluster_resources=CLUSTER_RESOURCES)
             jc.run(1, jobscript_args=runner_script_args)
 
             self.assertEqual([sliced_result], jc.sliced_results)

@@ -272,5 +272,6 @@ class NXdataAggregator(AggregatorInterface):
                     binoculars["contributions"] = data_group["weight"]
 
         elapsed_time = datetime.now() - start
-        logging.info(f"Aggregated data written in {elapsed_time.total_seconds()}. Aggregation file: {aggregation_output}")
+        logging.info(
+            f"Aggregated data written in {elapsed_time.total_seconds()}. Aggregation file: {aggregation_output}")
         return aggregation_output

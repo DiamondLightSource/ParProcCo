@@ -13,7 +13,8 @@ from .program_wrapper import ProgramWrapper
 
 class JobController:
 
-    def __init__(self, program_wrapper: ProgramWrapper, output_dir_or_file: Path, project: str, queue: str, cluster_resources: Optional[dict[str,str]] = None, timeout: timedelta = timedelta(hours=2)):
+    def __init__(self, program_wrapper: ProgramWrapper, output_dir_or_file: Path, project: str, queue: str,
+                 cluster_resources: Optional[dict[str,str]] = None, timeout: timedelta = timedelta(hours=2)):
         """JobController is used to coordinate cluster job submissions with JobScheduler"""
         self.program_wrapper = program_wrapper
         self.output_file: Optional[Path] = None
@@ -58,7 +59,8 @@ class JobController:
             if out_file is not None and self.output_file is not None:
                 out_file.rename(self.output_file)
         else:
-            logging.error(f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args}, memory: {memory}, job_name: {job_name}")
+            logging.error(f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args},"\
+                          f" memory: {memory}, job_name: {job_name}")
             raise RuntimeError(f"Sliced jobs failed\n")
 
     def _run_sliced_jobs(self, slice_params: List[Optional[slice]],
@@ -71,7 +73,8 @@ class JobController:
 
         job_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project, self.queue,
                                           self.cluster_resources, self.timeout)
-        sliced_jobs_success = job_scheduler.run(processing_mode, self.cluster_runner, self.cluster_env, memory, processing_mode.cores, jobscript_args,
+        sliced_jobs_success = job_scheduler.run(processing_mode, self.cluster_runner, self.cluster_env, memory,
+                                                processing_mode.cores, jobscript_args,
                                                      job_name)
 
         if not sliced_jobs_success:
@@ -96,8 +99,9 @@ class JobController:
 
         aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
                                                   self.queue, self.cluster_resources, self.timeout)
-        aggregation_success = aggregation_scheduler.run(aggregating_mode, self.cluster_runner, self.cluster_env, memory, aggregating_mode.cores,
-                                                             aggregation_args, aggregating_mode.__class__.__name__)
+        aggregation_success = aggregation_scheduler.run(aggregating_mode, self.cluster_runner, self.cluster_env, memory,
+                                                        aggregating_mode.cores, aggregation_args,
+                                                        aggregating_mode.__class__.__name__)
 
         if not aggregation_success:
             aggregation_scheduler.rerun_killed_jobs(allow_all_failed=True)
@@ -107,5 +111,6 @@ class JobController:
             for result in self.sliced_results:
                 os.remove(str(result))
         else:
-            logging.warning(f"Aggregated job was unsuccessful with aggregating_mode: {aggregating_mode}, cluster_runner: {self.cluster_runner}, cluster_env: {self.cluster_env}, aggregator_path: {aggregator_path}, aggregation_args: {aggregation_args}")
+            logging.warning(f"Aggregated job was unsuccessful with aggregating_mode: {aggregating_mode},"\
+                            f" cluster_runner: {self.cluster_runner}, cluster_env: {self.cluster_env}, aggregator_path: {aggregator_path}, aggregation_args: {aggregation_args}")
             self.aggregated_result = None

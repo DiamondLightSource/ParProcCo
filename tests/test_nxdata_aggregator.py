@@ -102,9 +102,11 @@ class TestNXdataAggregator(unittest.TestCase):
         ("no_aux", (2, 3, 4), False, None, [], None, None),
         ("axes_wrong", (2, 4, 3), True, ["weight"], [], AssertionError, "axes_lengths must equal volumes_array.shape"),
         ("non_weight_signals", (2, 3, 4), False, ["other_0", "other_1"], ["other_0", "other_1"], None, None),
-        ("non_weight_signals_plus_weight", (2, 3, 4), True, ["weight", "other_0", "other_1"], ["other_0", "other_1"], None, None)
+        ("non_weight_signals_plus_weight", (2, 3, 4), True, ["weight", "other_0", "other_1"], ["other_0", "other_1"],
+         None, None)
     ])
-    def test_initialise_arrays(self, name, shape, has_weight, aux_signal_names, non_weight_names, error_name, error_msg) -> None:
+    def test_initialise_arrays(self, name, shape, has_weight, aux_signal_names, non_weight_names, error_name,
+                               error_msg) -> None:
         aggregator = NXdataAggregator()
         aggregator.data_dimensions = 3
         aggregator.nxentry_name = "default_entry"
@@ -287,7 +289,9 @@ class TestNXdataAggregator(unittest.TestCase):
 
                 with self.assertLogs(level='WARNING') as cm:
                     aggregator._get_default_nxgroup(f, "NXentry")
-                    self.assertEqual(cm.output, ['WARNING:root:KeyError: entry0 could not be accessed in <HDF5 file "output.nxs" (mode r+)>'])
+                    self.assertEqual(
+                        cm.output,
+                        ['WARNING:root:KeyError: entry0 could not be accessed in <HDF5 file "output.nxs" (mode r+)>'])
 
     @parameterized.expand([
         ("normal", "volume", ["weight"], True, [], None),
