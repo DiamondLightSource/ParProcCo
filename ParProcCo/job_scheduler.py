@@ -241,7 +241,7 @@ class JobScheduler:
                 self.job_completion_status[str(status_info.i)] = True
                 status_info.final_state = "SUCCESS"
                 logging.info(
-                    f"Job {status_info.job.id} with with args {self.jobscript_args} completed"
+                    f"Job {status_info.job.id} with args {self.jobscript_args} completed"
                     f" successfully after {status_info.info.wallclock_time}."
                     f" CPU time={timedelta(seconds=float(status_info.info.cpu_time))}, slots={status_info.info.slots}"
                 )
