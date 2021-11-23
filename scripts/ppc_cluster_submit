@@ -39,14 +39,14 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
         from getpass import getuser
         if getuser() == 'gda2':
             cluster_queue = 'high.q'
-            logging.debug('User is gda2 so using cluster queue {}', cluster_queue)
+            logging.debug('User is gda2 so using cluster queue %s', cluster_queue)
         else:
             cluster_queue = 'medium.q'
         cluster_resources = {"cpu_model": "intel-xeon"}
     else:
         raise ValueError('SGE_CELL value not known (HAMILTON or DLS_SCIENCE)')
 
-    logging.info('Running for beamline {} on cluster {} in queue {} with resources {}', beamline, cluster, cluster_queue, cluster_resources)
+    logging.info('Running for beamline %s on cluster %s in queue %s with resources %s', beamline, cluster, cluster_queue, cluster_resources)
     program = script_args[0]
     if args.jobs == 1:
         wrapper = PassThruWrapper()
