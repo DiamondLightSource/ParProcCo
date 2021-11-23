@@ -116,8 +116,9 @@ class TestJobScheduler(unittest.TestCase):
                 for i, err_msg in enumerate(context.output):
                     self.assertTrue(err_msg.startswith("ERROR:root:drmaa job "))
                     test_msg = f"with args ['{working_directory + '/test_script'}', '--input-path',"\
-                    f"'{working_directory + '/test_raw_data.txt'}'] has not created a new output file"\
+                    f" '{working_directory + '/test_raw_data.txt'}'] has not created a new output file"\
                     f" {working_directory + '/cluster_output/error_logs/std_out_' + str(i)} Terminating signal: 0."
+
                     self.assertTrue(err_msg.endswith(test_msg))
             js._report_job_info()
 
