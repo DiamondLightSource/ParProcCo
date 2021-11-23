@@ -1,2 +1,6 @@
 h5py==2.10.0
-numpy==1.18.1
+numpy==1.19.5
+parameterized==0.8.1
+PyYAML==6.0
+setuptools==49.6.0.post20210108
+uge_drmaa2==8.7.0
