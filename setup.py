@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 from ParProcCo import __version__
 
@@ -6,6 +6,8 @@ setup(
     name='ParProcCo',
     version=__version__,
     description='Parallel Processing Coordinator. Splits dataset processing to run parallel cluster jobs and aggregates outputs',
-    packages=['ParProcCo'],
-    install_requires=['drmaa2', 'h5py', 'numpy', 'parameterized', 'PyYAML'],
+    author_email="dataanalysis@diamond.ac.uk",
+    packages=find_packages(),
+    install_requires=['h5py', 'numpy', 'parameterized', 'PyYAML', 'uge-drmaa2'],
+    url='https://github.com/DiamondLightSource/ParProcCo',
 )
