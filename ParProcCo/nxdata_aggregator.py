@@ -55,7 +55,7 @@ class NXdataAggregator(AggregatorInterface):
         self._initialise_arrays()
         self._accumulate_volumes()
         aggregation_time = datetime.now() - start
-        logging.info(f"Aggregation completed in {aggregation_time.seconds}. Sliced file paths: {data_files}.")
+        logging.info(f"Aggregation completed in {aggregation_time.total_seconds():.3f}s. Sliced file paths: {data_files}.")
 
     def _initialise_arrays(self) -> None:
         self._get_all_axes()
@@ -273,5 +273,5 @@ class NXdataAggregator(AggregatorInterface):
 
         elapsed_time = datetime.now() - start
         logging.info(
-            f"Aggregated data written in {elapsed_time.total_seconds()}. Aggregation file: {aggregation_output}")
+            f"Aggregated data written in {elapsed_time.total_seconds():.3f}s. Aggregation file: {aggregation_output}")
         return aggregation_output
