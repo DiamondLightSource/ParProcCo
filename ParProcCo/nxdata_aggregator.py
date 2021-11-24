@@ -251,13 +251,22 @@ class NXdataAggregator(AggregatorInterface):
 
             f.attrs["default"] = self.nxentry_name
 
-            for i, filepath in enumerate(self.data_files):
-                f[f"entry{i}"] = h5py.ExternalLink(str(filepath), self.nxentry_name)
+            i = 0
+            process_key = "/".join([self.nxentry_name, "process"])
+            for filepath in self.data_files:
+                with h5py.File(filepath, "r") as df:
+                    if process_key in df:
+                        if not "old_processed" in f:
+                            old_processed = f.create_group("old_processed")
+                            old_processed.attrs["NX_class"] = "NXentry"
+                            logging.info(f"Created old_processed group in {aggregation_output}")
+                        df.copy(process_key, old_processed, name=f"process{i}")
+                        logging.info(f"Copied {process_key} group from {filepath} to old_processed group in {aggregation_output}")
+                        i += 1
 
             if self.is_binoculars:
                 binoculars = f.create_group("binoculars")
                 binoculars.attrs["type"] = "space"
-    
                 f.create_group("binoculars/axes")
                 binocular_axes = [axis.split("-axis")[0].capitalize() for axis in self.axes_names]
                 for i, axis in enumerate(binocular_axes):
@@ -266,7 +275,6 @@ class NXdataAggregator(AggregatorInterface):
                     scaling = (self.accumulator_axis_lengths[i] - 1) / (axis_max - axis_min)
                     axis_dataset = [i, axis_min, axis_max, self.axes_spacing[i], axis_min * scaling, axis_max * scaling]
                     f.create_dataset(f"binoculars/axes/{axis}", data=axis_dataset)
-    
                 binoculars["counts"] = data_group[self.signal_name]
                 if self.renormalisation:
                     binoculars["contributions"] = data_group["weight"]
