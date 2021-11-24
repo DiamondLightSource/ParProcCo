@@ -1,0 +1,48 @@
+{% set name = "parprocco" %}
+{% set version = "1.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ../
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . -vv"
+
+requirements:
+  host:
+    - python
+    - pip
+  run:
+    - python
+    - numpy
+    - h5py
+    - PyYAML
+    - uge-drmaa2
+
+test:
+  imports:
+    - {{ name }}
+  source_files:
+    - tests
+  requires:
+    - parameterized
+  commands:
+    - python -m unittest discover tests -p "test_*.py" -vv
+
+about:
+  home: https://github.com/DiamondLightSource/{{ name }}
+  license: BSD-3-Clause
+  license_family: BSD
+  license_file: LICENSE
+  summary: 'Parallel Processing Coordinator'
+
+  description:
+    Parallel Processing Coordinator. Splits dataset processing to run parallel
+    cluster jobs and aggregates outputs.
+  doc_url: https://github.com/DiamondLightSource/{{ name }}/blob/master/README.md
+  dev_url: https://github.com/DiamondLightSource/{{ name }}
+
