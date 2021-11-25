@@ -8,6 +8,7 @@ setup(
     description='Parallel Processing Coordinator. Splits dataset processing to run parallel cluster jobs and aggregates outputs',
     author_email="dataanalysis@diamond.ac.uk",
     packages=find_packages(),
-    install_requires=['h5py', 'numpy', 'parameterized', 'PyYAML', 'uge-drmaa2'],
+    install_requires=['h5py', 'numpy', 'PyYAML', 'uge-drmaa2'],
+    extras_require=['parameterized'],
     url='https://github.com/DiamondLightSource/ParProcCo',
 )
