@@ -130,16 +130,22 @@ class NXdataAggregator(AggregatorInterface):
             assert class_type == class_name, f"{group_name} class_name must be {class_name}"
             return group_name
 
-        for group_name in f.keys():
+        group_name = self._get_group_name(f, class_name)
+        if group_name:
+            return group_name
+
+        raise ValueError(f"no {class_name} group found")
+
+    def _get_group_name(self, group: Union[h5py.File, h5py.Group], class_name: str) -> Union[str, None]:
+        for group_name in group.keys():
             try:
-                class_type = f[group_name].attrs.get("NX_class", '')
+                class_type = group[group_name].attrs.get("NX_class", '')
                 class_type = decode_to_string(class_type)
                 if class_type == class_name:
                     group_name = decode_to_string(group_name)
                     return group_name
             except KeyError:
-                logging.warning(f"KeyError: {group_name} could not be accessed in {f}")
-        raise ValueError(f"no {class_name} group found")
+                logging.warning(f"KeyError: {group_name} could not be accessed in {group}")
 
     def _get_default_signals_and_axes(self, nxdata: h5py.Group) -> None:
         self.renormalisation = False
