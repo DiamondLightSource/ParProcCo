@@ -9,6 +9,6 @@ setup(
     author_email="dataanalysis@diamond.ac.uk",
     packages=find_packages(),
     install_requires=['h5py', 'numpy', 'PyYAML', 'uge-drmaa2'],
-    extras_require=['parameterized'],
+    extras_require={'testing': ['parameterized'],},
     url='https://github.com/DiamondLightSource/ParProcCo',
 )
