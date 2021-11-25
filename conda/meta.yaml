@@ -20,7 +20,7 @@ requirements:
     - python
     - numpy
     - h5py
-    - PyYAML
+    - pyyaml
     - uge-drmaa2
 
 test:
@@ -45,4 +45,9 @@ about:
     cluster jobs and aggregates outputs.
   doc_url: https://github.com/DiamondLightSource/{{ name }}/blob/master/README.md
   dev_url: https://github.com/DiamondLightSource/{{ name }}
+
+extra:
+  recipe-maintainers:
+    - PeterC-DLS
+    - VictoriaBeilsten-Edmands
 
