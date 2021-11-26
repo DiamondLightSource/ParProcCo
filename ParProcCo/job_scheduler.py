@@ -244,7 +244,7 @@ class JobScheduler:
                 wallclock_time = "0" if status_info.info.wallclock_time == "ZERO_TIME" else status_info.info.wallclock_time
                 logging.info(
                     f"Job {status_info.job.id} with args {self.jobscript_args} completed"
-                    f" successfully after {wallclock_time}."
+                    f" successfully in {wallclock_time}."
                     f" CPU time={timedelta(seconds=float(status_info.info.cpu_time))}, slots={status_info.info.slots}"
                 )
             else:
