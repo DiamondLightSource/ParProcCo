@@ -131,10 +131,10 @@ class NXdataAggregator(AggregatorInterface):
             return group_name
 
         group_name = self._get_group_name(f, class_name)
-        for name in group_name:
-            return name
-
-        raise ValueError(f"no {class_name} group found")
+        try:
+            return next(group_name)
+        except StopIteration:
+            raise ValueError(f"no {class_name} group found")
 
     def _get_group_name(self, group: Union[h5py.File, h5py.Group], class_name: str) -> Iterator[str]:
         for group_name in group.keys():
