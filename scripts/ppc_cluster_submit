@@ -26,33 +26,37 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     '''
     Run JobController
     '''
-    beamline = os.getenv('BEAMLINE')
-    if not beamline:
-        raise ValueError('BEAMLINE environment variable not defined')
-    cluster = os.getenv('SGE_CELL')
-    if not cluster:
-        raise ValueError('SGE_CELL environment variable not defined. Module load global/cluster or hamilton')
-    if cluster == 'HAMILTON':
-        cluster_queue = 'all.q'
-        cluster_resources = None
-    elif cluster == 'DLS_SCIENCE':
-        from getpass import getuser
-        if getuser() == 'gda2':
-            cluster_queue = 'high.q'
-            logging.debug('User is gda2 so using cluster queue %s', cluster_queue)
-        else:
-            cluster_queue = 'medium.q'
-        cluster_resources = {"cpu_model": "intel-xeon"}
-    else:
-        raise ValueError('SGE_CELL value not known (HAMILTON or DLS_SCIENCE)')
+    from ParProcCo.utils import load_cfg
+    cfg = load_cfg()
 
-    logging.info('Running for beamline %s on cluster %s in queue %s with resources %s', beamline, cluster, cluster_queue, cluster_resources)
+    project = os.getenv(cfg.project_env_var)
+    if not project:
+        raise ValueError(f'{cfg.project_env_var} environment variable not defined')
+    cluster_name = os.getenv('SGE_CELL')
+    if not cluster_name: # Module load global/cluster or hamilton
+        raise ValueError(f'SGE_CELL environment variable not defined. {cfg.cluster_help_msg}')
+    if cluster_name not in cfg.clusters:
+        raise ValueError(f'SGE_CELL value not known {cfg.clusters.keys()})')
+        
+    cluster = cfg.clusters[cluster_name]
+    cluster_resources = cluster.resources
+    cluster_queue = cluster.default_queue
+    if cluster.user_queues:
+        from getpass import getuser
+        user = getuser()
+        if cluster.user_queues:
+            for q,us in cluster.user_queues.items():
+                if user in us:
+                    cluster_queue = q
+                    logging.debug('User is %s so using cluster queue %s', user, cluster_queue)
+                    break
+
+    logging.info('Running for project %s on cluster %s in queue %s with resources %s', project, cluster, cluster_queue, cluster_resources)
     program = script_args[0]
     if args.jobs == 1:
         wrapper = PassThruWrapper()
     elif args.jobs > 1:
-        from ParProcCo.utils import get_allowed_programs
-        allowed, cfg = get_allowed_programs()
+        allowed = cfg.allowed_programs
         if program not in allowed:
             raise ValueError(f'{program} not on allowed list in {cfg}')
 
@@ -70,7 +74,7 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
         raise ValueError(f'Number of jobs must be one or more, given {args.jobs}')
     wrapper.set_cores(args.cores)
     output = wrapper.get_output(args.output, script_args[1:])
-    jc = JobController(wrapper, output, beamline, cluster_queue, cluster_resources)
+    jc = JobController(wrapper, output, project, cluster_queue, cluster_resources)
     jc.run(args.jobs, script_args, args.memory, "PPC-" + program)
     print("complete")
 
