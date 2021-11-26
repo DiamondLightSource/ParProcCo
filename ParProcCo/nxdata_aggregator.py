@@ -4,7 +4,7 @@ import logging
 import string
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 import h5py
 import numpy as np
@@ -131,19 +131,19 @@ class NXdataAggregator(AggregatorInterface):
             return group_name
 
         group_name = self._get_group_name(f, class_name)
-        if group_name:
-            return group_name
+        for name in group_name:
+            return name
 
         raise ValueError(f"no {class_name} group found")
 
-    def _get_group_name(self, group: Union[h5py.File, h5py.Group], class_name: str) -> Union[str, None]:
+    def _get_group_name(self, group: Union[h5py.File, h5py.Group], class_name: str) -> Iterator[str]:
         for group_name in group.keys():
             try:
                 class_type = group[group_name].attrs.get("NX_class", '')
                 class_type = decode_to_string(class_type)
                 if class_type == class_name:
                     group_name = decode_to_string(group_name)
-                    return group_name
+                    yield group_name
             except KeyError:
                 logging.warning(f"KeyError: {group_name} could not be accessed in {group}")
 
@@ -261,13 +261,15 @@ class NXdataAggregator(AggregatorInterface):
                 with h5py.File(filepath, "r") as df:
                     data_nxentry_group = df[self.nxentry_name]
                     group_name = self._get_group_name(data_nxentry_group, "NXprocess")
-                    if group_name:
+                    for j, name in enumerate(group_name):
                         if not "old_processed" in f:
                             old_processed = f.create_group("old_processed")
                             old_processed.attrs["NX_class"] = "NXentry"
                             logging.info(f"Created 'old_processed' group in {aggregation_output}")
-                        data_nxentry_group.copy(group_name, old_processed, name=f"process{i}")
-                        logging.info(f"Copied '{'/'.join([data_nxentry_group.name, group_name])}' group in {filepath} to 'old_processed 'group in {aggregation_output}")
+                        data_nxentry_group.copy(name, old_processed, name=f"process{i}.{j}")
+                        logging.info(
+                            f"Copied '{'/'.join([data_nxentry_group.name, name])}' group in {filepath} to"
+                            f" '{'/'.join(['old_processed', f'process{i}.{j}'])}' group in {aggregation_output}")
 
             if self.is_binoculars:
                 binoculars = f.create_group("binoculars")

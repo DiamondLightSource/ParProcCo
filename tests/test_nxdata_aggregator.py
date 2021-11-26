@@ -598,8 +598,8 @@ class TestNXdataAggregator(unittest.TestCase):
             self.assertEqual(aggregation_results, aggregation_file)
             with h5py.File(aggregation_results, "r") as af:
                 self.assertTrue("old_processed" in af)
-                self.assertTrue("old_processed/process0" in af)
-                self.assertTrue("old_processed/process1" in af)
+                self.assertTrue("old_processed/process0.0" in af)
+                self.assertTrue("old_processed/process1.0" in af)
                 self.assertTrue("processed" in af)
                 self.assertTrue("processed/process" in af)
                 aggregated_volumes = np.array(af["processed/reciprocal_space/volume"])
