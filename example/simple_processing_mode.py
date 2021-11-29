@@ -23,12 +23,10 @@ class SimpleProcessingMode(SchedulerModeInterface):
     def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
         output_file = f"out_{i}"
-        std_out_file = f"std_out_{i}"
-        err_file = f"err_{i}"
         output_fp = str(output_dir / output_file) if output_dir else output_file
-        std_out_fp = str(error_dir / std_out_file)
-        err_fp = str(error_dir / err_file)
-        return output_fp, std_out_fp, err_fp
+        stdout_fp = str(error_dir / f"out_{i}")
+        stderr_fp = str(error_dir / f"err_{i}")
+        return output_fp, stdout_fp, stderr_fp
 
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""

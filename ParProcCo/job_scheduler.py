@@ -146,7 +146,7 @@ class JobScheduler:
         else:
             logging.debug(f"Directory {error_dir} already exists")
 
-        output_fp, std_out_fp, err_fp = self.scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i)
+        output_fp, stdout_fp, stderr_fp = self.scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i)
         if output_fp and output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
         args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
@@ -161,8 +161,8 @@ class JobScheduler:
             "args": args,
             "resource_limits": self.resources,
             "working_directory": str(self.working_directory),
-            "output_path": std_out_fp,
-            "error_path": err_fp,
+            "output_path": stdout_fp,
+            "error_path": stderr_fp,
             "queue_name": self.queue,
             "implementation_specific": {
                 "uge_jt_pe": f"smp",

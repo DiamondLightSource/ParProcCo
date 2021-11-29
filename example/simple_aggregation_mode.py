@@ -20,13 +20,11 @@ class SimpleAggregationMode(SchedulerModeInterface):
 
     def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
-        output_file = f"aggregated_results.txt"
-        std_out_file = f"std_out_aggregated"
-        err_file = f"err_aggregated"
+        output_file = "aggregated_results.txt"
         output_fp = str(output_dir / output_file) if output_dir else output_file
-        std_out_fp = str(error_dir / std_out_file)
-        err_fp = str(error_dir / err_file)
-        return output_fp, std_out_fp, err_fp
+        stdout_fp = str(error_dir / "out_aggregated")
+        stderr_fp = str(error_dir / "err_aggregated")
+        return output_fp, stdout_fp, stderr_fp
 
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""

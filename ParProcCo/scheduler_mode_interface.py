@@ -16,7 +16,7 @@ class SchedulerModeInterface:
         raise NotImplementedError
 
     def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int) -> Tuple[str, str, str]:
-        """Generates output, std_out and error file paths for job template within JobScheduler"""
+        """Generates output, stdout and stderr file paths for job template within JobScheduler"""
         raise NotImplementedError
 
     def generate_args(self, job_number: int, memory: str, cores: int, jobscript_args: List[str],

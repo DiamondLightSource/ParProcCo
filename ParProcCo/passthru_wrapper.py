@@ -24,9 +24,9 @@ class PassThruProcessingMode(SchedulerModeInterface):
 
     def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
-        std_out_fp = str(error_dir / f"std_out_{i}")
-        err_fp = str(error_dir / f"err_{i}")
-        return str(output_dir) if output_dir else '', std_out_fp, err_fp
+        stdout_fp = str(error_dir / f"out_{i}")
+        stderr_fp = str(error_dir / f"err_{i}")
+        return str(output_dir) if output_dir else '', stdout_fp, stderr_fp
 
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str],
                       output_fp: str) -> Tuple[str, ...]:
