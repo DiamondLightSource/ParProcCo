@@ -137,9 +137,9 @@ class JobScheduler:
             else:
                 logging.debug(f"Directory {self.cluster_output_dir} already exists")
 
-            error_dir = self.cluster_output_dir / "error_logs"
+            error_dir = self.cluster_output_dir / "cluster_logs"
         else:
-            error_dir = self.working_directory / "error_logs"
+            error_dir = self.working_directory / "cluster_logs"
         if not error_dir.is_dir():
             logging.debug(f"Making directory {error_dir}")
             error_dir.mkdir(exist_ok=True, parents=True)
