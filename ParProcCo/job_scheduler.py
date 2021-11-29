@@ -241,10 +241,13 @@ class JobScheduler:
             elif status_info.state == drmaa2.JobState.DONE:
                 self.job_completion_status[str(status_info.i)] = True
                 status_info.final_state = "SUCCESS"
-                wallclock_time = "0" if status_info.info.wallclock_time == "ZERO_TIME" else status_info.info.wallclock_time
+                if isinstance(status_info.info.wallclock_time, datetime):
+                    wallclock_time = (status_info.info.wallclock_time - datetime.utcfromtimestamp(0)).total_seconds()
+                else:
+                    wallclock_time = "0"
                 logging.info(
                     f"Job {status_info.job.id} with args {self.jobscript_args} completed"
-                    f" successfully in {wallclock_time}."
+                    f" successfully in {wallclock_time} seconds."
                     f" CPU time={timedelta(seconds=float(status_info.info.cpu_time))}, slots={status_info.info.slots}"
                 )
             else:
