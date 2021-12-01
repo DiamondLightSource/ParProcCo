@@ -55,7 +55,8 @@ class NXdataAggregator(AggregatorInterface):
         self._initialise_arrays()
         self._accumulate_volumes()
         aggregation_time = datetime.now() - start
-        logging.info(f"Aggregation completed in {aggregation_time.total_seconds():.3f}s. Sliced file paths: {data_files}.")
+        logging.info(
+            f"Aggregation completed in {aggregation_time.total_seconds():.3f}s. Sliced file paths: {data_files}.")
 
     def _initialise_arrays(self) -> None:
         self._get_all_axes()
@@ -100,7 +101,6 @@ class NXdataAggregator(AggregatorInterface):
         if self.renormalisation:
             self.accumulator_weights = np.zeros(self.accumulator_axis_lengths)
             logging.debug(f"Accumulator weight array initialised with shape: {self.accumulator_weights.shape}")
-
 
     def _get_nxdata(self):
         """sets self.nxentry_name, self.nxdata_name and self.axes_names """
