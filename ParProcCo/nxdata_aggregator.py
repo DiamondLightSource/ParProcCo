@@ -95,9 +95,12 @@ class NXdataAggregator(AggregatorInterface):
                     raise RuntimeError(f"axis does not match slice {single_slice} of accumulator_axis_range")
 
         self.accumulator_volume = np.zeros(self.accumulator_axis_lengths)
+        logging.debug(f"Accumulator volume array initialised with shape: {self.accumulator_volume.shape}")
         self.accumulator_aux_signals = [np.zeros(self.accumulator_axis_lengths)] * len(self.non_weight_aux_signal_names)
         if self.renormalisation:
             self.accumulator_weights = np.zeros(self.accumulator_axis_lengths)
+            logging.debug(f"Accumulator weight array initialised with shape: {self.accumulator_weights.shape}")
+
 
     def _get_nxdata(self):
         """sets self.nxentry_name, self.nxdata_name and self.axes_names """
@@ -199,6 +202,7 @@ class NXdataAggregator(AggregatorInterface):
                              for axis_set in [list(x) for x in zip(*self.all_axes)]]
 
     def _accumulate_volumes(self) -> None:
+        logging.info(f"Accumulating volume with shape {self.accumulator_volume.shape} and axes {self.axes_names}")
         for data_file, slices in zip(self.data_files, self.all_slices):
             with h5py.File(data_file, "r") as f:
                 aux_signals = []
@@ -219,9 +223,11 @@ class NXdataAggregator(AggregatorInterface):
                 accumulator_signal[slices] += signal
 
         if self.renormalisation:
+            logging.info(f"Renormalising accumulator_volume with weights {'/'.join([self.nxdata_path_name, 'weight'])}")
             self.accumulator_volume = self.accumulator_volume / self.accumulator_weights
             self.accumulator_volume[np.isnan(self.accumulator_volume)] = 0
             for aux_signal in self.accumulator_aux_signals:
+                logging.info(f"Renormalising aux_signal with weights in {'/'.join([self.nxdata_path_name, 'weight'])}")
                 aux_signal = aux_signal / self.accumulator_weights
                 aux_signal[np.isnan(aux_signal)] = 0
 
@@ -272,6 +278,7 @@ class NXdataAggregator(AggregatorInterface):
                             f" '{'/'.join(['old_processed', f'process{i}.{j}'])}' group in {aggregation_output}")
 
             if self.is_binoculars:
+                logging.info("Writing BINoculars group")
                 binoculars = f.create_group("binoculars")
                 binoculars.attrs["type"] = "space"
                 f.create_group("binoculars/axes")
