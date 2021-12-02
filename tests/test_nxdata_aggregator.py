@@ -56,8 +56,8 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator = NXdataAggregator()
         aggregator._renormalise(output_file_paths)
         with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
-            volumes_array = np.array(f["processed/reciprocal_space/volume"])
-            weights_array = np.array(f["processed/reciprocal_space/weight"])
+            volumes_array = f["processed/reciprocal_space/volume"][...]
+            weights_array = f["processed/reciprocal_space/weight"][...]
         np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
         np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
 
@@ -572,8 +572,8 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator._accumulate_volumes()
 
         with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
-            volumes_array = np.array(f["processed/reciprocal_space/volume"])
-            weights_array = np.array(f["processed/reciprocal_space/weight"])
+            volumes_array = f["processed/reciprocal_space/volume"][...]
+            weights_array = f["processed/reciprocal_space/weight"][...]
         self.assertEqual(aggregator.accumulator_volume.shape, (83, 77, 13))
         np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
         np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
@@ -590,8 +590,8 @@ class TestNXdataAggregator(unittest.TestCase):
             aggregator = NXdataAggregator()
             aggregation_results = aggregator.aggregate(aggregation_file, sliced_data_files)
             with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
-                volumes_array = np.array(f["processed/reciprocal_space/volume"])
-                weights_array = np.array(f["processed/reciprocal_space/weight"])
+                volumes_array = f["processed/reciprocal_space/volume"][...]
+                weights_array = f["processed/reciprocal_space/weight"][...]
             np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
             np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
 
@@ -602,8 +602,8 @@ class TestNXdataAggregator(unittest.TestCase):
                 self.assertTrue("old_processed/process1.0" in af)
                 self.assertTrue("processed" in af)
                 self.assertTrue("processed/process" in af)
-                aggregated_volumes = np.array(af["processed/reciprocal_space/volume"])
-                aggregated_weights = np.array(af["processed/reciprocal_space/weight"])
+                aggregated_volumes = af["processed/reciprocal_space/volume"][...]
+                aggregated_weights = af["processed/reciprocal_space/weight"][...]
             np.testing.assert_allclose(volumes_array, aggregated_volumes, rtol=1e-12)
             np.testing.assert_allclose(weights_array, aggregated_weights, rtol=2.1e-14)
 

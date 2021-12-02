@@ -212,12 +212,12 @@ class NXdataAggregator(AggregatorInterface):
         for data_file, slices in zip(self.data_files, self.all_slices):
             with h5py.File(data_file, "r") as f:
                 aux_signals = []
-                volume = np.array(f[self.nxdata_path_name][self.signal_name])
+                volume = f[self.nxdata_path_name][self.signal_name][...]
                 logging.debug(f"Reading volume from {'/'.join([self.nxdata_path_name, self.signal_name])} in {data_file}. Shape is {volume.shape}")
                 if self.renormalisation:
-                    weights = np.array(f[self.nxdata_path_name]["weight"])
+                    weights = f[self.nxdata_path_name]["weight"][...]
                 for name in self.non_weight_aux_signal_names:
-                    aux_signals.append(np.array(f[self.nxdata_path_name][name]))
+                    aux_signals.append(f[self.nxdata_path_name][name][...])
                     logging.debug(f"Reading auxiliary signal from {'/'.join([self.nxdata_path_name, name])} in {data_file}")
 
             if self.renormalisation:
