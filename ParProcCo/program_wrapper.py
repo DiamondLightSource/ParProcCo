@@ -16,6 +16,10 @@ class ProgramWrapper:
         self.processing_mode = processing_mode
         self.slicer = slicer
         self.aggregating_mode = aggregating_mode
+        self.cluster_module: Optional[str] = None
+
+    def set_module(self, module: str):
+        self.cluster_module = module
 
     def set_cores(self, cores: int):
         self.processing_mode.cores = cores
@@ -34,8 +38,25 @@ class ProgramWrapper:
     def get_cluster_runner_script(self) -> Optional[Path]:
         return self.processing_mode.program_path
 
-    def get_environment(self) -> Dict[str,str]:
+    def get_environment(self) -> Optional[Dict[str,str]]:
         test_modules = os.getenv('TEST_PPC_MODULES')
         if test_modules:
             return {"PPC_MODULES":test_modules}
-        return self.processing_mode.environment
+
+        loaded_modules = os.getenv('LOADEDMODULES').split(':')
+        allowed = self.processing_mode.allowed_modules
+        ppc_modules = []
+        if allowed:
+            for m in loaded_modules:
+                if m.split('/')[0] in allowed:
+                    ppc_modules.append(m)
+        else:
+            for m in reversed(loaded_modules):
+                if m != self.cluster_module:
+                    ppc_modules.append(m)
+                    break
+
+        if ppc_modules:
+            return {'PPC_MODULES': ':'.join(ppc_modules)}
+
+        return None

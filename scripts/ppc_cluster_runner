@@ -4,15 +4,19 @@ if [ -z $MODULESHOME ]; then
 fi
 
 if [ $PPC_MODULES ]; then
+  echo "Loading modules: $PPC_MODULES"
   for m in ${PPC_MODULES//:/ }; do
      module load $m
   done
 fi
 
 if [ $TEST_PPC_DIR ]; then
+  echo "Supplementing PATHs with $TEST_PPC_DIR"
   export PATH=$TEST_PPC_DIR/scripts:$PATH
   export PYTHONPATH=$TEST_PPC_DIR:$PYTHONPATH
 fi
+echo "PATH:   $PATH"
+echo "PyPATH: $PYTHONPATH"
 
 echo "Executing |$@|"
 eval "$@"

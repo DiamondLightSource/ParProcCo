@@ -44,6 +44,7 @@ class JobController:
 
         self.cluster_runner = check_location(get_absolute_path(self.program_wrapper.get_cluster_runner_script()))
         self.cluster_env = self.program_wrapper.get_environment()
+        logging.debug("Cluster environment is %s", self.cluster_env)
         slice_params = self.program_wrapper.create_slices(number_jobs)
 
         sliced_jobs_success = self._run_sliced_jobs(slice_params, jobscript_args, memory, job_name)

@@ -10,6 +10,7 @@ class SchedulerModeInterface:
         self.number_jobs: int
         self.cores: int
         self.program_path: Optional[Path]
+        self.allowed_modules: Optional[Tuple[str,...]] = None
 
     def set_parameters(self, sliced_results: List) -> None:
         """Sets parameters for generating jobscript args for use within JobScheduler"""

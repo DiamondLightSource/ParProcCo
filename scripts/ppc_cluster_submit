@@ -72,6 +72,7 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
             raise ValueError(f'Cannot create Wrapper from {program}_wrapper module') from exc
     else:
         raise ValueError(f'Number of jobs must be one or more, given {args.jobs}')
+    wrapper.set_module(cluster.module)
     wrapper.set_cores(args.cores)
     output = wrapper.get_output(args.output, script_args[1:])
     jc = JobController(wrapper, output, project, cluster_queue, cluster_resources)

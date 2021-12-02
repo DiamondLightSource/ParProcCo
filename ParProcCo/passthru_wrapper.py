@@ -10,13 +10,12 @@ from .utils import check_jobscript_is_readable, check_location, get_absolute_pat
 import os
 
 class PassThruProcessingMode(SchedulerModeInterface):
-    PPC_Modules = "python/3.9"
 
     def __init__(self):
+        super().__init__()
         self.cores = 6
         current_script_dir = Path(os.path.realpath(__file__)).parent.parent / "scripts"
         self.program_path = current_script_dir / "ppc_cluster_runner"
-        self.environment = {"PPC_MODULES":PassThruProcessingMode.PPC_Modules}
 
     def set_parameters(self, _slice_params: List[slice]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""

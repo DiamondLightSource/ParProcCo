@@ -12,6 +12,7 @@ class NXdataAggregationMode(SchedulerModeInterface):
         current_script_dir = Path(os.path.realpath(__file__)).parent.parent / "scripts"
         self.program_path = current_script_dir / "nxdata_aggregate"
         self.cores = 1
+        self.allowed_modules = ('python',)
 
     def set_parameters(self, sliced_results: List[Path]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""

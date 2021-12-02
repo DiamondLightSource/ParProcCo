@@ -8,12 +8,10 @@ from ParProcCo.utils import slice_to_string, check_jobscript_is_readable, check_
 
 
 class SimpleProcessingMode(SchedulerModeInterface):
-    PPC_Modules = "python/3.9"
-
     def __init__(self, program: Optional[Path] = None) -> None:
         self.program_path: Optional[Path] = program
         self.cores = 1
-        self.environment = {"PPC_MODULES":SimpleProcessingMode.PPC_Modules}
+        self.allowed_modules = ('python',)
 
     def set_parameters(self, slice_params: List[slice]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""

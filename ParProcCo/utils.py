@@ -62,6 +62,7 @@ class PPCCluster(YAMLObject):
     yaml_tag = "!PPCCluster"
     yaml_loader = SafeLoader
 
+    module: str # module loaded to submit jobs
     default_queue: str # default cluster queue
     user_queues: Optional[Dict[str, List[str]]] = None # specific queues with allowed users
     resources: Optional[Dict[str,str]] = None # job resources
@@ -89,11 +90,13 @@ def load_cfg() -> PPCConfig:
     cluster_help_msg: Please module load blah # Message to display if cluster commands are not available
     clusters:
         cluster_one: !PPCCluster # cluster name 
+            module: foo_cluster_one
             default_queue: basic.q # default cluster queue
             user_queues: # dictionary of queues and list of users 
                 better.q: middle_user1
                 best.q: power_user1, power_user2
         cluster_two: !PPCCluster
+            module: bar_cluster_two
             default_queue: only.q
             resources:
                 cpu_model: arm64
