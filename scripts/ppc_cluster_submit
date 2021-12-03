@@ -20,6 +20,7 @@ def create_parser():
     parser.add_argument('--jobs', help='int: number of cluster jobs to split processing into', type=int, default=1)
     parser.add_argument('--memory', help='str: memory to use per cluster job', required=True)
     parser.add_argument('--cores', help='int: number of cores to use per cluster job', type=int, required=True)
+    parser.add_argument('-D', '--debug', help='show debugging information', action='store_true')
     return parser
 
 def run_ppc(args: argparse.Namespace, script_args: List) -> None:
@@ -80,6 +81,6 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     print("complete")
 
 if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.INFO)
     args, script_args = create_parser().parse_known_args()
+    logging.getLogger().setLevel(logging.DEBUG if args.debug else logging.INFO)
     run_ppc(args, script_args)
