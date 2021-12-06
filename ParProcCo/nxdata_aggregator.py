@@ -199,7 +199,7 @@ class NXdataAggregator(AggregatorInterface):
                         logging.debug(f"Auxiliary signal '{'/'.join([self.nxdata_path_name, aux_signal_name])}' read from {data_file}. Shape: {aux_signal_shape}")
                         assert signal_shape == aux_signal_shape, f"{aux_signal_name} shape must equal signal_shape"
                 if self.use_default_axes:
-                    axes = [list(range(length)) for length in signal_shape]
+                    axes = [np.array(range(length)) for length in signal_shape]
                 else:
                     axes = [f[self.nxdata_path_name][axis_name][...] for axis_name in self.axes_names]
                 self.all_axes.append(axes)
