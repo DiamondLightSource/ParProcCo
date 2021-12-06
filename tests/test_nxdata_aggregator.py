@@ -437,14 +437,14 @@ class TestNXdataAggregator(unittest.TestCase):
             aggregator._get_all_axes()
 
             self.assertEqual(aggregator.signal_shapes, [(2, 3, 4), (3, 2, 5)])
+            all_axes_flat = np.hstack([item for axis in aggregator.all_axes for item in axis])
             if use_default_axes:
-                self.assertEqual(aggregator.all_axes,
-                                 [[[0, 1], [0, 1, 2], [0, 1, 2, 3]], [[0, 1, 2], [0, 1], [0, 1, 2, 3, 4]]])
+                np.testing.assert_allclose(all_axes_flat,
+                                           np.array([0, 1, 0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 0, 1, 0, 1, 2, 3, 4]))
                 self.assertEqual(aggregator.axes_spacing, [1, 1, 1])
             else:
-                self.assertEqual(aggregator.all_axes,
-                                 [[[0.0, 0.2], [1.0, 1.2, 1.4], [-0.4, -0.2, 0.0, 0.2]],
-                                  [[0.0, 0.2, 0.4], [1.2, 1.4], [-0.4, -0.2, 0.0, 0.2, 0.4]]])
+                np.testing.assert_allclose(all_axes_flat, np.array([0.0, 0.2, 1.0, 1.2, 1.4, -0.4, -0.2, 0.0, 0.2, 0.0,
+                                                                    0.2, 0.4, 1.2, 1.4, -0.4, -0.2, 0.0, 0.2, 0.4]))
                 np.testing.assert_allclose(aggregator.axes_spacing, [0.2, 0.2, 0.2], rtol=1e-14)
 
     @parameterized.expand([

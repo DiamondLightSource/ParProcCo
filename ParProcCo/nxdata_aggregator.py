@@ -201,10 +201,10 @@ class NXdataAggregator(AggregatorInterface):
                 if self.use_default_axes:
                     axes = [list(range(length)) for length in signal_shape]
                 else:
-                    axes = [list(f[self.nxdata_path_name][axis_name]) for axis_name in self.axes_names]
+                    axes = [f[self.nxdata_path_name][axis_name][...] for axis_name in self.axes_names]
                 self.all_axes.append(axes)
         self.axes_spacing = [np.mean([np.mean(np.diff(axis)) for axis in axis_set])
-                             for axis_set in [list(x) for x in zip(*self.all_axes)]]
+                               for axis_set in zip(*self.all_axes)]
         logging.debug(f"Calculated axes spacings: {self.axes_spacing}")
 
     def _accumulate_volumes(self) -> None:
