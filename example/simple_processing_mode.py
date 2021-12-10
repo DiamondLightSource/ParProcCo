@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -18,12 +19,13 @@ class SimpleProcessingMode(SchedulerModeInterface):
         self.slice_params = slice_params
         self.number_jobs = len(slice_params)
 
-    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int) -> Tuple[str, str, str]:
+    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime.datetime) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
+        timestamp = f"{t.year}{t.month}{t.day}_{t.hour}{t.minute}"
         output_file = f"out_{i}"
         output_fp = str(output_dir / output_file) if output_dir else output_file
-        stdout_fp = str(error_dir / f"out_{i}")
-        stderr_fp = str(error_dir / f"err_{i}")
+        stdout_fp = str(error_dir / f"out_{timestamp}_{i}")
+        stderr_fp = str(error_dir / f"err_{timestamp}_{i}")
         return output_fp, stdout_fp, stderr_fp
 
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
