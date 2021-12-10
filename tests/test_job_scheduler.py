@@ -108,7 +108,9 @@ class TestJobScheduler(unittest.TestCase):
             js.scheduler_mode = processing_mode
             js._run_jobs(session, job_indices)
             js._wait_for_jobs(session)
-            js.start_time = datetime.now()
+            t = datetime.now()
+            js.start_time = t
+            timestamp = f"{t.year}{t.month}{t.day}_{t.hour}{t.minute}"
 
             with self.assertLogs(level='WARNING') as context:
                 js._report_job_info()
@@ -117,7 +119,8 @@ class TestJobScheduler(unittest.TestCase):
                     self.assertTrue(err_msg.startswith("ERROR:root:drmaa job "))
                     test_msg = f"with args ['{working_directory + '/test_script'}', '--input-path',"\
                     f" '{working_directory + '/test_raw_data.txt'}'] has not created a new output file"\
-                    f" {working_directory + '/cluster_output/cluster_logs/out_' + str(i)} Terminating signal: 0."
+                    f" {working_directory + '/cluster_output/cluster_logs/out_'}{timestamp}_{str(i)}"\
+                    f" Terminating signal: 0."
 
                     self.assertTrue(err_msg.endswith(test_msg))
             js._report_job_info()

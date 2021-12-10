@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -21,10 +22,11 @@ class PassThruProcessingMode(SchedulerModeInterface):
         """Overrides SchedulerModeInterface.set_parameters"""
         self.number_jobs = 1
 
-    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int) -> Tuple[str, str, str]:
+    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime.datetime) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
-        stdout_fp = str(error_dir / f"out_{i}")
-        stderr_fp = str(error_dir / f"err_{i}")
+        timestamp = f"{t.year}{t.month}{t.day}_{t.hour}{t.minute}"
+        stdout_fp = str(error_dir / f"out_{timestamp}_{i}")
+        stderr_fp = str(error_dir / f"err_{timestamp}_{i}")
         return str(output_dir) if output_dir else '', stdout_fp, stderr_fp
 
     def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str],

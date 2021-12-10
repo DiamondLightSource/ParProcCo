@@ -146,7 +146,7 @@ class JobScheduler:
         else:
             logging.debug(f"Directory {error_dir} already exists")
 
-        output_fp, stdout_fp, stderr_fp = self.scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i)
+        output_fp, stdout_fp, stderr_fp = self.scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i, self.start_time)
         if output_fp and output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
         args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
