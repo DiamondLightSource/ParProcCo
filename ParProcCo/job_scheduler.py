@@ -211,15 +211,27 @@ class JobScheduler:
                 logging.error(f"Failed to get job information for job {status_info.job.id}", exc_info=True)
                 raise
 
+            try:
+                time_to_dispatch = status_info.info.dispatch_time - status_info.info.submission_time
+                wall_time = status_info.info.finish_time - status_info.info.dispatch_time
+
+            except Exception:
+                logging.error(f"Failed to get job submission time statistics for job {status_info.job.id}")
+                raise
+
             # Check job states against expected possible options:
             if status_info.state == drmaa2.JobState.UNDETERMINED:  # Lost contact?
                 status_info.final_state = "UNDETERMINED"
-                logging.warning(f"Job state undetermined for job {status_info.job.id}. job info: {status_info.info}")
+                logging.warning(
+                    f"Job state undetermined for job {status_info.job.id}. job info: {status_info.info}."
+                    f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
+                )
 
             elif status_info.state == drmaa2.JobState.FAILED:
                 status_info.final_state = "FAILED"
                 logging.error(
                     f"drmaa job {status_info.job.id} failed. Terminating signal: {status_info.info.terminating_signal}."
+                    f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
             elif not status_info.output_path.is_file():
@@ -228,6 +240,7 @@ class JobScheduler:
                     f"drmaa job {status_info.job.id} with args {self.jobscript_args} has not created"
                     f" output file {status_info.output_path}"
                     f" Terminating signal: {status_info.info.terminating_signal}."
+                    f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
             elif not self.timestamp_ok(status_info.output_path):
@@ -236,6 +249,7 @@ class JobScheduler:
                     f"drmaa job {status_info.job.id} with args {self.jobscript_args} has not created"
                     f" a new output file {status_info.output_path}"
                     f" Terminating signal: {status_info.info.terminating_signal}."
+                    f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
             elif status_info.state == drmaa2.JobState.DONE:
@@ -243,13 +257,15 @@ class JobScheduler:
                 status_info.final_state = "SUCCESS"
                 logging.info(
                     f"Job {status_info.job.id} with args {self.jobscript_args} completed."
-                    f" CPU time={timedelta(seconds=float(status_info.info.cpu_time))}, slots={status_info.info.slots}"
+                    f" Time to start job was CPU time={timedelta(seconds=float(status_info.info.cpu_time))}, slots={status_info.info.slots}"
+                    f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
             else:
                 status_info.final_state = "UNSPECIFIED"
                 logging.error(
                     f"Unexpected job state for job {status_info.job.id}"
                     f" with args {self.jobscript_args}, job info: {status_info.info}"
+                    f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
             self.job_history[self.batch_number][status_info.job.id] = status_info
