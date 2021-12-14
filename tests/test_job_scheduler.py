@@ -122,7 +122,7 @@ class TestJobScheduler(unittest.TestCase):
                     f" {working_directory + '/cluster_output/cluster_logs/out_'}{timestamp}_{str(i)}"\
                     f" Terminating signal: 0."
 
-                    self.assertTrue(err_msg.endswith(test_msg))
+                    self.assertTrue(test_msg in err_msg)
             js._report_job_info()
 
             job_stats = js.job_completion_status
@@ -212,7 +212,7 @@ class TestJobScheduler(unittest.TestCase):
                     self.assertTrue(warn_msg.endswith(" timed out. Terminating job now."))
                 for err_msg in context.output[4:]:
                     self.assertTrue(err_msg.startswith("ERROR:root:drmaa job "))
-                    self.assertTrue(err_msg.endswith(" failed. Terminating signal: SIGKILL."))
+                    self.assertTrue("failed. Terminating signal: SIGKILL." in err_msg)
 
             jh = js.job_history
             self.assertEqual(len(jh), 1, f"There should be one batch of jobs; job_history: {jh}\n")
