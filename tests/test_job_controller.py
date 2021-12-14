@@ -65,7 +65,6 @@ class TestJobController(unittest.TestCase):
 
             input_path = setup_data_file(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            sliced_results = [Path(working_directory) / f"out_{i}" for i in range(4)]
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
@@ -77,7 +76,7 @@ class TestJobController(unittest.TestCase):
                 agg_data = af.readlines()
 
             self.assertEqual(agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"])
-            for result in sliced_results:
+            for result in jc.sliced_results:
                 self.assertFalse(result.is_file())
 
     def test_single_job_does_not_aggregate(self) -> None:
@@ -92,7 +91,6 @@ class TestJobController(unittest.TestCase):
 
             input_path = setup_data_file(working_directory)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            sliced_result = Path(working_directory) / cluster_output_name / f"out_0"
             aggregated_file = Path(working_directory) / cluster_output_name / "aggregated_results.txt"
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
@@ -101,10 +99,10 @@ class TestJobController(unittest.TestCase):
                                cluster_resources=CLUSTER_RESOURCES)
             jc.run(1, jobscript_args=runner_script_args)
 
-            self.assertEqual([sliced_result], jc.sliced_results)
+            self.assertEqual(len(jc.sliced_results), 1)
             self.assertFalse(aggregated_file.is_file())
-            self.assertTrue(sliced_result.is_file())
-            with open(sliced_result, "r") as af:
+            self.assertTrue(jc.sliced_results[0].is_file())
+            with open(jc.sliced_results[0], "r") as af:
                 agg_data = af.readlines()
 
             self.assertEqual(agg_data, ["0\n", "2\n", "4\n", "6\n", "8\n", "10\n", "12\n", "14\n"])
