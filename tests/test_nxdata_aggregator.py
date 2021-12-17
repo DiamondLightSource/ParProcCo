@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import getpass
 import logging
 import unittest
 from pathlib import Path
@@ -18,13 +17,6 @@ class TestNXdataAggregator(unittest.TestCase):
 
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
-        current_user = getpass.getuser()
-        tmp_dir = f"/dls/tmp/{current_user}/"
-        self.base_dir = f"/dls/tmp/{current_user}/tests/"
-        self.assertTrue(Path(tmp_dir).is_dir(), f"{tmp_dir} is not a directory")
-        if not Path(self.base_dir).is_dir():
-            logging.debug(f"Making directory {self.base_dir}")
-            Path(self.base_dir).mkdir(exist_ok=True)
 
     def create_basic_nexus_file(self, file_path: Path, has_weight: bool) -> None:
         with h5py.File(file_path, 'w') as f:
@@ -119,7 +111,7 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator.aux_signal_names = aux_signal_names
         aggregator.non_weight_aux_signal_names = non_weight_names
 
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             file_path_0 = Path(working_directory) / "output0.nxs"
             file_path_1 = Path(working_directory) / "output1.nxs"
 
@@ -207,7 +199,7 @@ class TestNXdataAggregator(unittest.TestCase):
     ])
     def test_get_nx_data_param(self, name, shape, has_weight, error_name, error_msg) -> None:
         aggregator = NXdataAggregator()
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             file_path = Path(working_directory) / "output.nxs"
             aggregator.data_files = [file_path]
 
@@ -258,7 +250,7 @@ class TestNXdataAggregator(unittest.TestCase):
     ])
     def test_get_default_nxgroup(self, name, default_class, default_name, has_default, error_name, error_msg) -> None:
         aggregator = NXdataAggregator()
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             file_path = Path(working_directory) / "output.nxs"
             with h5py.File(file_path, 'w') as f:
                 default_group = f.create_group("default_entry")
@@ -279,7 +271,7 @@ class TestNXdataAggregator(unittest.TestCase):
 
     def test_get_nxgroup_missing_external_file(self) -> None:
         aggregator = NXdataAggregator()
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             file_path = Path(working_directory) / "output.nxs"
             linked_file_path = Path(working_directory) / "linked_file.nxs"
             with h5py.File(file_path, 'w') as f:
@@ -309,7 +301,7 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator = NXdataAggregator()
         aggregator.nxentry_name = "entry_group"
         aggregator.nxdata_name = "data_group"
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             file_path = Path(working_directory) / "output.nxs"
             with h5py.File(file_path, 'w') as f:
                 entry_group = f.create_group("entry_group")
@@ -343,7 +335,7 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator.nxdata_name = "data_group"
         aggregator.nxdata_path_name = "entry_group/data_group"
 
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             aggregator.data_files = [Path(working_directory) / f"output{i}.nxs" for i in range(3)]
             for file_path in aggregator.data_files:
                 with h5py.File(file_path, 'w') as f:
@@ -369,7 +361,7 @@ class TestNXdataAggregator(unittest.TestCase):
     def test_generate_axes_names(self) -> None:
         aggregator = NXdataAggregator()
         aggregator.signal_name = "volume"
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             file_path = Path(working_directory) / "output.nxs"
             with h5py.File(file_path, 'w') as f:
                 entry_group = f.create_group("entry_group")
@@ -399,7 +391,7 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator.use_default_axes = use_default_axes
         aggregator.data_dimensions = 3
         aggregator.aux_signal_names = aux_signal_names
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             file_path_0 = Path(working_directory) / "output0.nxs"
             file_path_1 = Path(working_directory) / "output1.nxs"
 
@@ -469,7 +461,7 @@ class TestNXdataAggregator(unittest.TestCase):
         if renormalisation:
             aggregator.accumulator_weights = np.zeros((3, 3, 5))
         aggregator.accumulator_aux_signals = [np.zeros((3, 3, 5))] * len(non_weight_aux_signal_names)
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             file_path_0 = Path(working_directory) / "output0.nxs"
             file_path_1 = Path(working_directory) / "output1.nxs"
 
@@ -581,7 +573,7 @@ class TestNXdataAggregator(unittest.TestCase):
     def test_write_aggregation_file(self) -> None:
         sliced_data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                              Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             if not cluster_output_dir.is_dir():
                 cluster_output_dir.mkdir(exist_ok=True, parents=True)
