@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -21,6 +22,7 @@ def check_jobscript_is_readable(jobscript: Path) -> Path:
         raise
     return jobscript
 
+
 def check_location(location: Union[Path, str]) -> Path:
     location_path = Path(location).resolve()
     top = location_path.parts[1]
@@ -28,6 +30,10 @@ def check_location(location: Union[Path, str]) -> Path:
         return location_path
     raise ValueError(
         f"{location_path} must be located within /dls, /dls_sw or /home (to be accessible from the cluster)")
+
+
+def format_timestamp(t: datetime.datetime) -> str:
+    return f"{t.year}{t.month}{t.day}_{t.hour}{t.minute}"
 
 
 def decode_to_string(any_string: Union[bytes, str]) -> str:
@@ -54,8 +60,10 @@ def slice_to_string(s: Optional[slice]) -> str:
     step = s.step
     return f"{start}:{stop}:{step}"
 
+
 from yaml import YAMLObject, SafeLoader
 from dataclasses import dataclass
+
 
 @dataclass
 class PPCCluster(YAMLObject):
@@ -67,6 +75,7 @@ class PPCCluster(YAMLObject):
     user_queues: Optional[Dict[str, List[str]]] = None # specific queues with allowed users
     resources: Optional[Dict[str,str]] = None # job resources
 
+
 @dataclass
 class PPCConfig(YAMLObject):
     yaml_tag = "!PPCConfig"
@@ -77,7 +86,9 @@ class PPCConfig(YAMLObject):
     cluster_help_msg: str # Message to display if cluster commands are not available
     clusters: Dict[str, PPCCluster] # per cluster configuration, key is UGE_CELL
 
+
 PPC_YAML='par_proc_co.yaml'
+
 
 def load_cfg() -> PPCConfig:
     '''
@@ -115,6 +126,7 @@ def load_cfg() -> PPCConfig:
                     raise ValueError('Users %s cannot be assigned to more than one queue', ', '.join(common))
                 users.update(us)
     return ppc_config
+
 
 def find_cfg_file(name: str) -> Path:
     '''

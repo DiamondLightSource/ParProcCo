@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 
 from .program_wrapper import ProgramWrapper
 from .scheduler_mode_interface import SchedulerModeInterface
-from .utils import check_jobscript_is_readable, check_location, get_absolute_path
+from .utils import check_jobscript_is_readable, check_location, format_timestamp, get_absolute_path
 
 import os
 
@@ -24,7 +24,7 @@ class PassThruProcessingMode(SchedulerModeInterface):
 
     def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime.datetime) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
-        timestamp = f"{t.year}{t.month}{t.day}_{t.hour}{t.minute}"
+        timestamp = format_timestamp(t)
         stdout_fp = str(error_dir / f"out_{timestamp}_{i}")
         stderr_fp = str(error_dir / f"err_{timestamp}_{i}")
         return str(output_dir) if output_dir else '', stdout_fp, stderr_fp
