@@ -3,6 +3,7 @@ from __future__ import annotations
 import getpass
 import logging
 import os
+import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -268,7 +269,7 @@ class TestJobScheduler(unittest.TestCase):
             js.run(processing_mode, runner_script, {}, jobscript_args=runner_script_args)
 
     def test_get_output_paths(self) -> None:
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
             js = create_js(working_directory, cluster_output_dir)
@@ -281,7 +282,7 @@ class TestJobScheduler(unittest.TestCase):
         ("true_false", True, False, False)
     ])
     def test_get_success(self, name, stat_0, stat_1, success) -> None:
-        with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(prefix='test_dir_') as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             js = create_js(working_directory, cluster_output_dir)
             js.job_completion_status = {"0": stat_0, "1": stat_1}
@@ -296,12 +297,13 @@ class TestJobScheduler(unittest.TestCase):
             cluster_output_dir = Path(working_directory) / "cluster_output"
             cluster_output_dir.mkdir(parents=True, exist_ok=True)
             filepath = cluster_output_dir / "out_0.nxs"
-
             if run_scheduler_last:
                 js = create_js(working_directory, cluster_output_dir)
+                time.sleep(2)
             f = open(filepath, "x")
             f.close()
             if not run_scheduler_last:
+                time.sleep(2)
                 js = create_js(working_directory, cluster_output_dir)
             self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
 
