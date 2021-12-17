@@ -3,6 +3,7 @@ from __future__ import annotations
 import getpass
 import logging
 import os
+import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -299,9 +300,11 @@ class TestJobScheduler(unittest.TestCase):
 
             if run_scheduler_last:
                 js = create_js(working_directory, cluster_output_dir)
+                time.sleep(2)
             f = open(filepath, "x")
             f.close()
             if not run_scheduler_last:
+                time.sleep(2)
                 js = create_js(working_directory, cluster_output_dir)
             self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
 
