@@ -257,7 +257,7 @@ class JobScheduler:
                 status_info.final_state = "SUCCESS"
                 logging.info(
                     f"Job {status_info.job.id} with args {self.jobscript_args} completed."
-                    f" Time to start job was CPU time={timedelta(seconds=float(status_info.info.cpu_time))}, slots={status_info.info.slots}"
+                    f" CPU time: {timedelta(seconds=float(status_info.info.cpu_time))}; Slots: {status_info.info.slots}"
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
             else:
