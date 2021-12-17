@@ -10,9 +10,9 @@ from tempfile import TemporaryDirectory
 
 from example.simple_wrapper import SimpleWrapper
 from ParProcCo.job_controller import JobController
+from tests.test_job_scheduler import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
 from tests.utils import setup_aggregation_script, setup_data_file, setup_runner_script, setup_jobscript
 
-from tests.test_job_scheduler import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
 
 class TestJobController(unittest.TestCase):
 

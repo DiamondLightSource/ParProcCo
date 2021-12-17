@@ -14,10 +14,8 @@ from parameterized import parameterized
 
 from example.simple_processing_mode import SimpleProcessingMode
 from ParProcCo.job_scheduler import JobScheduler, StatusInfo
-from ParProcCo.utils import check_jobscript_is_readable
-from tests.utils import setup_data_files, setup_jobscript, setup_runner_script
-
-from .utils import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
+from ParProcCo.utils import check_jobscript_is_readable, format_timestamp
+from tests.utils import setup_data_files, setup_jobscript, setup_runner_script, CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
 
 def create_js(work_dir, out_dir, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES,
               timeout=timedelta(hours=2)):
@@ -111,7 +109,7 @@ class TestJobScheduler(unittest.TestCase):
             js._wait_for_jobs(session)
             t = datetime.now()
             js.start_time = t
-            timestamp = f"{t.year}{t.month}{t.day}_{t.hour}{t.minute}"
+            timestamp = format_timestamp(t)
 
             with self.assertLogs(level='WARNING') as context:
                 js._report_job_info()
