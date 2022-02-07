@@ -131,10 +131,14 @@ def load_cfg() -> PPCConfig:
 def find_cfg_file(name: str) -> Path:
     '''
     '''
+    cp = os.getenv('PPC_CONFIG')
+    if cp:
+        return cp
+
     cp = Path.home() / ("." + name)
     if cp.is_file():
         return cp
-    
+
     g_parent = Path(os.path.realpath(__file__)).parent.parent
     places = (g_parent, Path(os.getenv('CONDA_PREFIX', '')) / 'etc', Path('/etc'))
     for p in places:
