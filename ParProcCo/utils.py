@@ -128,6 +128,31 @@ def load_cfg() -> PPCConfig:
     return ppc_config
 
 
+def set_up_wrapper(program: str):
+    import importlib
+    import sys
+    if sys.version_info < (3, 10):
+        from backports.entry_points_selectable import entry_points
+    else:
+        from importlib.metadata import entry_points
+
+    eps = entry_points(group='ParProcCo.allowed_programs')
+    try:
+        package = eps[program].module
+    except Exception as exc:
+        raise ValueError(f'Cannot find {program} in ParProcCo.allowed_programs {eps}') from exc
+    try:
+        wrapper_module = importlib.import_module(f'{package}.{program}_wrapper')
+    except Exception as exc:
+        raise ValueError(f'Cannot import {program}_wrapper as a Python module from package {package}') from exc
+
+    try:
+        wrapper = wrapper_module.Wrapper()
+    except Exception as exc:
+        raise ValueError(f'Cannot create Wrapper from {program}_wrapper module') from exc
+    return wrapper
+
+
 def find_cfg_file(name: str) -> Path:
     '''
     '''
