@@ -188,12 +188,10 @@ class TestJobScheduler(unittest.TestCase):
     def test_job_times_out(self) -> None:
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
-
-            jobscript = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
-
+            jobscript = setup_jobscript(working_directory)
             with open(jobscript, "a+") as f:
-                f.write("import time\ntime.sleep(60)\n")
+                f.write("    import time\n    time.sleep(60)\n")
 
             input_path, _, _, slices = setup_data_files(working_directory, cluster_output_dir)
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]

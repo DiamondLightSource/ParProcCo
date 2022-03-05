@@ -177,23 +177,43 @@ class JobScheduler:
         return jt
 
     def _wait_for_jobs(self, session: drmaa2.JobSession) -> None:
+        max_time = int(round(self.timeout.total_seconds()))
+        check_time = min(120, max_time) # 2 minutes or less
+        start_wait = max(check_time, 60) # wait at least 1 minute
         try:
             job_list = [status_info.job for status_info in self.status_infos]
             # Wait for jobs to start (timeout shouldn't include queue time)
             job_list_str = ", ".join([str(job.id) for job in job_list])
             logging.info(f"Waiting for jobs to start: {job_list_str}")
-            session.wait_all_started(job_list)
+            jobs_left = len(job_list)
+            while jobs_left > 0:
+                jobs_left -= len(session.wait_all_started(job_list, start_wait))
+                if jobs_left:
+                    logging.info(f"Jobs left to start: {jobs_left}")
             logging.info(f"Jobs started, waiting for jobs: {job_list_str}")
-            session.wait_all_terminated(job_list, int(round(self.timeout.total_seconds())))
-            jobs_running = False
+            total_time = 0
+            while total_time < max_time and job_list:
+                session.wait_all_terminated(job_list, check_time)
+                total_time += check_time
+                jobs_remaining = []
+                for job in job_list:
+                    if job.get_state()[0] == drmaa2.JobState.RUNNING:
+                        jobs_remaining.append(job)
+                        logging.debug(f"Job {job.id} still running")
+                job_list = jobs_remaining
+                logging.info(f"Jobs remaining = {len(jobs_remaining)} after {total_time}s")
+
+            jobs_remaining = []
             for job in job_list:
                 if job.get_state()[0] == drmaa2.JobState.RUNNING:
                     logging.warning(f"Job {job.id} timed out. Terminating job now.")
-                    jobs_running = True
+                    jobs_remaining.append(job)
                     job.terminate()
-            if jobs_running:
+            if jobs_remaining:
                 # Termination takes some time, wait a max of 2 mins
-                session.wait_all_terminated(job_list, 120)
+                session.wait_all_terminated(jobs_remaining, 120)
+                total_time += 120
+                logging.info(f"Jobs terminated = {len(jobs_remaining)} after {total_time}s")
         except drmaa2.Drmaa2Exception:
             logging.error(f"Drmaa exception", exc_info=True)
         except Exception:
@@ -206,18 +226,21 @@ class JobScheduler:
             try:
                 status_info.state = status_info.job.get_state()[0]  # Returns job state and job substate (always seems to be None)
                 status_info.info = status_info.job.get_info()
-
             except Exception:
                 logging.error(f"Failed to get job information for job {status_info.job.id}", exc_info=True)
                 raise
 
-            try:
-                time_to_dispatch = status_info.info.dispatch_time - status_info.info.submission_time
-                wall_time = status_info.info.finish_time - status_info.info.dispatch_time
-
-            except Exception:
-                logging.error(f"Failed to get job submission time statistics for job {status_info.job.id}")
-                raise
+            dispatch_time = status_info.info.dispatch_time
+            if dispatch_time:
+                try:
+                    time_to_dispatch = dispatch_time - status_info.info.submission_time
+                    wall_time = status_info.info.finish_time - dispatch_time
+                except Exception:
+                    logging.error(f"Failed to get job submission time statistics for job {status_info.job.id}")
+                    raise
+            else:
+                time_to_dispatch = 'n/a'
+                wall_time = 'n/a'
 
             # Check job states against expected possible options:
             if status_info.state == drmaa2.JobState.UNDETERMINED:  # Lost contact?
@@ -292,7 +315,8 @@ class JobScheduler:
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             killed_jobs_indices = [job.i for job in killed_jobs]
             logging.info(f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}")
-            success = self.resubmit_jobs(killed_jobs_indices)
-            return success
+            if killed_jobs_indices:
+                return self.resubmit_jobs(killed_jobs_indices)
+            return True
 
         raise RuntimeError(f"All jobs failed. job_history: {job_history}\n")
