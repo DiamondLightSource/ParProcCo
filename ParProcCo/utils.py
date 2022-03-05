@@ -33,7 +33,7 @@ def check_location(location: Union[Path, str]) -> Path:
 
 
 def format_timestamp(t: datetime.datetime) -> str:
-    return f"{t.year}{t.month}{t.day}_{t.hour}{t.minute}"
+    return t.strftime('%Y%m%d_%H%M')
 
 
 def decode_to_string(any_string: Union[bytes, str]) -> str:
