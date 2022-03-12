@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import logging
 import os
 from typing import List
@@ -14,15 +15,26 @@ from ParProcCo.utils import set_up_wrapper
 
 def create_parser():
     '''
-     $ ppc_cluster_submit program [--output cluster_output_dir] [--jobs 4] --cores 6 --memory 4G -s 0.01 ... [input files]
+     $ ppc_cluster_submit program [--output cluster_output_dir] [--timeout 1h30m] [--jobs 4] --cores 6 --memory 4G -s 0.01 ... [input files]
      '''
     parser = argparse.ArgumentParser(description='ParProcCo run script')
     parser.add_argument('-o', '--output', help='str: cluster output file or directory')
     parser.add_argument('--jobs', help='int: number of cluster jobs to split processing into', type=int, default=1)
+    parser.add_argument('--timeout', help='str: timeout for cluster jobs to finish - xxh[yym] (default: %(default)s)', default='2h')
     parser.add_argument('--memory', help='str: memory to use per cluster job', required=True)
     parser.add_argument('--cores', help='int: number of cores to use per cluster job', type=int, required=True)
     parser.add_argument('-D', '--debug', help='show debugging information', action='store_true')
     return parser
+
+import re
+TIMEOUT_PATTERN = re.compile(r'^((?P<hours>\d+)h)?((?P<minutes>\d+)m)?$', re.I) # @UndefinedVariable
+
+def parse_timeout(timeout: str) -> datetime.timedelta:
+    mo = TIMEOUT_PATTERN.match(timeout.strip())
+    if not mo:
+        raise ValueError(f'Could not parse {timeout} as time interval')
+    to_dict = { k:v for k,v in mo.groupdict().items() if v is not None} # filter out None-valued items
+    return datetime.timedelta(**to_dict)
 
 def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     '''
@@ -53,7 +65,9 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
                     logging.debug('User is %s so using cluster queue %s', user, cluster_queue)
                     break
 
-    logging.info('Running for project %s on cluster %s in queue %s with resources %s', project, cluster, cluster_queue, cluster_resources)
+    timeout = parse_timeout(args.timeout)
+
+    logging.info('Running for project %s on cluster %s in queue %s with resources %s and timeout %s', project, cluster, cluster_queue, cluster_resources, timeout)
     program = script_args[0]
     if args.jobs == 1:
         wrapper = PassThruWrapper()
@@ -64,7 +78,7 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     wrapper.set_module(cluster.module)
     wrapper.set_cores(args.cores)
     output = wrapper.get_output(args.output, script_args[1:])
-    jc = JobController(wrapper, output, project, cluster_queue, cluster_resources)
+    jc = JobController(wrapper, output, project, cluster_queue, cluster_resources, timeout)
     jc.run(args.jobs, script_args, args.memory, "PPC-" + program)
     print("complete")
 
