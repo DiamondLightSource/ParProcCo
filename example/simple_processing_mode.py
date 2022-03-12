@@ -19,7 +19,7 @@ class SimpleProcessingMode(SchedulerModeInterface):
         self.slice_params = slice_params
         self.number_jobs = len(slice_params)
 
-    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime.datetime) -> Tuple[str, str, str]:
+    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
         timestamp = format_timestamp(t)
         output_file = f"out_{i}"

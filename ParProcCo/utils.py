@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Set, Union
 
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
@@ -119,7 +119,7 @@ def load_cfg() -> PPCConfig:
 
     for ccfg in ppc_config.clusters.values():
         if ccfg.user_queues:
-            users = set() # check for overlaps
+            users : Set[str] = set() # check for overlaps
             for us in ccfg.user_queues.values():
                 common = users.intersection(set(us))
                 if common:

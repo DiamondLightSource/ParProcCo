@@ -66,7 +66,7 @@ class JobController:
             raise RuntimeError(f"Sliced jobs failed\n")
 
     def _run_sliced_jobs(self, slice_params: List[Optional[slice]], jobscript_args: Optional[List], memory: str,
-                         job_name: str):
+                         job_name: str) -> bool:
         if jobscript_args is None:
             jobscript_args = []
 
