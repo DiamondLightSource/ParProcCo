@@ -81,7 +81,7 @@ def setup_jobscript(working_directory: str) -> Path:
 #!/usr/bin/env python3
 
 import argparse
-
+from time import sleep
 
 def setup_parser():
     parser = argparse.ArgumentParser()
@@ -106,8 +106,8 @@ def write_lines(input_path, output_path, images):
         for i, line in enumerate(in_f):
             if stop and i >= stop:
                 break
-
             elif i >= start and ((i - start) % step == 0):
+                sleep(1)
                 doubled = int(line.strip("\\n")) * 2
                 doubled_str = f"{doubled}\\n"
                 with open(output_path, "a+") as out_f:

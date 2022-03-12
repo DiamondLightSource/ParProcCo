@@ -45,8 +45,8 @@ class TestJobController(unittest.TestCase):
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
-            jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE,
-                               cluster_resources=CLUSTER_RESOURCES, timeout=timedelta(seconds=1))
+            jc = JobController(wrapper, Path(cluster_output_name), CLUSTER_PROJ, CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES,
+                                timeout=timedelta(seconds=1))
             with self.assertRaises(RuntimeError) as context:
                 jc.run(4, jobscript_args=runner_script_args)
             self.assertTrue(f"All jobs failed. job_history: " in str(context.exception))
@@ -66,7 +66,7 @@ class TestJobController(unittest.TestCase):
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
-            jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE,
+            jc = JobController(wrapper, Path(cluster_output_name), CLUSTER_PROJ, CLUSTER_QUEUE,
                                cluster_resources=CLUSTER_RESOURCES)
             jc.run(4, jobscript_args=runner_script_args)
 
@@ -93,7 +93,7 @@ class TestJobController(unittest.TestCase):
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
-            jc = JobController(wrapper, Path(cluster_output_name), project=CLUSTER_PROJ, queue=CLUSTER_QUEUE,
+            jc = JobController(wrapper, Path(cluster_output_name), CLUSTER_PROJ, CLUSTER_QUEUE,
                                cluster_resources=CLUSTER_RESOURCES)
             jc.run(1, jobscript_args=runner_script_args)
 

@@ -41,14 +41,15 @@ def decode_to_string(any_string: Union[bytes, str]) -> str:
     return output
 
 
-def get_absolute_path(filename: Union[Path, str]) -> str:
-    p = Path(filename).resolve()
-    if p.is_file():
-        return str(p)
-    from shutil import which
-    f = which(filename)
-    if f:
-        return f
+def get_absolute_path(filename: Optional[Union[Path, str]]) -> str:
+    if filename:
+        p = Path(filename).resolve()
+        if p.is_file():
+            return str(p)
+        from shutil import which
+        f = which(filename)
+        if f:
+            return f
     raise ValueError(f"{filename} not found")
 
 

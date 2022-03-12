@@ -6,9 +6,10 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import drmaa2
+from drmaa2 import JobState
 
 from .scheduler_mode_interface import SchedulerModeInterface
 from .utils import check_jobscript_is_readable
@@ -20,9 +21,9 @@ class StatusInfo:
     job: drmaa2.Job
     output_path: Path
     i: int
-    info: Optional[drmaa2.JobInfo] = None
-    state: Optional[drmaa2.JobState] = None
+    was_killed: bool = False
     final_state: Optional[str] = None
+    exit_status: Optional[int] = None
 
 
 class JobScheduler:
@@ -31,10 +32,9 @@ class JobScheduler:
                  project: str, queue: str, cluster_resources: Optional[dict[str, str]]=None,
                  timeout: timedelta=timedelta(hours=2)):
         """JobScheduler can be used for cluster job submissions"""
-        self.batch_number = 0
         self.cluster_output_dir: Optional[Path] = Path(cluster_output_dir) if cluster_output_dir else None
-        self.job_completion_status: Dict[str, bool] = {}
-        self.job_history: Dict[int, Dict[int, StatusInfo]] = {}
+        self.job_completion_status: List[bool]
+        self.job_history: List[List[StatusInfo]] = []
         self.jobscript: Path
         self.job_env: Optional[Dict[str, str]] = None
         self.jobscript_args: List
@@ -78,7 +78,7 @@ class JobScheduler:
         return self.output_paths
 
     def get_success(self) -> bool:
-        return all(self.job_completion_status.values())
+        return all(self.job_completion_status)
 
     def timestamp_ok(self, output: Path) -> bool:
         mod_time = datetime.fromtimestamp(output.stat().st_mtime)
@@ -86,7 +86,7 @@ class JobScheduler:
             return True
         return False
 
-    def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, job_env: Dict[str,str], memory: str = "4G",
+    def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, job_env: Optional[Dict[str,str]], memory: str = "4G",
             cores: int = 6, jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
         self.jobscript = check_jobscript_is_readable(jobscript)
         self.job_env = job_env
@@ -98,8 +98,6 @@ class JobScheduler:
         if jobscript_args is None:
             jobscript_args = []
         self.jobscript_args = jobscript_args
-        self.job_history[self.batch_number] = {}
-        self.job_completion_status = {str(i): False for i in range(scheduler_mode.number_jobs)}
         self.output_paths.clear()
         return self._run_and_monitor(job_indices)
 
@@ -112,6 +110,7 @@ class JobScheduler:
 
     def _run_jobs(self, session: drmaa2.JobSession, job_indices: List[int]) -> None:
         logging.debug(f"Running jobs on cluster for jobscript {self.jobscript} and args {self.jobscript_args}")
+        self.job_completion_status = [False] * len(job_indices)
         try:
             # Run all input paths in parallel:
             self.status_infos = []
@@ -183,33 +182,35 @@ class JobScheduler:
         start_wait = max(check_time, 60) # wait at least 1 minute
         try:
             job_list = [status_info.job for status_info in self.status_infos]
-            # Wait for jobs to start (timeout shouldn't include queue time)
-            job_list_str = ", ".join([str(job.id) for job in job_list])
-            logging.info(f"Waiting for jobs to start: {job_list_str}")
-            jobs_left = len(job_list)
-            while jobs_left > 0:
-                jobs_left -= len(session.wait_all_started(job_list, start_wait))
-                if jobs_left:
-                    logging.info(f"Jobs left to start: {jobs_left}")
+            if JobScheduler._is_any_job_queued(job_list):
+                # Wait for jobs to start (timeout shouldn't include queue time)
+                job_list_str = ", ".join([str(job.id) for job in job_list])
+                logging.info(f"Waiting for jobs to start: {job_list_str}")
+                jobs_left = len(job_list)
+                try:
+                    if session.wait_any_started(job_list, start_wait):
+                        logging.info(f"At least one job started: {jobs_left}")
+                except:
+                    logging.info(f"No jobs started yet: {jobs_left}")
+                    pass
+                while jobs_left > 0:
+                    jobs_left -= len(session.wait_all_started(job_list, start_wait))
+                    if jobs_left:
+                        logging.info(f"Jobs left to start: {jobs_left}")
             logging.info(f"Jobs started, waiting for jobs: {job_list_str}")
             total_time = 0
             while total_time < max_time and job_list:
-                session.wait_all_terminated(job_list, check_time)
+                finished = session.wait_all_terminated(job_list, check_time)
                 total_time += check_time
-                jobs_remaining = []
-                for job in job_list:
-                    if job.get_state()[0] == drmaa2.JobState.RUNNING:
-                        jobs_remaining.append(job)
-                        logging.debug(f"Job {job.id} still running")
-                job_list = jobs_remaining
-                logging.info(f"Jobs remaining = {len(jobs_remaining)} after {total_time}s")
+                if finished:
+                    time_max = 2 * total_time # safety factor of 2
+                    if time_max < max_time:
+                        logging.info(f"Updating max time from {max_time} to {time_max}")
+                        max_time = time_max
+                job_list = JobScheduler._get_running_jobs(job_list, False)
+                logging.info(f"Jobs remaining = {len(job_list)} after {total_time}s")
 
-            jobs_remaining = []
-            for job in job_list:
-                if job.get_state()[0] == drmaa2.JobState.RUNNING:
-                    logging.warning(f"Job {job.id} timed out. Terminating job now.")
-                    jobs_remaining.append(job)
-                    job.terminate()
+            jobs_remaining = JobScheduler._get_running_jobs(job_list, True)
             if jobs_remaining:
                 # Termination takes some time, wait a max of 2 mins
                 session.wait_all_terminated(jobs_remaining, 120)
@@ -220,99 +221,126 @@ class JobScheduler:
         except Exception:
             logging.error(f"Unknown error occurred running drmaa job", exc_info=True)
 
+    @staticmethod
+    def _get_job_times(job_id, info: drmaa2.JobInfo) -> Tuple[Union[str, int], Union[str, str]]:
+        dispatch_time = info.dispatch_time
+        time_to_dispatch = 'n/a'
+        wall_time = 'n/a'
+        if dispatch_time:
+            try:
+                time_to_dispatch = dispatch_time - info.submission_time
+                wall_time = info.finish_time - dispatch_time
+            except Exception:
+                logging.error(f"Failed to get job submission time statistics for job {job_id}")
+        return time_to_dispatch, wall_time
+
+    @staticmethod
+    def _is_any_job_queued(jobs: List[drmaa2.Job]) -> bool:
+        for j in jobs:
+            try:
+                state = j.get_state()[0] # only want main state
+                return state == JobState.QUEUED or state == JobState.QUEUED_HELD
+            except Exception:
+                logging.error(f"Failed to get job state for job {j.id}")
+                return True
+        return False
+
+    @staticmethod
+    def _get_running_jobs(jobs: List[drmaa2.Job], terminate: bool) -> List[drmaa2.Job]:
+        jobs_running = []
+        for j in jobs:
+            if j.get_state()[0] == JobState.RUNNING: # only want main state
+                logging.warning(f"Job {j.id} timed out. Terminating j now.")
+                jobs_running.append(j)
+                if terminate:
+                    try:
+                        j.terminate()
+                    except drmaa2.Drmaa2Exception: # could be that the j is no longer registered with the GE
+                        logging.error(f"Job {j.id} failed to terminate", exc_info=True)
+        return jobs_running
+
     def _report_job_info(self) -> None:
         # Iterate through jobs with logging to check individual job outcomes
-        for status_info in self.status_infos:
-            logging.debug(f"Retrieving info for drmaa job {status_info.job.id}")
+        self.job_history.append(self.status_infos)
+        for i, status_info in enumerate(self.status_infos):
+            job = status_info.job
+            logging.debug(f"Retrieving info for drmaa job {job.id}")
             try:
-                status_info.state = status_info.job.get_state()[0]  # Returns job state and job substate (always seems to be None)
-                status_info.info = status_info.job.get_info()
+                info = job.get_info()
             except Exception:
-                logging.error(f"Failed to get job information for job {status_info.job.id}", exc_info=True)
+                logging.error(f"Failed to get job information for job {job.id}", exc_info=True)
                 raise
 
-            dispatch_time = status_info.info.dispatch_time
-            if dispatch_time:
-                try:
-                    time_to_dispatch = dispatch_time - status_info.info.submission_time
-                    wall_time = status_info.info.finish_time - dispatch_time
-                except Exception:
-                    logging.error(f"Failed to get job submission time statistics for job {status_info.job.id}")
-                    raise
-            else:
-                time_to_dispatch = 'n/a'
-                wall_time = 'n/a'
+            time_to_dispatch, wall_time = JobScheduler._get_job_times(job.id, info)
+            status_info.was_killed = info.terminating_signal == "SIGKILL"
+            status_info.exit_status = info.exit_status
 
             # Check job states against expected possible options:
-            if status_info.state == drmaa2.JobState.UNDETERMINED:  # Lost contact?
-                status_info.final_state = "UNDETERMINED"
+            state = info.job_state
+            if state == JobState.UNDETERMINED.name:  # Lost contact?
+                status_info.final_state = state
                 logging.warning(
-                    f"Job state undetermined for job {status_info.job.id}. job info: {status_info.info}."
+                    f"Job state undetermined for job {job.id}. job info: {info}."
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
-            elif status_info.state == drmaa2.JobState.FAILED:
-                status_info.final_state = "FAILED"
+            elif state == JobState.FAILED.name:
+                status_info.final_state = state
                 logging.error(
-                    f"drmaa job {status_info.job.id} failed. Terminating signal: {status_info.info.terminating_signal}."
+                    f"drmaa job {job.id} failed. Terminating signal: {info.terminating_signal}."
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
             elif not status_info.output_path.is_file():
                 status_info.final_state = "NO_OUTPUT"
                 logging.error(
-                    f"drmaa job {status_info.job.id} with args {self.jobscript_args} has not created"
+                    f"drmaa job {job.id} with args {self.jobscript_args} has not created"
                     f" output file {status_info.output_path}"
-                    f" Terminating signal: {status_info.info.terminating_signal}."
+                    f" Terminating signal: {info.terminating_signal}."
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
             elif not self.timestamp_ok(status_info.output_path):
                 status_info.final_state = "OLD_OUTPUT_FILE"
                 logging.error(
-                    f"drmaa job {status_info.job.id} with args {self.jobscript_args} has not created"
+                    f"drmaa job {job.id} with args {self.jobscript_args} has not created"
                     f" a new output file {status_info.output_path}"
-                    f" Terminating signal: {status_info.info.terminating_signal}."
+                    f" Terminating signal: {info.terminating_signal}."
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
-            elif status_info.state == drmaa2.JobState.DONE:
-                self.job_completion_status[str(status_info.i)] = True
+            elif state == JobState.DONE.name:
+                self.job_completion_status[i] = True
                 status_info.final_state = "SUCCESS"
                 logging.info(
-                    f"Job {status_info.job.id} with args {self.jobscript_args} completed."
-                    f" CPU time: {timedelta(seconds=float(status_info.info.cpu_time))}; Slots: {status_info.info.slots}"
+                    f"Job {job.id} with args {self.jobscript_args} completed."
+                    f" CPU time: {timedelta(seconds=float(info.cpu_time))}; Slots: {info.slots}"
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
             else:
                 status_info.final_state = "UNSPECIFIED"
                 logging.error(
-                    f"Unexpected job state for job {status_info.job.id}"
-                    f" with args {self.jobscript_args}, job info: {status_info.info}"
+                    f"Unexpected job state for job {job.id}"
+                    f" with args {self.jobscript_args}, job info: {info}"
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
-            self.job_history[self.batch_number][status_info.job.id] = status_info
-
     def resubmit_jobs(self, job_indices: List[int]) -> bool:
-        self.batch_number += 1
-        self.job_history[self.batch_number] = {}
-        self.job_completion_status = {str(i): False for i in job_indices}
         logging.info(f"Resubmitting jobs with job_indices: {job_indices}")
         return self._run_and_monitor(job_indices)
 
-    def filter_killed_jobs(self, jobs: List[drmaa2.Job]) -> List[drmaa2.Job]:
-        killed_jobs = [job for job in jobs if job.info.terminating_signal == "SIGKILL"]
+    def filter_killed_jobs(self, statuses: List[StatusInfo]) -> List[StatusInfo]:
+        killed_jobs = [status for status in statuses if status.was_killed]
         return killed_jobs
 
     def rerun_killed_jobs(self, allow_all_failed: bool = False):
         logging.info("Rerunning killed jobs")
         job_history = self.job_history
-        if all(self.job_completion_status.values()):
+        if all(self.job_completion_status):
             logging.warning("No failed jobs to rerun")
             return True
-        elif allow_all_failed or any(self.job_completion_status.values()):
-            failed_jobs = [job_info for job_info in job_history[0].values() if job_info.final_state != "SUCCESS"]
+        elif allow_all_failed or any(self.job_completion_status):
+            failed_jobs = [status_info for status_info in job_history[-1] if status_info.final_state != "SUCCESS"]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             killed_jobs_indices = [job.i for job in killed_jobs]
             logging.info(f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}")
@@ -320,4 +348,4 @@ class JobScheduler:
                 return self.resubmit_jobs(killed_jobs_indices)
             return True
 
-        raise RuntimeError(f"All jobs failed. job_history: {job_history}\n")
+        raise RuntimeError(f"All jobs failed. job_history: {job_history}")

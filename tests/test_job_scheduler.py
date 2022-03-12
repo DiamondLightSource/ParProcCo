@@ -57,7 +57,7 @@ class TestJobScheduler(unittest.TestCase):
             js.jobscript = Path("some_script.py")
             js.jobscript_args = runner_script_args
 
-            js.memory = '4G'
+            js.memory = '1G'
             js.cores = 5
             js.job_name = "create_template_test"
             js.scheduler_mode = processing_mode
@@ -107,15 +107,14 @@ class TestJobScheduler(unittest.TestCase):
             js.jobscript = check_jobscript_is_readable(runner_script)
             job_indices = list(range(processing_mode.number_jobs))
             js.jobscript_args = runner_script_args
-            js.job_history[js.batch_number] = {}
-            js.job_completion_status = {str(i): False for i in range(4)}
+            js.job_completion_status = [False] * 4
 
             # _run_and_monitor
             js.jobscript = check_jobscript_is_readable(js.jobscript)
             session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
-            js.memory = "4G"
+            js.memory = '1G'
             js.cores = 6
-            js.job_name = "old_output_test"
+            js.job_name="old_output_test"
             js.scheduler_mode = processing_mode
             js._run_jobs(session, job_indices)
             js._wait_for_jobs(session)
@@ -128,19 +127,18 @@ class TestJobScheduler(unittest.TestCase):
                 self.assertEqual(len(context.output), 4)
                 for i, err_msg in enumerate(context.output):
                     self.assertTrue(err_msg.startswith("ERROR:root:drmaa job "))
-                    test_msg = f"with args ['{working_directory + '/test_script'}', '--input-path',"\
-                    f" '{working_directory + '/test_raw_data.txt'}'] has not created a new output file"\
-                    f" {working_directory + '/cluster_output/cluster_logs/out_'}{timestamp}_{str(i)}"\
+                    test_msg = f"with args ['{working_directory}/test_script', '--input-path',"\
+                    f" '{working_directory}/test_raw_data.txt'] has not created a new output file"\
+                    f" {working_directory}/cluster_output/cluster_logs/out_{timestamp}_{str(i)}"\
                     f" Terminating signal: 0."
 
-                    self.assertTrue(test_msg in err_msg)
+                    self.assertTrue(test_msg in err_msg, msg=test_msg + " cf " + err_msg)
             js._report_job_info()
 
             job_stats = js.job_completion_status
             # check failure list
             self.assertFalse(js.get_success(), msg=f"JobScheduler.success is not False\n")
-            self.assertFalse(any(job_stats.values()), msg=f"All jobs not failed:"
-                             f"{js.job_completion_status.values()}\n")
+            self.assertFalse(any(job_stats), msg=f"All jobs not failed: {job_stats}\n")
             self.assertEqual(len(job_stats), 4,
                              msg=f"len(js.job_completion_status) is not 4. js.job_completion_status: {job_stats}\n")
 
@@ -211,7 +209,7 @@ class TestJobScheduler(unittest.TestCase):
             processing_mode.set_parameters(slices)
 
             # run jobs
-            js = create_js(working_directory, cluster_output_dir, timeout=timedelta(seconds=1))
+            js = create_js(working_directory, cluster_output_dir, timeout=timedelta(seconds=5))
 
             with self.assertLogs(level='WARNING') as context:
                 js.run(processing_mode, runner_script, {}, jobscript_args=runner_script_args)
@@ -225,12 +223,12 @@ class TestJobScheduler(unittest.TestCase):
 
             jh = js.job_history
             self.assertEqual(len(jh), 1, f"There should be one batch of jobs; job_history: {jh}\n")
-            returned_jobs = jh[0]
-            self.assertEqual(len(returned_jobs), 4)
-            for job_id in returned_jobs:
-                self.assertEqual(returned_jobs[job_id].info.exit_status, 137)
-                self.assertEqual(returned_jobs[job_id].info.terminating_signal, "SIGKILL")
-                self.assertEqual(returned_jobs[job_id].info.job_state, "FAILED")
+            returned_statuses = jh[0]
+            self.assertEqual(len(returned_statuses), 4)
+            for status in returned_statuses:
+                self.assertEqual(status.exit_status, 137)
+                self.assertTrue(status.was_killed)
+                self.assertEqual(status.final_state, "FAILED")
 
     @parameterized.expand([
         ("bad_name", "bad_jobscript_name", False, None, FileNotFoundError, "does not exist"),
@@ -293,7 +291,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix='test_dir_') as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             js = create_js(working_directory, cluster_output_dir)
-            js.job_completion_status = {"0": stat_0, "1": stat_1}
+            js.job_completion_status = [stat_0, stat_1]
             self.assertEqual(js.get_success(), success)
 
     @parameterized.expand([
@@ -316,18 +314,15 @@ class TestJobScheduler(unittest.TestCase):
             self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
 
     @parameterized.expand([
-        ("all_killed",
-         convert_to_statusinfo([[None, Path(f"to/somewhere_{i}"), i, {"terminating_signal": "SIGKILL"}, 8, "FAILED"]
-                                for i in range(2)]),
-         convert_to_statusinfo([[None, Path(f"to/somewhere_{i}"), i, {"terminating_signal": "SIGKILL"}, 8, "FAILED"]
-                                for i in range(2)])),
-        ("none_killed",
-         convert_to_statusinfo([[None, Path("to/somewhere"), i, {"terminating_signal": "0"}, 8, "FAILED"]
-                                for i in range(2)]), []),
-        ("one_killed",
-         convert_to_statusinfo([[None, Path("to/somewhere_0"), 0, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
-                                [None, Path("to/somewhere_1"), 1, {"terminating_signal": "0"}, 8, "FAILED"]]),
-         convert_to_statusinfo([[None, Path("to/somewhere_0"), 0, {"terminating_signal": "SIGKILL"}, 8, "FAILED"]]))
+        ("all_killed", [
+            StatusInfo(None, Path(f"to/somewhere_{i}"), i, True, "FAILED") for i in range(2)],
+            [StatusInfo(None, Path(f"to/somewhere_{i}"), i, True, "FAILED") for i in range(2)]),
+        ("none_killed", [
+            StatusInfo(None, Path("to/somewhere"), i, False, "FAILED") for i in range(2)], []),
+        ("one_killed", [
+            StatusInfo(None, Path("to/somewhere_0"), 0, True, "FAILED"),
+            StatusInfo(None, Path("to/somewhere_1"), 1, False, "FAILED")],
+            [StatusInfo(None, Path("to/somewhere_0"), 0, True, "FAILED")])
     ])
     def test_filter_killed_jobs(self, name, failed_jobs, result):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
@@ -347,22 +342,18 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(working_directory, cluster_output_dir)
             js.jobscript = setup_runner_script(working_directory)
             js.jobscript_args = [str(setup_jobscript(working_directory)), "--input-path", str(input_path)]
-            js.memory = "4G"
+            js.memory = '1G'
             js.cores = 6
             js.job_name = "test_resubmit_jobs"
             js.scheduler_mode = processing_mode
             js.output_paths = output_paths
-            js.job_history = {0: {
-                0: StatusInfo(None, output_paths[0], 0, drmaa2.JobInfo({"terminating_signal": "0"}),
-                              drmaa2.JobState(8), "FAILED"),
-                1: StatusInfo(None, output_paths[1], 1, drmaa2.JobInfo({"terminating_signal": "0"}),
-                              drmaa2.JobState(7), "DONE"),
-                2: StatusInfo(None, output_paths[2], 2, drmaa2.JobInfo({"terminating_signal": "0"}),
-                              drmaa2.JobState(8), "FAILED"),
-                3: StatusInfo(None, output_paths[3], 3, drmaa2.JobInfo({"terminating_signal": "0"}),
-                              drmaa2.JobState(7), "DONE")}}
+            js.job_history = [[
+                StatusInfo(None, output_paths[0], 0, False, "FAILED"),
+                StatusInfo(None, output_paths[1], 1, False, "DONE"),
+                StatusInfo(None, output_paths[2], 2, False, "FAILED"),
+                StatusInfo(None, output_paths[3], 3, False, "DONE")]]
 
-            js.job_completion_status = {"0": False, "1": True, "2": False, '3': True}
+            js.job_completion_status = [False, True, False, True]
 
             success = js.resubmit_jobs([0, 2])
             self.assertTrue(success)
@@ -371,27 +362,27 @@ class TestJobScheduler(unittest.TestCase):
                 self.assertTrue(output.is_file())
 
     @parameterized.expand([
-        ("all_success", False,
-         convert_to_statusinfo([[None, Path(), i, {"terminating_signal": "0"}, 7, "DONE"] for i in range(4)]),
-         {str(i): True for i in range(4)}, False, None, True, False),
-        ("all_failed_do_not_allow", False,
-         convert_to_statusinfo([[None, Path(), i, {"terminating_signal": "SIGKILL"}, 8, "FAILED"] for i in range(4)]),
-         {str(i): False for i in range(4)}, False, None, False, True),
-        ("all_failed_do_allow", True,
-         convert_to_statusinfo([[None, Path(), i, {"terminating_signal": "SIGKILL"}, 8, "FAILED"] for i in range(4)]),
-         {str(i): False for i in range(4)}, True, [0, 1, 2, 3], True, False),
-        ("some_failed_do_allow", True,
-         convert_to_statusinfo([[None, Path(), 0, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
-                                [None, Path(), 1, {"terminating_signal": "0"}, 7, "DONE"],
-                                [None, Path(), 2, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
-                                [None, Path(), 3, {"terminating_signal": "0"}, 7, "DONE"]]),
-         {"0": False, "1": True, "2": False, "3": True}, True, [0, 2], True, False),
-        ("some_failed_do_not_allow", False,
-         convert_to_statusinfo([[None, Path(), 0, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
-                                [None, Path(), 1, {"terminating_signal": "0"}, 7, "DONE"],
-                                [None, Path(), 2, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
-                                [None, Path(), 3, {"terminating_signal": "0"}, 7, "DONE"]]),
-         {"0": False, "1": True, "2": False, "3": True}, True, [0, 2], True, False)
+        ("all_success", False, [
+            StatusInfo(None, Path(), i, False, "DONE") for i in range(4)], [True]*4,
+            False, None, True, False),
+        ("all_failed_do_not_allow", False, [
+            StatusInfo(None, Path(), i, True, "FAILED") for i in range(4)], [False]*4,
+            False, None, False, True),
+        ("all_failed_do_allow", True, [
+            StatusInfo(None, Path(), i, True, "FAILED") for i in range(4)], [False]*4,
+            True, [0, 1, 2, 3], True, False),
+        ("some_failed_do_allow", True, [
+            StatusInfo(None, Path(), 0, True, "FAILED"),
+            StatusInfo(None, Path(), 1, False, "DONE"),
+            StatusInfo(None, Path(), 2, True, "FAILED"),
+            StatusInfo(None, Path(), 3, False, "DONE")], [False, True, False, True],
+            True, [0, 2], True, False),
+        ("some_failed_do_not_allow", False, [
+            StatusInfo(None, Path(), 0, True, "FAILED"),
+            StatusInfo(None, Path(), 1, False, "DONE"),
+            StatusInfo(None, Path(), 2, True, "FAILED"),
+            StatusInfo(None, Path(), 3, False, "DONE")], [False, True, False, True],
+            True, [0, 2], True, False)
     ])
     def test_rerun_killed_jobs(self, name, allow_all_failed, job_history, job_completion_status, runs, indices,
                                expected_success, raises_error):
@@ -403,13 +394,13 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(working_directory, cluster_output_dir)
             js.jobscript = setup_runner_script(working_directory)
             js.jobscript_args = [str(setup_jobscript(working_directory)), "--input-path", str(input_path)]
-            js.memory = "4G"
+            js.memory = '1G'
             js.cores = 6
             js.job_name = "test_resubmit_jobs"
             js.scheduler_mode = processing_mode
             for output_path, status_info in zip(output_paths, job_history):
                 status_info.output = output_path
-            js.job_history = {0: {i: job_history[i] for i in range(4)}}
+            js.job_history.append(job_history)
             js.job_completion_status = job_completion_status
             js.output_paths = output_paths
 
@@ -417,19 +408,19 @@ class TestJobScheduler(unittest.TestCase):
                 with self.assertRaises(RuntimeError) as context:
                     js.rerun_killed_jobs(allow_all_failed)
                 self.assertTrue("All jobs failed. job_history: " in str(context.exception))
-                self.assertEqual(js.batch_number, 0)
+                self.assertEqual(len(js.job_history), 1)
                 return
 
             success = js.rerun_killed_jobs(allow_all_failed)
             self.assertEqual(success, expected_success)
             self.assertEqual(js.output_paths, output_paths)
             if runs:
-                self.assertEqual(js.batch_number, 1)
+                self.assertEqual(len(js.job_history), 2)
                 resubmitted_output_paths = [output_paths[i] for i in indices]
                 for output in resubmitted_output_paths:
                     self.assertTrue(output.is_file())
             else:
-                self.assertEqual(js.batch_number, 0)
+                self.assertEqual(len(js.job_history), 1)
 
 
 if __name__ == '__main__':
