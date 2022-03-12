@@ -22,7 +22,7 @@ class PassThruProcessingMode(SchedulerModeInterface):
         """Overrides SchedulerModeInterface.set_parameters"""
         self.number_jobs = 1
 
-    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime.datetime) -> Tuple[str, str, str]:
+    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
         timestamp = format_timestamp(t)
         stdout_fp = str(error_dir / f"out_{timestamp}_{i}")

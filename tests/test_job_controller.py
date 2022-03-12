@@ -72,7 +72,7 @@ class TestJobController(unittest.TestCase):
                                cluster_resources=CLUSTER_RESOURCES)
             jc.run(4, jobscript_args=runner_script_args)
 
-            with open(Path(working_directory) / cluster_output_name / "aggregated_results.txt", "r") as af:
+            with open(jc.aggregated_result, "r") as af:
                 agg_data = af.readlines()
 
             self.assertEqual(agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"])
