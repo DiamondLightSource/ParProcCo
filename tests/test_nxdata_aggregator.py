@@ -4,7 +4,6 @@ import logging
 import pytest
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import h5py
 import numpy as np
@@ -12,10 +11,8 @@ from parameterized import parameterized
 
 from ParProcCo.nxdata_aggregator import NXdataAggregator
 from ParProcCo.utils import decode_to_string
-from tests.utils import get_gh_testing
+from .utils import get_gh_testing, TemporaryDirectory
 
-
-global gh_testing
 gh_testing = get_gh_testing()
 
 
