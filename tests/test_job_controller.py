@@ -6,14 +6,12 @@ import pytest
 import unittest
 from datetime import timedelta
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from example.simple_wrapper import SimpleWrapper
 from ParProcCo.job_controller import JobController
-from tests.utils import get_gh_testing, get_tmp_base_dir, setup_aggregation_script, setup_data_file, setup_runner_script, setup_jobscript, CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
+from .utils import get_gh_testing, get_tmp_base_dir, setup_aggregation_script, setup_data_file, \
+    setup_runner_script, setup_jobscript, CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES, TemporaryDirectory
 
-
-global gh_testing
 gh_testing = get_gh_testing()
 
 

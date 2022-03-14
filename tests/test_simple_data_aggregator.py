@@ -3,10 +3,9 @@ from __future__ import annotations
 import logging
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from example.simple_data_aggregator import SimpleDataAggregator
-from tests.utils import setup_aggregator_data_files
+from .utils import setup_aggregator_data_files, TemporaryDirectory
 
 
 class TestDataAggregator(unittest.TestCase):

@@ -7,7 +7,6 @@ import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import drmaa2
 from parameterized import parameterized
@@ -15,12 +14,9 @@ from parameterized import parameterized
 from example.simple_processing_mode import SimpleProcessingMode
 from ParProcCo.job_scheduler import JobScheduler, StatusInfo
 from ParProcCo.utils import check_jobscript_is_readable, format_timestamp
-from tests.utils import get_gh_testing, get_tmp_base_dir, setup_data_files, setup_jobscript, setup_runner_script
+from .utils import get_gh_testing, get_tmp_base_dir, setup_data_files, setup_jobscript, setup_runner_script, \
+    CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES, TemporaryDirectory
 
-from .utils import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
-
-
-global gh_testing
 gh_testing = get_gh_testing()
 
 
