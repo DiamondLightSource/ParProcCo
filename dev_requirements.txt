@@ -1,0 +1,6 @@
+h5py
+numpy
+parameterized
+PyYAML
+setuptools
+uge_drmaa2
