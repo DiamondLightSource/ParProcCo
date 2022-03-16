@@ -27,8 +27,9 @@ class StatusInfo:
 
 class JobScheduler:
 
-    def __init__(self, working_directory: Optional[Union[Path, str]], cluster_output_dir: Optional[Union[Path, str]], project: str,
-                 queue: str, cluster_resources: Optional[dict[str,str]] = None, timeout: timedelta = timedelta(hours=2)):
+    def __init__(self, working_directory: Optional[Union[Path, str]], cluster_output_dir: Optional[Union[Path, str]],
+                 project: str, queue: str, cluster_resources: Optional[dict[str, str]]=None,
+                 timeout: timedelta=timedelta(hours=2)):
         """JobScheduler can be used for cluster job submissions"""
         self.batch_number = 0
         self.cluster_output_dir: Optional[Path] = Path(cluster_output_dir) if cluster_output_dir else None
@@ -47,10 +48,10 @@ class JobScheduler:
         self.resources: Dict[str, str] = {}
         if cluster_resources:
             self.resources.update(cluster_resources)
-        self.scheduler_mode : SchedulerModeInterface
-        self.memory : str
-        self.cores : int
-        self.job_name : str
+        self.scheduler_mode: SchedulerModeInterface
+        self.memory: str
+        self.cores: int
+        self.job_name: str
 
     def check_queue_list(self, queue: str) -> str:
         if not queue:

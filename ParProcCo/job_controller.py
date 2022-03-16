@@ -11,10 +11,11 @@ from .slicer_interface import SlicerInterface
 from .utils import check_location, get_absolute_path
 from .program_wrapper import ProgramWrapper
 
+
 class JobController:
 
     def __init__(self, program_wrapper: ProgramWrapper, output_dir_or_file: Path, project: str, queue: str,
-                 cluster_resources: Optional[dict[str,str]] = None, timeout: timedelta = timedelta(hours=2)):
+                 cluster_resources: Optional[dict[str, str]]=None, timeout: timedelta=timedelta(hours=2)):
         """JobController is used to coordinate cluster job submissions with JobScheduler"""
         self.program_wrapper = program_wrapper
         self.output_file: Optional[Path] = None
@@ -27,7 +28,7 @@ class JobController:
                 self.output_file = output_dir_or_file
             self.cluster_output_dir = check_location(output_dir)
         try:
-            self.working_directory: Optional[Path]= check_location(os.getcwd())
+            self.working_directory: Optional[Path] = check_location(os.getcwd())
         except Exception:
             logging.warning(f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir)
             self.working_directory = self.cluster_output_dir
@@ -64,8 +65,8 @@ class JobController:
                           f" memory: {memory}, job_name: {job_name}")
             raise RuntimeError(f"Sliced jobs failed\n")
 
-    def _run_sliced_jobs(self, slice_params: List[Optional[slice]],
-                        jobscript_args: Optional[List], memory: str, job_name: str):
+    def _run_sliced_jobs(self, slice_params: List[Optional[slice]], jobscript_args: Optional[List], memory: str,
+                         job_name: str):
         if jobscript_args is None:
             jobscript_args = []
 
@@ -73,10 +74,9 @@ class JobController:
         processing_mode.set_parameters(slice_params)
 
         job_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project, self.queue,
-                                          self.cluster_resources, self.timeout)
+                                     self.cluster_resources, self.timeout)
         sliced_jobs_success = job_scheduler.run(processing_mode, self.cluster_runner, self.cluster_env, memory,
-                                                processing_mode.cores, jobscript_args,
-                                                     job_name)
+                                                processing_mode.cores, jobscript_args, job_name)
 
         if not sliced_jobs_success:
             sliced_jobs_success = job_scheduler.rerun_killed_jobs()
@@ -99,7 +99,7 @@ class JobController:
             aggregation_args.append(aggregator_path)
 
         aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
-                                                  self.queue, self.cluster_resources, self.timeout)
+                                             self.queue, self.cluster_resources, self.timeout)
         aggregation_success = aggregation_scheduler.run(aggregating_mode, self.cluster_runner, self.cluster_env, memory,
                                                         aggregating_mode.cores, aggregation_args,
                                                         aggregating_mode.__class__.__name__)
