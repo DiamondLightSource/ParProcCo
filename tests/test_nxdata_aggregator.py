@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import pytest
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,6 +12,11 @@ from parameterized import parameterized
 
 from ParProcCo.nxdata_aggregator import NXdataAggregator
 from ParProcCo.utils import decode_to_string
+from tests.utils import get_gh_testing
+
+
+global gh_testing
+gh_testing = get_gh_testing()
 
 
 class TestNXdataAggregator(unittest.TestCase):
@@ -42,6 +48,7 @@ class TestNXdataAggregator(unittest.TestCase):
         name = decode_to_string(name)
         self.assertEqual(name, "name")
 
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_renormalise(self) -> None:
         output_file_paths = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                              Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
@@ -53,11 +60,12 @@ class TestNXdataAggregator(unittest.TestCase):
         np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
         np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
 
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_initialise_arrays_applied_data(self) -> None:
         aggregator = NXdataAggregator()
         aggregator.data_dimensions = 3
         aggregator.data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
-                                        Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
+                                 Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
         aggregator.nxentry_name = "processed"
         aggregator.nxdata_name = "reciprocal_space"
         aggregator.nxdata_path_name = "processed/reciprocal_space"
@@ -176,6 +184,7 @@ class TestNXdataAggregator(unittest.TestCase):
             else:
                 self.assertEqual(aggregator.accumulator_aux_signals, [])
 
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_get_nxdata_applied_data(self) -> None:
         output_data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                              Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
@@ -539,10 +548,11 @@ class TestNXdataAggregator(unittest.TestCase):
                     ]
                 np.testing.assert_allclose(aux_signal, np.array(signal).reshape(3, 3, 5), rtol=1e-14)
 
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_accumulate_volumes_applied_data(self) -> None:
         aggregator = NXdataAggregator()
         aggregator.data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
-                                        Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
+                                 Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]
         aggregator.nxentry_name = "processed"
         aggregator.nxdata_name = "reciprocal_space"
         aggregator.nxdata_path_name = "processed/reciprocal_space"
@@ -570,6 +580,7 @@ class TestNXdataAggregator(unittest.TestCase):
         np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
         np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
 
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_write_aggregation_file(self) -> None:
         sliced_data_files = [Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
                              Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs")]

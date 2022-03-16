@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import getpass
 import logging
 import os
+import pytest
 import time
 import unittest
 from datetime import datetime, timedelta
@@ -15,23 +15,39 @@ from parameterized import parameterized
 from example.simple_processing_mode import SimpleProcessingMode
 from ParProcCo.job_scheduler import JobScheduler, StatusInfo
 from ParProcCo.utils import check_jobscript_is_readable, format_timestamp
-from tests.utils import setup_data_files, setup_jobscript, setup_runner_script, CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
+from tests.utils import get_gh_testing, get_tmp_base_dir, setup_data_files, setup_jobscript, setup_runner_script
+
+from .utils import CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES
+
+
+global gh_testing
+gh_testing = get_gh_testing()
+
 
 def create_js(work_dir, out_dir, project=CLUSTER_PROJ, queue=CLUSTER_QUEUE, cluster_resources=CLUSTER_RESOURCES,
               timeout=timedelta(hours=2)):
     return JobScheduler(work_dir, out_dir, project, queue, cluster_resources, timeout)
 
+
+def convert_to_statusinfo(job_infos):
+    print(f"gh_testing is {gh_testing}")
+    if not gh_testing:
+        for job_info in job_infos:
+            job_info[3] = drmaa2.JobInfo(job_info[3])
+            job_info[4] = drmaa2.JobState(job_info[4])
+    return [StatusInfo(*job_info) for job_info in job_infos]
+
+
+@pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
 class TestJobScheduler(unittest.TestCase):
 
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
-        current_user = getpass.getuser()
-        tmp_dir = f"/dls/tmp/{current_user}/"
-        self.base_dir = f"/dls/tmp/{current_user}/tests/"
-        self.assertTrue(Path(tmp_dir).is_dir(), f"{tmp_dir} is not a directory")
-        if not Path(self.base_dir).is_dir():
-            logging.info(f"Making directory {self.base_dir}")
-            Path(self.base_dir).mkdir(exist_ok=True)
+        self.base_dir = get_tmp_base_dir()
+
+    def tearDown(self):
+        if gh_testing:
+            os.rmdir(self.base_dir)
 
     def test_create_template_with_cluster_output_dir(self) -> None:
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
@@ -101,9 +117,9 @@ class TestJobScheduler(unittest.TestCase):
             # _run_and_monitor
             js.jobscript = check_jobscript_is_readable(js.jobscript)
             session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
-            js.memory="4G"
-            js.cores=6
-            js.job_name="old_output_test"
+            js.memory = "4G"
+            js.cores = 6
+            js.job_name = "old_output_test"
             js.scheduler_mode = processing_mode
             js._run_jobs(session, job_indices)
             js._wait_for_jobs(session)
@@ -304,21 +320,18 @@ class TestJobScheduler(unittest.TestCase):
             self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
 
     @parameterized.expand([
-        ("all_killed", [
-            StatusInfo(None, Path(f"to/somewhere_{i}"), i, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                       drmaa2.JobState(8), "FAILED") for i in range(2)],
-            [StatusInfo(None, Path(f"to/somewhere_{i}"), i, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                        drmaa2.JobState(8), "FAILED") for i in range(2)]),
-        ("none_killed", [
-            StatusInfo(None, Path("to/somewhere"), i, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(8),
-                       "FAILED") for i in range(2)], []),
-        ("one_killed", [
-            StatusInfo(None, Path("to/somewhere_0"), 0, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                       drmaa2.JobState(8), "FAILED"),
-            StatusInfo(None, Path("to/somewhere_1"), 1, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(8),
-                       "FAILED")],
-            [StatusInfo(None, Path("to/somewhere_0"), 0, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                        drmaa2.JobState(8), "FAILED")])
+        ("all_killed",
+         convert_to_statusinfo([[None, Path(f"to/somewhere_{i}"), i, {"terminating_signal": "SIGKILL"}, 8, "FAILED"]
+                                for i in range(2)]),
+         convert_to_statusinfo([[None, Path(f"to/somewhere_{i}"), i, {"terminating_signal": "SIGKILL"}, 8, "FAILED"]
+                                for i in range(2)])),
+        ("none_killed",
+         convert_to_statusinfo([[None, Path("to/somewhere"), i, {"terminating_signal": "0"}, 8, "FAILED"]
+                                for i in range(2)]), []),
+        ("one_killed",
+         convert_to_statusinfo([[None, Path("to/somewhere_0"), 0, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
+                                [None, Path("to/somewhere_1"), 1, {"terminating_signal": "0"}, 8, "FAILED"]]),
+         convert_to_statusinfo([[None, Path("to/somewhere_0"), 0, {"terminating_signal": "SIGKILL"}, 8, "FAILED"]]))
     ])
     def test_filter_killed_jobs(self, name, failed_jobs, result):
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
@@ -362,36 +375,27 @@ class TestJobScheduler(unittest.TestCase):
                 self.assertTrue(output.is_file())
 
     @parameterized.expand([
-        ("all_success", False, [
-            StatusInfo(None, Path(), i, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(7),
-                       "DONE") for i in range(4)], {str(i): True for i in range(4)}, False, None, True, False),
-        ("all_failed_do_not_allow", False, [
-            StatusInfo(None, Path(), i, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                       drmaa2.JobState(8), "FAILED") for i in range(4)], {str(i): False for i in range(4)},
-            False, None, False, True),
-        ("all_failed_do_allow", True, [
-            StatusInfo(None, Path(), i, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                       drmaa2.JobState(8), "FAILED") for i in range(4)],
-            {str(i): False for i in range(4)}, True, [0, 1, 2, 3], True, False),
-        ("some_failed_do_allow", True, [
-            StatusInfo(None, Path(), 0, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                       drmaa2.JobState(8), "FAILED"),
-            StatusInfo(None, Path(), 1, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(7),
-                       "DONE"),
-            StatusInfo(None, Path(), 2, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                       drmaa2.JobState(8), "FAILED"),
-            StatusInfo(None, Path(), 3, drmaa2.JobInfo({"terminating_signal": "0"}), drmaa2.JobState(7),
-                       "DONE")], {"0": False, "1": True, "2": False, "3": True}, True, [0, 2], True, False),
-        ("some_failed_do_not_allow", False, [
-            StatusInfo(None, Path(), 0, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                       drmaa2.JobState(8), "FAILED"),
-            StatusInfo(None, Path(), 1, drmaa2.JobInfo({"terminating_signal": "0"}),
-                       drmaa2.JobState(7), "DONE"),
-            StatusInfo(None, Path(), 2, drmaa2.JobInfo({"terminating_signal": "SIGKILL"}),
-                       drmaa2.JobState(8), "FAILED"),
-            StatusInfo(None, Path(), 3, drmaa2.JobInfo({"terminating_signal": "0"}),
-                       drmaa2.JobState(7), "DONE")],
-            {"0": False, "1": True, "2": False, "3": True}, True, [0, 2], True, False)
+        ("all_success", False,
+         convert_to_statusinfo([[None, Path(), i, {"terminating_signal": "0"}, 7, "DONE"] for i in range(4)]),
+         {str(i): True for i in range(4)}, False, None, True, False),
+        ("all_failed_do_not_allow", False,
+         convert_to_statusinfo([[None, Path(), i, {"terminating_signal": "SIGKILL"}, 8, "FAILED"] for i in range(4)]),
+         {str(i): False for i in range(4)}, False, None, False, True),
+        ("all_failed_do_allow", True,
+         convert_to_statusinfo([[None, Path(), i, {"terminating_signal": "SIGKILL"}, 8, "FAILED"] for i in range(4)]),
+         {str(i): False for i in range(4)}, True, [0, 1, 2, 3], True, False),
+        ("some_failed_do_allow", True,
+         convert_to_statusinfo([[None, Path(), 0, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
+                                [None, Path(), 1, {"terminating_signal": "0"}, 7, "DONE"],
+                                [None, Path(), 2, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
+                                [None, Path(), 3, {"terminating_signal": "0"}, 7, "DONE"]]),
+         {"0": False, "1": True, "2": False, "3": True}, True, [0, 2], True, False),
+        ("some_failed_do_not_allow", False,
+         convert_to_statusinfo([[None, Path(), 0, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
+                                [None, Path(), 1, {"terminating_signal": "0"}, 7, "DONE"],
+                                [None, Path(), 2, {"terminating_signal": "SIGKILL"}, 8, "FAILED"],
+                                [None, Path(), 3, {"terminating_signal": "0"}, 7, "DONE"]]),
+         {"0": False, "1": True, "2": False, "3": True}, True, [0, 2], True, False)
     ])
     def test_rerun_killed_jobs(self, name, allow_all_failed, job_history, job_completion_status, runs, indices,
                                expected_success, raises_error):
