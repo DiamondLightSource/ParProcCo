@@ -1,18 +1,44 @@
 from __future__ import annotations
 
+import drmaa2
+import getpass
 import os
+from os import path
 from pathlib import Path
 from typing import List, Tuple
 
-_sge_cell=os.getenv('SGE_CELL')
+
+_sge_cell = os.getenv('SGE_CELL')
 if _sge_cell == 'HAMILTON':
-    CLUSTER_PROJ='p99'
-    CLUSTER_QUEUE='all.q'
-    CLUSTER_RESOURCES=None
+    CLUSTER_PROJ = 'p99'
+    CLUSTER_QUEUE = 'all.q'
+    CLUSTER_RESOURCES = None
 else:
-    CLUSTER_PROJ='b24'
-    CLUSTER_QUEUE='medium.q'
-    CLUSTER_RESOURCES={"cpu_model": "intel-xeon"}
+    CLUSTER_PROJ = 'b24'
+    CLUSTER_QUEUE = 'medium.q'
+    CLUSTER_RESOURCES = {"cpu_model": "intel-xeon"}
+
+
+def get_gh_testing() -> Tuple(str, bool):
+    try:
+        drmaa2.get_drmaa_version()
+        return False
+    except Exception:
+        return True
+
+
+def get_tmp_base_dir() -> Path:
+    if path.isdir("/dls"):
+        current_user = getpass.getuser()
+        tmp_dir = f"/dls/tmp/{current_user}"
+    else:
+        tmp_dir = "test_dir"
+    assert Path(tmp_dir).is_dir(), f"{tmp_dir} is not a directory"
+    base_dir = f"{tmp_dir}/tests/"
+    if not Path(base_dir).is_dir():
+        Path(base_dir).mkdir(exist_ok=True)
+    return base_dir
+
 
 def setup_aggregator_data_files(working_directory: Path) -> List[Path]:
     # create test files
