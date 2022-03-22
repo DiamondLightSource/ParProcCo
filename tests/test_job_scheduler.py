@@ -43,7 +43,7 @@ class TestJobScheduler(unittest.TestCase):
 
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
-        self.base_dir = get_tmp_base_dir()
+        self.base_dir: str = get_tmp_base_dir()
 
     def tearDown(self):
         if gh_testing:

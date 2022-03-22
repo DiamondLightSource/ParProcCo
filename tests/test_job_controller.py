@@ -22,8 +22,8 @@ class TestJobController(unittest.TestCase):
 
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
-        self.base_dir = get_tmp_base_dir()
-        self.current_dir = os.getcwd()
+        self.base_dir: str = get_tmp_base_dir()
+        self.current_dir: str = os.getcwd()
 
     def tearDown(self):
         os.chdir(self.current_dir)

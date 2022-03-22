@@ -19,7 +19,7 @@ else:
     CLUSTER_RESOURCES = {"cpu_model": "intel-xeon"}
 
 
-def get_gh_testing() -> Tuple(str, bool):
+def get_gh_testing() -> bool:
     try:
         drmaa2.get_drmaa_version()
         return False
@@ -27,16 +27,16 @@ def get_gh_testing() -> Tuple(str, bool):
         return True
 
 
-def get_tmp_base_dir() -> Path:
+def get_tmp_base_dir() -> str:
     if path.isdir("/dls"):
         current_user = getpass.getuser()
         tmp_dir = f"/dls/tmp/{current_user}"
     else:
         tmp_dir = "test_dir"
-    assert Path(tmp_dir).is_dir(), f"{tmp_dir} is not a directory"
+    assert path.isdir(tmp_dir), f"{tmp_dir} is not a directory"
     base_dir = f"{tmp_dir}/tests/"
-    if not Path(base_dir).is_dir():
-        Path(base_dir).mkdir(exist_ok=True)
+    if not path.isdir(base_dir):
+        os.makedirs(base_dir, exist_ok=True)
     return base_dir
 
 
