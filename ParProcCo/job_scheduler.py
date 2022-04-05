@@ -44,7 +44,7 @@ class JobScheduler:
         self.start_time = datetime.now()
         self.status_infos: List[StatusInfo]
         self.timeout = timeout
-        self.working_directory = Path(working_directory) if working_directory else Path.home()
+        self.working_directory = Path(working_directory) if working_directory else (self.cluster_output_dir if cluster_output_dir else Path.home())
         self.resources: Dict[str, str] = {}
         if cluster_resources:
             self.resources.update(cluster_resources)
