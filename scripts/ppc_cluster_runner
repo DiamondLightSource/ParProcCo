@@ -1,4 +1,4 @@
-#/usr/bin/bash
+#!/usr/bin/bash
 if [ -z $MODULESHOME ]; then
   . /etc/profile.d/modules.sh
 fi
