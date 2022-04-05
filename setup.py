@@ -11,6 +11,5 @@ setup(
     install_requires=['h5py', 'numpy', 'PyYAML', 'uge-drmaa2'],
     extras_require={'testing': ['parameterized'],},
     scripts=['scripts/nxdata_aggregate', 'scripts/ppc_cluster_runner', 'scripts/ppc_cluster_submit'],
-    entry_points={'ParProcCo.allowed_programs': ['rs_map = msmapper_utils']},
     url='https://github.com/DiamondLightSource/ParProcCo',
 )
