@@ -128,7 +128,7 @@ def load_cfg() -> PPCConfig:
     return ppc_config
 
 
-def set_up_wrapper(program: str):
+def _set_up_wrapper(program: str):
     import importlib
     import sys
     if sys.version_info < (3, 10):
@@ -152,6 +152,22 @@ def set_up_wrapper(program: str):
         raise ValueError(f'Cannot create Wrapper from {program}_wrapper module') from exc
     return wrapper
 
+def set_up_wrapper(cfg: PPCConfig, program: str):
+    allowed = cfg.allowed_programs
+    if program not in allowed:
+        logging.info(f'{program} not on allowed list in {cfg} so checking entry points')
+        return _set_up_wrapper(program)
+
+    import importlib
+    try:
+        package = allowed[program]
+        wrapper_module = importlib.import_module(f'{package}.{program}_wrapper')
+    except Exception as exc:
+        raise ValueError(f'Cannot import {program}_wrapper as a Python module from package {package}') from exc
+    try:
+        return wrapper_module.Wrapper()
+    except Exception as exc:
+        raise ValueError(f'Cannot create Wrapper from {program}_wrapper module') from exc
 
 def find_cfg_file(name: str) -> Path:
     '''
