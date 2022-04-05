@@ -128,39 +128,29 @@ def load_cfg() -> PPCConfig:
     return ppc_config
 
 
-def _set_up_wrapper(program: str):
-    import importlib
-    import sys
-    if sys.version_info < (3, 10):
-        from backports.entry_points_selectable import entry_points
-    else:
-        from importlib.metadata import entry_points
-
-    eps = entry_points(group='ParProcCo.allowed_programs')
-    try:
-        package = eps[program].module
-    except Exception as exc:
-        raise ValueError(f'Cannot find {program} in ParProcCo.allowed_programs {eps}') from exc
-    try:
-        wrapper_module = importlib.import_module(f'{package}.{program}_wrapper')
-    except Exception as exc:
-        raise ValueError(f'Cannot import {program}_wrapper as a Python module from package {package}') from exc
-
-    try:
-        wrapper = wrapper_module.Wrapper()
-    except Exception as exc:
-        raise ValueError(f'Cannot create Wrapper from {program}_wrapper module') from exc
-    return wrapper
+PPC_ENTRY_POINT='ParProcCo.allowed_programs'
 
 def set_up_wrapper(cfg: PPCConfig, program: str):
     allowed = cfg.allowed_programs
-    if program not in allowed:
-        logging.info(f'{program} not on allowed list in {cfg} so checking entry points')
-        return _set_up_wrapper(program)
+    if program in allowed:
+        logging.info(f'{program} on allowed list in {cfg}')
+        package = allowed[program]
+    else:
+        import sys
+        if sys.version_info < (3, 10):
+            from backports.entry_points_selectable import entry_points # @UnresolvedImport
+        else:
+            from importlib.metadata import entry_points # @UnresolvedImport
+
+        logging.info(f'Checking entry points for {program}')
+        eps = entry_points(group=PPC_ENTRY_POINT)
+        try:
+            package = eps[program].module
+        except Exception as exc:
+            raise ValueError(f'Cannot find {program} in {PPC_ENTRY_POINT} {eps}') from exc
 
     import importlib
     try:
-        package = allowed[program]
         wrapper_module = importlib.import_module(f'{package}.{program}_wrapper')
     except Exception as exc:
         raise ValueError(f'Cannot import {program}_wrapper as a Python module from package {package}') from exc

@@ -22,3 +22,14 @@ clusters:
         resources:
             cpu_model: arm64
 ```
+
+An entry point called `ParProcCo.allowed_programs` can be added to other packages' `setup.py`:
+
+```
+setup(
+...
+    entry_points={PPC_ENTRY_POINT: ['blah1 = whatever_package1']},
+)
+```
+
+which will look for a module called `blah1_wrapper` in `whatever_package1` package.
