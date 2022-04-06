@@ -24,6 +24,14 @@ class ProgramWrapper:
     def set_cores(self, cores: int):
         self.processing_mode.cores = cores
 
+    def get_args(self, args: List[str], debug: bool = False):
+        '''
+        Get arguments given passed-in arguments
+        args  -- given arguments
+        debug -- if True, add debug option to arguments if available for wrapped program
+        '''
+        return args
+
     def create_slices(self, number_jobs: int, stop: Optional[int] = None) -> List[Optional[slice]]:
         if number_jobs == 1 or self.slicer is None:
             return [None]

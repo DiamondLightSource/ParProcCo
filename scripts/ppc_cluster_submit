@@ -78,8 +78,9 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     wrapper.set_module(cluster.module)
     wrapper.set_cores(args.cores)
     output = wrapper.get_output(args.output, script_args[1:])
+    wrapper_args = wrapper.get_args(script_args, args.debug)
     jc = JobController(wrapper, output, project, cluster_queue, cluster_resources, timeout)
-    jc.run(args.jobs, script_args, args.memory, "PPC-" + program)
+    jc.run(args.jobs, wrapper_args, args.memory, "PPC-" + program)
     print("complete")
 
 if __name__ == '__main__':
