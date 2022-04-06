@@ -43,16 +43,16 @@ class ProgramWrapper:
         if test_modules:
             return {"PPC_MODULES":test_modules}
 
-        loaded_modules = os.getenv('LOADEDMODULES').split(':')
+        loaded_modules = os.getenv('LOADEDMODULES', '').split(':')
         allowed = self.processing_mode.allowed_modules
         ppc_modules = []
         if allowed:
             for m in loaded_modules:
-                if m.split('/')[0] in allowed:
+                if m and m.split('/')[0] in allowed:
                     ppc_modules.append(m)
         else:
             for m in reversed(loaded_modules):
-                if m != self.cluster_module:
+                if m and m != self.cluster_module:
                     ppc_modules.append(m)
                     break
 

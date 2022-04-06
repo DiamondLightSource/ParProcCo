@@ -1,4 +1,4 @@
 *.pyc
-.cache
 .settings
 **/__pycache__
+/.*cache/
