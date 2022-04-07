@@ -7,6 +7,7 @@ from pathlib import Path
 from .slicer_interface import SlicerInterface
 from .scheduler_mode_interface import SchedulerModeInterface
 
+import logging
 import os
 
 class ProgramWrapper:
@@ -49,10 +50,12 @@ class ProgramWrapper:
     def get_environment(self) -> Optional[Dict[str,str]]:
         test_modules = os.getenv('TEST_PPC_MODULES')
         if test_modules:
-            return {"PPC_MODULES":test_modules}
+            return {"PPC_MODULES": test_modules}
 
         loaded_modules = os.getenv('LOADEDMODULES', '').split(':')
+        logging.debug('Modules are %s', loaded_modules)
         allowed = self.processing_mode.allowed_modules
+        logging.debug('Allowed include %s from %s', allowed, type(self.processing_mode))
         ppc_modules = []
         if allowed:
             for m in loaded_modules:
@@ -64,6 +67,7 @@ class ProgramWrapper:
                     ppc_modules.append(m)
                     break
 
+        logging.debug('Passing through %s', ppc_modules)
         if ppc_modules:
             return {'PPC_MODULES': ':'.join(ppc_modules)}
 

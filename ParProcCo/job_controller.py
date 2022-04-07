@@ -21,17 +21,20 @@ class JobController:
         self.output_file: Optional[Path] = None
         self.cluster_output_dir: Optional[Path] = None
         if output_dir_or_file is not None:
+            logging.debug('JC output: %s', output_dir_or_file)
             if output_dir_or_file.is_dir():
                 output_dir = output_dir_or_file
             else:
                 output_dir = output_dir_or_file.parent
                 self.output_file = output_dir_or_file
             self.cluster_output_dir = check_location(output_dir)
+            logging.debug('JC cluster output: %s; file %s', self.cluster_output_dir, self.output_file)
         try:
             self.working_directory: Optional[Path] = check_location(os.getcwd())
         except Exception:
             logging.warning(f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir)
             self.working_directory = self.cluster_output_dir
+        logging.debug('JC working dir: %s', self.working_directory)
         self.data_slicer: SlicerInterface
         self.project = project
         self.queue = queue
@@ -58,7 +61,7 @@ class JobController:
                 self._run_aggregation_job(memory)
                 out_file = self.aggregated_result
 
-            if out_file is not None and self.output_file is not None:
+            if out_file is not None and out_file.is_file() and self.output_file is not None:
                 out_file.rename(self.output_file)
         else:
             logging.error(f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args},"\

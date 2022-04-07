@@ -42,5 +42,13 @@ class PassThruProcessingMode(SchedulerModeInterface):
 
 class PassThruWrapper(ProgramWrapper):
 
-    def __init__(self):
+    def __init__(self, original_wrapper: ProgramWrapper):
         super().__init__(PassThruProcessingMode())
+        self.original_wrapper = original_wrapper
+        self.processing_mode.allowed_modules = original_wrapper.processing_mode.allowed_modules
+
+    def get_args(self, args: List[str], debug: bool = False):
+        return self.original_wrapper.get_args(args, debug)
+
+    def get_output(self, output: Optional[str] = None, program_args: Optional[List[str]] = None) -> Path:
+        return self.original_wrapper.get_output(output, program_args)

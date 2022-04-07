@@ -74,10 +74,10 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
         raise ValueError(f'No script and any of its arguments given')
 
     program = script_args[0]
-    if args.jobs == 1:
-        wrapper = PassThruWrapper()
-    elif args.jobs > 1:
+    if args.jobs >= 1:
         wrapper = set_up_wrapper(cfg, program)
+        if args.jobs == 1:
+            wrapper = PassThruWrapper(wrapper)
     else:
         raise ValueError(f'Number of jobs must be one or more, given {args.jobs}')
     wrapper.set_module(cluster.module)
