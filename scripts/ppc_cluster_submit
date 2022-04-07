@@ -33,7 +33,8 @@ def parse_timeout(timeout: str) -> datetime.timedelta:
     mo = TIMEOUT_PATTERN.match(timeout.strip())
     if not mo:
         raise ValueError(f'Could not parse {timeout} as time interval')
-    to_dict = { k:v for k,v in mo.groupdict().items() if v is not None} # filter out None-valued items
+    to_dict = { k:int(v) for k,v in mo.groupdict().items() if v is not None} # filter out None-valued items
+    logging.debug('Parsed time as %s', to_dict)
     return datetime.timedelta(**to_dict)
 
 def run_ppc(args: argparse.Namespace, script_args: List) -> None:
@@ -68,6 +69,10 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     timeout = parse_timeout(args.timeout)
 
     logging.info('Running for project %s on cluster %s in queue %s with resources %s and timeout %s', project, cluster, cluster_queue, cluster_resources, timeout)
+
+    if not script_args:
+        raise ValueError(f'No script and any of its arguments given')
+
     program = script_args[0]
     if args.jobs == 1:
         wrapper = PassThruWrapper()
