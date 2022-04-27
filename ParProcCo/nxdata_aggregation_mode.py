@@ -10,8 +10,7 @@ from ParProcCo.utils import check_jobscript_is_readable, check_location, format_
 
 class NXdataAggregationMode(SchedulerModeInterface):
     def __init__(self):
-        current_script_dir = Path(os.path.realpath(__file__)).parent.parent / "scripts"
-        self.program_path = current_script_dir / "nxdata_aggregate"
+        self.program_name = "nxdata_aggregate"
         self.cores = 1
         self.allowed_modules = ('python',)
 

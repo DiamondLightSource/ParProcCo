@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .slicer_interface import SlicerInterface
 from .scheduler_mode_interface import SchedulerModeInterface
+from .utils import get_filepath_on_path
 
 import logging
 import os
@@ -42,10 +43,10 @@ class ProgramWrapper:
         return Path(output) if output else None
 
     def get_aggregate_script(self) -> Optional[Path]:
-        return self.aggregating_mode.program_path if self.aggregating_mode else None
+        return get_filepath_on_path(self.aggregating_mode.program_name) if self.aggregating_mode else None
 
     def get_cluster_runner_script(self) -> Optional[Path]:
-        return self.processing_mode.program_path
+        return get_filepath_on_path(self.processing_mode.program_name) if self.processing_mode.program_name else None
 
     def get_environment(self) -> Optional[Dict[str,str]]:
         test_modules = os.getenv('TEST_PPC_MODULES')
