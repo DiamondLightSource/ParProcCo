@@ -10,7 +10,7 @@ from ParProcCo.utils import slice_to_string, check_jobscript_is_readable, check_
 
 class SimpleProcessingMode(SchedulerModeInterface):
     def __init__(self, program: Optional[Path] = None) -> None:
-        self.program_path: Optional[Path] = program
+        self.program_name: Optional[str] = program
         self.cores = 1
         self.allowed_modules = ('python',)
 

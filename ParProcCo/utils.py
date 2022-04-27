@@ -22,6 +22,14 @@ def check_jobscript_is_readable(jobscript: Path) -> Path:
         raise
     return jobscript
 
+def get_filepath_on_path(filename: str) -> Path:
+    path = os.environ['PATH']
+    paths = path.split(':')
+    for p in paths:
+        for root, dir, files in os.walk(p):
+            if filename in files:
+                return Path(root) / filename
+    raise FileNotFoundError(f"{filename} not found on PATH {path}")
 
 def check_location(location: Union[Path, str]) -> Path:
     location_path = Path(location).resolve()

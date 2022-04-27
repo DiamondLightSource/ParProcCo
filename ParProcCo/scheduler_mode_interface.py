@@ -10,7 +10,7 @@ class SchedulerModeInterface:
     def __init__(self) -> None:
         self.number_jobs: int
         self.cores: int
-        self.program_path: Optional[Path]
+        self.program_name: Optional[str]
         self.allowed_modules: Optional[Tuple[str,...]] = None
 
     def set_parameters(self, sliced_results: List) -> None:

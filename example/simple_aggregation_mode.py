@@ -10,8 +10,8 @@ from ParProcCo.utils import check_jobscript_is_readable, check_location, format_
 
 class SimpleAggregationMode(SchedulerModeInterface):
 
-    def __init__(self, program: Path) -> None:
-        self.program_path = program
+    def __init__(self, program: str) -> None:
+        self.program_name = program
         self.cores = 1
 
     def set_parameters(self, sliced_results: List) -> None:

@@ -8,15 +8,13 @@ from .program_wrapper import ProgramWrapper
 from .scheduler_mode_interface import SchedulerModeInterface
 from .utils import check_jobscript_is_readable, check_location, format_timestamp, get_absolute_path
 
-import os
 
 class PassThruProcessingMode(SchedulerModeInterface):
 
     def __init__(self):
         super().__init__()
         self.cores = 6
-        current_script_dir = Path(os.path.realpath(__file__)).parent.parent / "scripts"
-        self.program_path = current_script_dir / "ppc_cluster_runner"
+        self.program_name = "ppc_cluster_runner"
 
     def set_parameters(self, _slice_params: List[slice]) -> None:
         """Overrides SchedulerModeInterface.set_parameters"""
