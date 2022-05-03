@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
-from ParProcCo.utils import slice_to_string, check_jobscript_is_readable, check_location, format_timestamp, get_absolute_path
+from ParProcCo.utils import slice_to_string, check_script_is_readable, check_location, format_timestamp, get_absolute_path
 
 
 class SimpleProcessingMode(SchedulerModeInterface):
@@ -28,10 +28,10 @@ class SimpleProcessingMode(SchedulerModeInterface):
         stderr_fp = str(error_dir / f"err_{timestamp}_{i}")
         return output_fp, stdout_fp, stderr_fp
 
-    def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
+    def generate_args(self, i: int, memory: str, cores: int, script_args: List[str], output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i < self.number_jobs)
         slice_param = slice_to_string(self.slice_params[i])
-        jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
-        args = tuple([jobscript, "--memory", memory, "--cores", str(cores), "--output", output_fp, "--images", slice_param] + jobscript_args[1:])
+        script = str(check_script_is_readable(check_location(get_absolute_path(script_args[0]))))
+        args = tuple([script, "--memory", memory, "--cores", str(cores), "--output", output_fp, "--images", slice_param] + script_args[1:])
         return args

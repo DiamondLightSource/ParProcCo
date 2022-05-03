@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Union
 import drmaa2
 
 from .scheduler_mode_interface import SchedulerModeInterface
-from .utils import check_jobscript_is_readable
+from .utils import check_script_is_readable
 
 
 @dataclass
@@ -35,9 +35,9 @@ class JobScheduler:
         self.cluster_output_dir: Optional[Path] = Path(cluster_output_dir) if cluster_output_dir else None
         self.job_completion_status: Dict[str, bool] = {}
         self.job_history: Dict[int, Dict[int, StatusInfo]] = {}
-        self.jobscript: Path
+        self.script: Path
         self.job_env: Optional[Dict[str, str]] = None
-        self.jobscript_args: List
+        self.script_args: List
         self.output_paths: List[Path] = []
         self.project = self.check_project_list(project)
         self.queue = self.check_queue_list(queue)
@@ -86,18 +86,18 @@ class JobScheduler:
             return True
         return False
 
-    def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, job_env: Dict[str,str], memory: str = "4G",
-            cores: int = 6, jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
-        self.jobscript = check_jobscript_is_readable(jobscript)
+    def run(self, scheduler_mode: SchedulerModeInterface, script: Path, job_env: Dict[str,str], memory: str = "4G",
+            cores: int = 6, script_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
+        self.script = check_script_is_readable(script)
         self.job_env = job_env
         self.scheduler_mode = scheduler_mode
         self.memory = memory
         self.cores = cores
         self.job_name = job_name
         job_indices = list(range(scheduler_mode.number_jobs))
-        if jobscript_args is None:
-            jobscript_args = []
-        self.jobscript_args = jobscript_args
+        if script_args is None:
+            script_args = []
+        self.script_args = script_args
         self.job_history[self.batch_number] = {}
         self.job_completion_status = {str(i): False for i in range(scheduler_mode.number_jobs)}
         self.output_paths.clear()
@@ -111,17 +111,17 @@ class JobScheduler:
         return self.get_success()
 
     def _run_jobs(self, session: drmaa2.JobSession, job_indices: List[int]) -> None:
-        logging.debug(f"Running jobs on cluster for jobscript {self.jobscript} and args {self.jobscript_args}")
+        logging.debug(f"Running jobs on cluster for script {self.script} and args {self.script_args}")
         try:
             # Run all input paths in parallel:
             self.status_infos = []
             for i in job_indices:
                 template = self._create_template(i)
-                logging.debug(f"Submitting drmaa job with jobscript {self.jobscript} and args {template.args}")
+                logging.debug(f"Submitting drmaa job with script {self.script} and args {template.args}")
                 job = session.run_job(template)
                 self.status_infos.append(StatusInfo(job, Path(template.output_path), i))
                 logging.debug(
-                    f"drmaa job for jobscript {self.jobscript} and args {template.args}"
+                    f"drmaa job for script {self.script} and args {template.args}"
                     f" has been submitted with id {job.id}")
         except drmaa2.Drmaa2Exception:
             logging.error(f"Drmaa exception", exc_info=True)
@@ -150,14 +150,14 @@ class JobScheduler:
         output_fp, stdout_fp, stderr_fp = self.scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i, self.start_time)
         if output_fp and output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
-        args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
-        logging.info(f"creating template with jobscript: {str(self.jobscript)} and args: {args}")
+        args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.script_args, output_fp)
+        logging.info(f"creating template with script: {str(self.script)} and args: {args}")
 
         self.resources["m_mem_free"] = self.memory
         jt = drmaa2.JobTemplate({
             "job_name": self.job_name,
             "job_category": self.project,
-            "remote_command": str(self.jobscript),
+            "remote_command": str(self.script),
             "min_slots": self.cores,
             "args": args,
             "resource_limits": self.resources,
@@ -261,7 +261,7 @@ class JobScheduler:
             elif not status_info.output_path.is_file():
                 status_info.final_state = "NO_OUTPUT"
                 logging.error(
-                    f"drmaa job {status_info.job.id} with args {self.jobscript_args} has not created"
+                    f"drmaa job {status_info.job.id} with args {self.script_args} has not created"
                     f" output file {status_info.output_path}"
                     f" Terminating signal: {status_info.info.terminating_signal}."
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
@@ -270,7 +270,7 @@ class JobScheduler:
             elif not self.timestamp_ok(status_info.output_path):
                 status_info.final_state = "OLD_OUTPUT_FILE"
                 logging.error(
-                    f"drmaa job {status_info.job.id} with args {self.jobscript_args} has not created"
+                    f"drmaa job {status_info.job.id} with args {self.script_args} has not created"
                     f" a new output file {status_info.output_path}"
                     f" Terminating signal: {status_info.info.terminating_signal}."
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
@@ -280,7 +280,7 @@ class JobScheduler:
                 self.job_completion_status[str(status_info.i)] = True
                 status_info.final_state = "SUCCESS"
                 logging.info(
-                    f"Job {status_info.job.id} with args {self.jobscript_args} completed."
+                    f"Job {status_info.job.id} with args {self.script_args} completed."
                     f" CPU time: {timedelta(seconds=float(status_info.info.cpu_time))}; Slots: {status_info.info.slots}"
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
@@ -288,7 +288,7 @@ class JobScheduler:
                 status_info.final_state = "UNSPECIFIED"
                 logging.error(
                     f"Unexpected job state for job {status_info.job.id}"
-                    f" with args {self.jobscript_args}, job info: {status_info.info}"
+                    f" with args {self.script_args}, job info: {status_info.info}"
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 

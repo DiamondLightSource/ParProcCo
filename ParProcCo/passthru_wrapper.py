@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 
 from .program_wrapper import ProgramWrapper
 from .scheduler_mode_interface import SchedulerModeInterface
-from .utils import check_jobscript_is_readable, check_location, format_timestamp, get_absolute_path
+from .utils import check_script_is_readable, check_location, format_timestamp, get_absolute_path
 
 
 class PassThruProcessingMode(SchedulerModeInterface):
@@ -27,15 +27,15 @@ class PassThruProcessingMode(SchedulerModeInterface):
         stderr_fp = str(error_dir / f"err_{timestamp}_{i}")
         return str(output_dir) if output_dir else '', stdout_fp, stderr_fp
 
-    def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str],
+    def generate_args(self, i: int, memory: str, cores: int, script_args: List[str],
                       output_fp: str) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert(i < self.number_jobs)
-        jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
-        args = [jobscript, "--memory", memory, "--cores", str(cores)]
+        script = str(check_script_is_readable(check_location(get_absolute_path(script_args[0]))))
+        args = [script, "--memory", memory, "--cores", str(cores)]
         if output_fp:
             args += ("--output", output_fp)
-        args += jobscript_args[1:]
+        args += script_args[1:]
         return tuple(args)
 
 class PassThruWrapper(ProgramWrapper):

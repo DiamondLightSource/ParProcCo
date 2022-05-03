@@ -13,7 +13,7 @@ from parameterized import parameterized
 
 from example.simple_processing_mode import SimpleProcessingMode
 from ParProcCo.job_scheduler import JobScheduler, StatusInfo
-from ParProcCo.utils import check_jobscript_is_readable, format_timestamp
+from ParProcCo.utils import check_script_is_readable, format_timestamp
 from .utils import get_gh_testing, get_tmp_base_dir, setup_data_files, setup_jobscript, setup_runner_script, \
     CLUSTER_PROJ, CLUSTER_QUEUE, CLUSTER_RESOURCES, TemporaryDirectory
 
@@ -54,8 +54,8 @@ class TestJobScheduler(unittest.TestCase):
             runner_script_args = [jobscript, "--input-path", str(input_path)]
             processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters([slice(0, None, 2), slice(1, None, 2)])
-            js.jobscript = Path("some_script.py")
-            js.jobscript_args = runner_script_args
+            js.script = Path("some_script.py")
+            js.script_args = runner_script_args
 
             js.memory = '4G'
             js.cores = 5
@@ -78,7 +78,7 @@ class TestJobScheduler(unittest.TestCase):
 
             # run jobs
             js = create_js(working_directory, cluster_output_dir)
-            js.run(processing_mode, runner_script, {}, jobscript_args=runner_script_args)
+            js.run(processing_mode, runner_script, {}, script_args=runner_script_args)
 
             # check output files
             for output_file, expected_nums in zip(output_paths, out_nums):
@@ -104,14 +104,14 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(working_directory, cluster_output_dir)
 
             # run jobs
-            js.jobscript = check_jobscript_is_readable(runner_script)
+            js.script = check_script_is_readable(runner_script)
             job_indices = list(range(processing_mode.number_jobs))
-            js.jobscript_args = runner_script_args
+            js.script_args = runner_script_args
             js.job_history[js.batch_number] = {}
             js.job_completion_status = {str(i): False for i in range(4)}
 
             # _run_and_monitor
-            js.jobscript = check_jobscript_is_readable(js.jobscript)
+            js.script = check_script_is_readable(js.script)
             session = drmaa2.JobSession()  # Automatically destroyed when it is out of scope
             js.memory = "4G"
             js.cores = 6
@@ -214,7 +214,7 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(working_directory, cluster_output_dir, timeout=timedelta(seconds=1))
 
             with self.assertLogs(level='WARNING') as context:
-                js.run(processing_mode, runner_script, {}, jobscript_args=runner_script_args)
+                js.run(processing_mode, runner_script, {}, script_args=runner_script_args)
                 self.assertEqual(len(context.output), 8)
                 for warn_msg in context.output[:4]:
                     self.assertTrue(warn_msg.startswith("WARNING:root:Job "))
@@ -257,11 +257,11 @@ class TestJobScheduler(unittest.TestCase):
                 os.chmod(runner_script, permissions)
 
             with self.assertRaises(error_name) as context:
-                js.run(processing_mode, runner_script, {}, jobscript_args=runner_script_args)
+                js.run(processing_mode, runner_script, {}, script_args=runner_script_args)
 
             self.assertTrue(error_msg in str(context.exception))
 
-    def test_check_jobscript(self) -> None:
+    def test_check_script(self) -> None:
         with TemporaryDirectory(prefix='test_dir_', dir=self.base_dir) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
@@ -274,7 +274,7 @@ class TestJobScheduler(unittest.TestCase):
             processing_mode = SimpleProcessingMode(runner_script)
             processing_mode.set_parameters(slices)
 
-            js.run(processing_mode, runner_script, {}, jobscript_args=runner_script_args)
+            js.run(processing_mode, runner_script, {}, script_args=runner_script_args)
 
     def test_get_output_paths(self) -> None:
         with TemporaryDirectory(prefix='test_dir_') as working_directory:
@@ -345,8 +345,8 @@ class TestJobScheduler(unittest.TestCase):
             processing_mode.set_parameters(slices)
 
             js = create_js(working_directory, cluster_output_dir)
-            js.jobscript = setup_runner_script(working_directory)
-            js.jobscript_args = [str(setup_jobscript(working_directory)), "--input-path", str(input_path)]
+            js.script = setup_runner_script(working_directory)
+            js.script_args = [str(setup_jobscript(working_directory)), "--input-path", str(input_path)]
             js.memory = "4G"
             js.cores = 6
             js.job_name = "test_resubmit_jobs"
@@ -401,8 +401,8 @@ class TestJobScheduler(unittest.TestCase):
             processing_mode = SimpleProcessingMode()
             processing_mode.set_parameters(slices)
             js = create_js(working_directory, cluster_output_dir)
-            js.jobscript = setup_runner_script(working_directory)
-            js.jobscript_args = [str(setup_jobscript(working_directory)), "--input-path", str(input_path)]
+            js.script = setup_runner_script(working_directory)
+            js.script_args = [str(setup_jobscript(working_directory)), "--input-path", str(input_path)]
             js.memory = "4G"
             js.cores = 6
             js.job_name = "test_resubmit_jobs"

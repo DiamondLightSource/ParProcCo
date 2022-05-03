@@ -14,14 +14,14 @@ class SchedulerModeInterface:
         self.allowed_modules: Optional[Tuple[str,...]] = None
 
     def set_parameters(self, sliced_results: List) -> None:
-        """Sets parameters for generating jobscript args for use within JobScheduler"""
+        """Sets parameters for generating script args for use within JobScheduler"""
         raise NotImplementedError
 
     def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime) -> Tuple[str, str, str]:
         """Generates output, stdout and stderr file paths for job template within JobScheduler"""
         raise NotImplementedError
 
-    def generate_args(self, job_number: int, memory: str, cores: int, jobscript_args: List[str],
+    def generate_args(self, job_number: int, memory: str, cores: int, script_args: List[str],
                       output_fp: str) -> Tuple[str, ...]:
-        """Generates jobscript args for use within JobScheduler"""
+        """Generates script args for use within JobScheduler"""
         raise NotImplementedError

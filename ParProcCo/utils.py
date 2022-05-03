@@ -7,20 +7,20 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 
 
-def check_jobscript_is_readable(jobscript: Path) -> Path:
-    if not jobscript.is_file():
-        raise FileNotFoundError(f"{jobscript} does not exist")
+def check_script_is_readable(script: Path) -> Path:
+    if not script.is_file():
+        raise FileNotFoundError(f"{script} does not exist")
 
-    if not (os.access(jobscript, os.R_OK) and os.access(jobscript, os.X_OK)):
-        raise PermissionError(f"{jobscript} must be readable and executable by user")
+    if not (os.access(script, os.R_OK) and os.access(script, os.X_OK)):
+        raise PermissionError(f"{script} must be readable and executable by user")
 
     try:
-        js = jobscript.open()
+        js = script.open()
         js.close()
     except IOError:
-        logging.error(f"{jobscript} cannot be opened")
+        logging.error(f"{script} cannot be opened")
         raise
-    return jobscript
+    return script
 
 def get_filepath_on_path(filename: str) -> Path:
     path = os.environ['PATH']
