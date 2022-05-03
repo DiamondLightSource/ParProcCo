@@ -46,7 +46,7 @@ class ProgramWrapper:
         return get_filepath_on_path(self.aggregating_mode.program_name) if self.aggregating_mode else None
 
     def get_cluster_runner_script(self) -> Optional[Path]:
-        return get_filepath_on_path(self.processing_mode.program_name) if self.processing_mode.program_name else None
+        return get_filepath_on_path(self.processing_mode.program_name)
 
     def get_environment(self) -> Optional[Dict[str,str]]:
         test_modules = os.getenv('TEST_PPC_MODULES')
