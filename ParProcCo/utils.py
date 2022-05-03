@@ -25,13 +25,14 @@ def check_jobscript_is_readable(jobscript: Path) -> Path:
 def get_filepath_on_path(filename: Optional[str]) -> Optional[Path]:
     if filename is None:
         return None
-    path = os.environ['PATH']
-    paths = path.split(':')
-    for p in paths:
-        filepath = os.path.join(p, filename)
-        if os.path.isfile(filepath):
-            return filepath
-    raise FileNotFoundError(f"{filename} not found on PATH {path}")
+    paths = os.environ['PATH'].split(':')
+    path_gen = (os.path.join(p, filename) for p in paths if os.path.isfile(os.path.join(p, filename)))
+    try:
+        filepath = next(path_gen)
+        return filepath
+    except StopIteration:
+        raise FileNotFoundError(f"{filename} not found on PATH {paths}")
+
 
 def check_location(location: Union[Path, str]) -> Path:
     location_path = Path(location).resolve()
