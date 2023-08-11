@@ -1,0 +1,12 @@
+name: parprocco
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - h5py
+  - uge-drmaa2
+  - ruamel.yaml
+  - pytest
+  - parameterized
+  - datamodel-code-generator
+
