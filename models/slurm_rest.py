@@ -168,7 +168,8 @@ class Controller(BaseModel):
 class DbCoordinatorInfo(BaseModel):
     direct: int | None = None
     """
-    If user is coordinator of this account directly or coordinator status was inheirted from a higher account in the tree
+    If user is coordinator of this account directly or coordinator status was inherited
+    from a higher account in the tree
     """
     name: str | None = None
     """
@@ -468,11 +469,13 @@ class System(BaseModel):
 
     microseconds: int | None = None
     """
-    Total number of CPU-seconds used by the system on behalf of the process (in kernel mode), in microseconds
+    Total number of CPU-seconds used by the system on behalf of the process (in kernel
+    mode), in microseconds
     """
     seconds: int | None = None
     """
-    Total number of CPU-seconds used by the system on behalf of the process (in kernel mode), in seconds
+    Total number of CPU-seconds used by the system on behalf of the process (in kernel
+    mode), in seconds
     """
 
 
@@ -1049,13 +1052,14 @@ class Errors(RootModel):
 
 class Exclusive(Enum):
     """
-    The job allocation can share nodes just other users with the "user" option or with the "mcs" option).
+    The job allocation can share nodes just other users with the "user" option or
+    with the "mcs" option).
     """
 
-    user = 'user'
-    mcs = 'mcs'
-    true = 'true'
-    false = 'false'
+    user = "user"
+    mcs = "mcs"
+    true = "true"
+    false = "false"
 
 
 class GresFlags(Enum):
@@ -1063,8 +1067,8 @@ class GresFlags(Enum):
     Specify generic resource task binding options.
     """
 
-    disable_binding = 'disable-binding'
-    enforce_binding = 'enforce-binding'
+    disable_binding = "disable-binding"
+    enforce_binding = "enforce-binding"
 
 
 class OpenMode(Enum):
@@ -1072,8 +1076,8 @@ class OpenMode(Enum):
     Open the output and error files using append or truncate mode as specified.
     """
 
-    append = 'append'
-    truncate = 'truncate'
+    append = "append"
+    truncate = "truncate"
 
 
 class JobProperties(BaseModel):
@@ -1091,7 +1095,8 @@ class JobProperties(BaseModel):
     """
     array: str | None = None
     """
-    Submit a job array, multiple jobs to be executed with identical parameters. The indexes specification identifies what array index values should be used.
+    Submit a job array, multiple jobs to be executed with identical parameters. The
+    indexes specification identifies what array index values should be used.
     """
     batch_features: str | None = None
     """
@@ -1099,7 +1104,8 @@ class JobProperties(BaseModel):
     """
     begin_time: int | None = None
     """
-    Submit the batch script to the Slurm controller immediately, like normal, but tell the controller to defer the allocation of the job until the specified time.
+    Submit the batch script to the Slurm controller immediately, like normal, but tell
+    the controller to defer the allocation of the job until the specified time.
     """
     burst_buffer: str | None = None
     """
@@ -1107,7 +1113,8 @@ class JobProperties(BaseModel):
     """
     cluster_constraint: str | None = None
     """
-    Specifies features that a federated cluster must have to have a sibling job submitted to it.
+    Specifies features that a federated cluster must have to have a sibling job
+    submitted to it.
     """
     comment: str | None = None
     """
@@ -1123,11 +1130,13 @@ class JobProperties(BaseModel):
     """
     core_specification: int | None = None
     """
-    Count of specialized threads per node reserved by the job for system operations and not used by the application.
+    Count of specialized threads per node reserved by the job for system operations
+    and not used by the application.
     """
     cores_per_socket: int | None = None
     """
-    Restrict node selection to nodes with at least the specified number of cores per socket.
+    Restrict node selection to nodes with at least the specified number of cores per
+    socket.
     """
     cpu_binding: str | None = None
     """
@@ -1139,7 +1148,9 @@ class JobProperties(BaseModel):
     """
     cpu_frequency: str | None = None
     """
-    Request that job steps initiated by srun commands inside this sbatch script be run at some requested frequency if possible, on the CPUs selected for the step on the compute node(s).
+    Request that job steps initiated by srun commands inside this sbatch script be
+    run at some requested frequency if possible, on the CPUs selected for the step
+    on the compute node(s).
     """
     cpus_per_gpu: str | None = None
     """
@@ -1147,23 +1158,28 @@ class JobProperties(BaseModel):
     """
     cpus_per_task: int | None = None
     """
-    Advise the Slurm controller that ensuing job steps will require ncpus number of processors per task.
+    Advise the Slurm controller that ensuing job steps will require ncpus number
+    of processors per task.
     """
     current_working_directory: str | None = None
     """
-    Instruct Slurm to connect the batch script's standard output directly to the file name.
+    Instruct Slurm to connect the batch script's standard output directly to the
+    file name.
     """
     deadline: str | None = None
     """
-    Remove the job if no ending is possible before this deadline (start > (deadline - time[-min])).
+    Remove the job if no ending is possible before this deadline
+    (start > (deadline - time[-min])).
     """
     delay_boot: int | None = None
     """
-    Do not reboot nodes in order to satisfied this job's feature specification if the job has been eligible to run for less than this time period.
+    Do not reboot nodes in order to satisfied this job's feature specification if
+    the job has been eligible to run for less than this time period.
     """
     dependency: str | None = None
     """
-    Defer the start of this job until the specified dependencies have been satisfied completed.
+    Defer the start of this job until the specified dependencies have been
+    satisfied completed.
     """
     distribution: str | None = None
     """
@@ -1175,7 +1191,8 @@ class JobProperties(BaseModel):
     """
     exclusive: Exclusive | None = None
     """
-    The job allocation can share nodes just other users with the "user" option or with the "mcs" option).
+    The job allocation can share nodes just other users with the "user" option or
+    with the "mcs" option).
     """
     get_user_environment: bool | None = None
     """
@@ -1223,7 +1240,8 @@ class JobProperties(BaseModel):
     """
     licenses: str | None = None
     """
-    Specification of licenses (or other resources available on all nodes of the cluster) which must be allocated to this job.
+    Specification of licenses (or other resources available on all nodes of
+    the cluster) which must be allocated to this job.
     """
     mail_type: str | None = None
     """
@@ -1271,7 +1289,8 @@ class JobProperties(BaseModel):
     """
     no_kill: bool | None = None
     """
-    Do not automatically terminate a job if one of the nodes it has been allocated fails.
+    Do not automatically terminate a job if one of the nodes it has been allocated
+    fails.
     """
     nodes: list[int] | None = Field(None, max_length=2, min_length=1)
     """
@@ -1291,7 +1310,9 @@ class JobProperties(BaseModel):
     """
     prefer: str | None = None
     """
-    Comma delimited list of features for scheduler to prefer but not a strict requirement like a constraint. Value can be used for job submission but is only displayed for PENDING jobs.
+    Comma delimited list of features for scheduler to prefer but not a strict
+    requirement like a constraint. Value can be used for job submission but is
+    only displayed for PENDING jobs.
     """
     priority: str | None = None
     """
@@ -1309,7 +1330,7 @@ class JobProperties(BaseModel):
     """
     Allocate resources for the job from the named reservation.
     """
-    signal: str | None = Field(None, pattern='(B:|)sig_num(@sig_time|)')
+    signal: str | None = Field(None, pattern="(B:|)sig_num(@sig_time|)")
     """
     When a job is within sig_time seconds of its end time, send it the signal sig_num.
     """
@@ -1319,23 +1340,28 @@ class JobProperties(BaseModel):
     """
     spread_job: bool | None = None
     """
-    Spread the job allocation over as many nodes as possible and attempt to evenly distribute tasks across the allocated nodes.
+    Spread the job allocation over as many nodes as possible and attempt to evenly
+    distribute tasks across the allocated nodes.
     """
     standard_error: str | None = None
     """
-    Instruct Slurm to connect the batch script's standard error directly to the file name.
+    Instruct Slurm to connect the batch script's standard error directly to the
+    file name.
     """
     standard_input: str | None = None
     """
-    Instruct Slurm to connect the batch script's standard input directly to the file name specified.
+    Instruct Slurm to connect the batch script's standard input directly to the
+    file name specified.
     """
     standard_output: str | None = None
     """
-    Instruct Slurm to connect the batch script's standard output directly to the file name.
+    Instruct Slurm to connect the batch script's standard output directly to the
+    file name.
     """
     tasks: int | None = None
     """
-    Advises the Slurm controller that job steps run within the allocation will launch a maximum of number tasks and to provide for sufficient resources.
+    Advises the Slurm controller that job steps run within the allocation will
+    launch a maximum of number tasks and to provide for sufficient resources.
     """
     tasks_per_core: int | None = None
     """
@@ -1351,11 +1377,13 @@ class JobProperties(BaseModel):
     """
     thread_specification: int | None = None
     """
-    Count of specialized threads per node reserved by the job for system operations and not used by the application.
+    Count of specialized threads per node reserved by the job for system operations
+    and not used by the application.
     """
     threads_per_core: int | None = None
     """
-    Restrict node selection to nodes with at least the specified number of threads per core.
+    Restrict node selection to nodes with at least the specified number of threads
+    per core.
     """
     time_limit: int | None = None
     """
@@ -1795,8 +1823,8 @@ class Ping1(Enum):
     slurm controller host up
     """
 
-    UP = 'UP'
-    DOWN = 'DOWN'
+    UP = "UP"
+    DOWN = "DOWN"
 
 
 class Ping(BaseModel):
@@ -1832,7 +1860,8 @@ class Pings(BaseModel):
 
 class PurgeCompleted(BaseModel):
     """
-    If PURGE_COMP flag is set the amount of seconds this reservation will sit idle until it is revoked
+    If PURGE_COMP flag is set the amount of seconds this reservation will sit idle
+    until it is revoked
     """
 
     time: int | None = None
@@ -1880,7 +1909,8 @@ class Reservation1(BaseModel):
     """
     max_start_delay: int | None = None
     """
-    Maximum delay in which jobs outside of the reservation will be permitted to overlap once any jobs are queued for the reservation
+    Maximum delay in which jobs outside of the reservation will be permitted to
+    overlap once any jobs are queued for the reservation
     """
     name: str | None = None
     """
@@ -1900,7 +1930,8 @@ class Reservation1(BaseModel):
     """
     purge_completed: PurgeCompleted | None = None
     """
-    If PURGE_COMP flag is set the amount of seconds this reservation will sit idle until it is revoked
+    If PURGE_COMP flag is set the amount of seconds this reservation will sit idle
+    until it is revoked
     """
     start_time: int | None = None
     """
@@ -1937,21 +1968,21 @@ class Signal1(Enum):
     POSIX signal name
     """
 
-    HUP = 'HUP'
-    INT = 'INT'
-    QUIT = 'QUIT'
-    ABRT = 'ABRT'
-    KILL = 'KILL'
-    ALRM = 'ALRM'
-    TERM = 'TERM'
-    USR1 = 'USR1'
-    USR2 = 'USR2'
-    URG = 'URG'
-    CONT = 'CONT'
-    STOP = 'STOP'
-    TSTP = 'TSTP'
-    TTIN = 'TTIN'
-    TTOU = 'TTOU'
+    HUP = "HUP"
+    INT = "INT"
+    QUIT = "QUIT"
+    ABRT = "ABRT"
+    KILL = "KILL"
+    ALRM = "ALRM"
+    TERM = "TERM"
+    USR1 = "USR1"
+    USR2 = "USR2"
+    URG = "URG"
+    CONT = "CONT"
+    STOP = "STOP"
+    TSTP = "TSTP"
+    TTIN = "TTIN"
+    TTOU = "TTOU"
 
 
 class DbAccount(BaseModel):
