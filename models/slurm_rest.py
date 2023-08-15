@@ -764,9 +764,9 @@ class Time3(BaseModel):
 
 
 class Version(BaseModel):
-    major: str | None = None
-    micro: str | None = None
-    minor: str | None = None
+    major: int | None = None
+    micro: int | None = None
+    minor: int | None = None
 
 
 class Slurm(BaseModel):
