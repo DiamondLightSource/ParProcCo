@@ -784,7 +784,7 @@ class Plugin(BaseModel):
 
 
 class DbMeta(BaseModel):
-    Slurm: Slurm | None = None
+    slurm: Slurm | None = Field(None, validation_alias="Slurm")
     """
     Slurm information
     """
@@ -889,7 +889,7 @@ class Preempt(BaseModel):
     """
     Grace period (s) before jobs can preempted
     """
-    list: list[str] | None = None
+    qos: list[str] | None = Field(None, validation_alias="list")
     """
     List of preemptable QOS
     """
@@ -2221,7 +2221,7 @@ class Tres2(BaseModel):
 
 
 class DbJobStep(BaseModel):
-    CPU: CPU | None = None
+    cpu: CPU | None = Field(None, validation_alias="CPU")
     """
     CPU properties
     """
