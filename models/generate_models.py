@@ -70,7 +70,7 @@ def create_argparser():
         "output_file",
         help="str: path to YAML file for versioned schema",
         nargs="?",
-        default="slurm-api.yaml",
+        default="slurm-rest.yaml",
     )
     return ap
 
