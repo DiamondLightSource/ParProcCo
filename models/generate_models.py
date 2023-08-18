@@ -17,38 +17,40 @@ def replace_refs(input: dict, version_prefix: str, db_version_prefix: str):
             input[k] = nv
 
 
-def filter_paths(paths: dict, version: str):
+def filter_paths(paths: dict, version: str, slurm_only: bool):
     new_dict = {}
     for k, v in paths.items():
         kparts = k.split("/")
-        if kparts[1].startswith("slurm"):
+        kp1 = kparts[1]
+        if len(kparts) > 2:
             if kparts[2] == version:
-                new_dict[k] = v
+                if (slurm_only and kp1 == "slurm") or (not slurm_only and kp1 == "slurmdb"):
+                    new_dict[k] = v
         else:
             new_dict[k] = v
-
+    print(new_dict.keys())
     return new_dict
 
 
-def filter_components(components: dict, version: str):
+def filter_components(components: dict, version: str, slurm_only: bool):
     new_dict = {}
-    db_version = f"db{version}"
+    if not slurm_only:
+        version = f"db{version}"
     vind = len(version) + 1
+    kp = "" if slurm_only else "db_"
     for k, v in components.items():
         if k.startswith(version):
-            new_dict[k[vind:]] = v
-        elif k.startswith(db_version):
-            new_dict["db" + k[vind + 1 :]] = v
+            new_dict[kp + k[vind:]] = v
     return new_dict
 
 
-def generate_slurm_models(input_file: str, version: str):
+def generate_slurm_models(input_file: str, version: str, slurm_only: bool):
     with open(input_file, "r") as f:
         schema = json.load(f)
 
-    schema["paths"] = filter_paths(schema["paths"], version)
+    schema["paths"] = filter_paths(schema["paths"], version, slurm_only)
     schema["components"]["schemas"] = filter_components(
-        schema["components"]["schemas"], version
+        schema["components"]["schemas"], version, slurm_only
     )
     replace_refs(schema, f"{version}_", f"db{version}")
     return schema
@@ -58,6 +60,10 @@ def create_argparser():
     ap = argparse.ArgumentParser(
         description="Generate YAML for given version of OpenAPI schema",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    ap.add_argument(
+        "--db", "-d", help="output slurmdb models instead of slurm models",
+        action='store_true', default=False
     )
     ap.add_argument(
         "--version", "-v", help="str: slurm OpenAPI version string", default="v0.0.38"
@@ -78,6 +84,6 @@ def create_argparser():
 if __name__ == "__main__":
     ap = create_argparser()
     args = ap.parse_args()
-    schema = generate_slurm_models(args.input_file, args.version)
+    schema = generate_slurm_models(args.input_file, args.version, not args.db)
     with open(args.output_file, "w") as f:
         yaml.dump(schema, f)
