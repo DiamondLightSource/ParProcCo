@@ -16,7 +16,8 @@ from .utils import check_jobscript_is_readable
 
 @dataclass
 class StatusInfo:
-    '''Class for keeping track of job status.'''
+    """Class for keeping track of job status."""
+
     job: drmaa2.Job
     output_path: Path
     i: int
@@ -26,10 +27,15 @@ class StatusInfo:
 
 
 class JobScheduler:
-
-    def __init__(self, working_directory: Optional[Union[Path, str]], cluster_output_dir: Optional[Union[Path, str]],
-                 project: str, queue: str, cluster_resources: Optional[dict[str, str]]=None,
-                 timeout: timedelta=timedelta(hours=2)):
+    def __init__(
+        self,
+        working_directory: Optional[Union[Path, str]],
+        cluster_output_dir: Optional[Union[Path, str]],
+        project: str,
+        queue: str,
+        cluster_resources: Optional[dict[str, str]] = None,
+        timeout: timedelta = timedelta(hours=2),
+    ):
         """JobScheduler can be used for cluster job submissions"""
         self.batch_number = 0
         self.cluster_output_dir: Optional[Path] = Path(cluster_output_dir) if cluster_output_dir else None
@@ -44,7 +50,11 @@ class JobScheduler:
         self.start_time = datetime.now()
         self.status_infos: List[StatusInfo]
         self.timeout = timeout
-        self.working_directory = Path(working_directory) if working_directory else (self.cluster_output_dir if cluster_output_dir else Path.home())
+        self.working_directory = (
+            Path(working_directory)
+            if working_directory
+            else (self.cluster_output_dir if cluster_output_dir else Path.home())
+        )
         self.resources: Dict[str, str] = {}
         if cluster_resources:
             self.resources.update(cluster_resources)
@@ -57,7 +67,7 @@ class JobScheduler:
         if not queue:
             raise ValueError(f"queue must be non-empty string")
         queue = queue.lower()
-        with os.popen('qconf -sql') as q_proc:
+        with os.popen("qconf -sql") as q_proc:
             q_name_list = q_proc.read().split()
         if queue in q_name_list:
             return queue
@@ -67,7 +77,7 @@ class JobScheduler:
     def check_project_list(self, project: str) -> str:
         if not project:
             raise ValueError(f"project must be non-empty string")
-        with os.popen('qconf -sprjl') as prj_proc:
+        with os.popen("qconf -sprjl") as prj_proc:
             prj_name_list = prj_proc.read().split()
         if project in prj_name_list:
             return project
@@ -86,8 +96,16 @@ class JobScheduler:
             return True
         return False
 
-    def run(self, scheduler_mode: SchedulerModeInterface, jobscript: Path, job_env: Dict[str,str], memory: str = "4G",
-            cores: int = 6, jobscript_args: Optional[List] = None, job_name: str = "ParProcCo_job") -> bool:
+    def run(
+        self,
+        scheduler_mode: SchedulerModeInterface,
+        jobscript: Path,
+        job_env: Dict[str, str],
+        memory: str = "4G",
+        cores: int = 6,
+        jobscript_args: Optional[List] = None,
+        job_name: str = "ParProcCo_job",
+    ) -> bool:
         self.jobscript = check_jobscript_is_readable(jobscript)
         self.job_env = job_env
         self.scheduler_mode = scheduler_mode
@@ -122,7 +140,8 @@ class JobScheduler:
                 self.status_infos.append(StatusInfo(job, Path(template.output_path), i))
                 logging.debug(
                     f"drmaa job for jobscript {self.jobscript} and args {template.args}"
-                    f" has been submitted with id {job.id}")
+                    f" has been submitted with id {job.id}"
+                )
         except drmaa2.Drmaa2Exception:
             logging.error(f"Drmaa exception", exc_info=True)
             raise
@@ -147,40 +166,44 @@ class JobScheduler:
         else:
             logging.debug(f"Directory {error_dir} already exists")
 
-        output_fp, stdout_fp, stderr_fp = self.scheduler_mode.generate_output_paths(self.cluster_output_dir, error_dir, i, self.start_time)
+        output_fp, stdout_fp, stderr_fp = self.scheduler_mode.generate_output_paths(
+            self.cluster_output_dir, error_dir, i, self.start_time
+        )
         if output_fp and output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
         args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
         logging.info(f"creating template with jobscript: {str(self.jobscript)} and args: {args}")
 
         self.resources["m_mem_free"] = self.memory
-        jt = drmaa2.JobTemplate({
-            "job_name": self.job_name,
-            "job_category": self.project,
-            "remote_command": str(self.jobscript),
-            "min_slots": self.cores,
-            "args": args,
-            "resource_limits": self.resources,
-            "working_directory": str(self.working_directory),
-            "output_path": stdout_fp,
-            "error_path": stderr_fp,
-            "queue_name": self.queue,
-            "implementation_specific": {
-                "uge_jt_pe": f"smp",
-            },
-        })
+        jt = drmaa2.JobTemplate(
+            {
+                "job_name": self.job_name,
+                "job_category": self.project,
+                "remote_command": str(self.jobscript),
+                "min_slots": self.cores,
+                "args": args,
+                "resource_limits": self.resources,
+                "working_directory": str(self.working_directory),
+                "output_path": stdout_fp,
+                "error_path": stderr_fp,
+                "queue_name": self.queue,
+                "implementation_specific": {
+                    "uge_jt_pe": f"smp",
+                },
+            }
+        )
         job_env = dict(self.job_env) if self.job_env is not None else {}
         test_ppc_dir = os.getenv("TEST_PPC_DIR")
         if test_ppc_dir:
-            logging.debug('Adding TEST_PPC_DIR=%s to environment', test_ppc_dir)
+            logging.debug("Adding TEST_PPC_DIR=%s to environment", test_ppc_dir)
             job_env.update(TEST_PPC_DIR=test_ppc_dir)
         jt.job_environment = job_env
         return jt
 
     def _wait_for_jobs(self, session: drmaa2.JobSession) -> None:
         max_time = int(round(self.timeout.total_seconds()))
-        check_time = min(120, max_time) # 2 minutes or less
-        start_wait = max(check_time, 60) # wait at least 1 minute
+        check_time = min(120, max_time)  # 2 minutes or less
+        start_wait = max(check_time, 60)  # wait at least 1 minute
         try:
             job_list = [status_info.job for status_info in self.status_infos]
             # Wait for jobs to start (timeout shouldn't include queue time)
@@ -225,7 +248,9 @@ class JobScheduler:
         for status_info in self.status_infos:
             logging.debug(f"Retrieving info for drmaa job {status_info.job.id}")
             try:
-                status_info.state = status_info.job.get_state()[0]  # Returns job state and job substate (always seems to be None)
+                status_info.state = status_info.job.get_state()[
+                    0
+                ]  # Returns job state and job substate (always seems to be None)
                 status_info.info = status_info.job.get_info()
             except Exception:
                 logging.error(f"Failed to get job information for job {status_info.job.id}", exc_info=True)
@@ -240,8 +265,8 @@ class JobScheduler:
                     logging.error(f"Failed to get job submission time statistics for job {status_info.job.id}")
                     raise
             else:
-                time_to_dispatch = 'n/a'
-                wall_time = 'n/a'
+                time_to_dispatch = "n/a"
+                wall_time = "n/a"
 
             # Check job states against expected possible options:
             if status_info.state == drmaa2.JobState.UNDETERMINED:  # Lost contact?

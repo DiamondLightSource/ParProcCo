@@ -6,7 +6,6 @@ from ParProcCo.slicer_interface import SlicerInterface
 
 
 class SimpleDataSlicer(SlicerInterface):
-
     def __init__(self):
         pass
 

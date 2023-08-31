@@ -49,9 +49,7 @@ def generate_slurm_models(input_file: str, version: str, slurm_only: bool):
         schema = json.load(f)
 
     schema["paths"] = filter_paths(schema["paths"], version, slurm_only)
-    schema["components"]["schemas"] = filter_components(
-        schema["components"]["schemas"], version, slurm_only
-    )
+    schema["components"]["schemas"] = filter_components(schema["components"]["schemas"], version, slurm_only)
     replace_refs(schema, f"{version}_", f"db{version}")
     return schema
 
@@ -62,12 +60,9 @@ def create_argparser():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     ap.add_argument(
-        "--db", "-d", help="output slurmdb models instead of slurm models",
-        action='store_true', default=False
+        "--db", "-d", help="output slurmdb models instead of slurm models", action="store_true", default=False
     )
-    ap.add_argument(
-        "--version", "-v", help="str: slurm OpenAPI version string", default="v0.0.38"
-    )
+    ap.add_argument("--version", "-v", help="str: slurm OpenAPI version string", default="v0.0.38")
     ap.add_argument(
         "input_file",
         help="str: path to file containing output from slurm OpenAPI endpoint",

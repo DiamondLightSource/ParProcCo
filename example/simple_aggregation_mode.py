@@ -9,7 +9,6 @@ from ParProcCo.utils import check_jobscript_is_readable, check_location, format_
 
 
 class SimpleAggregationMode(SchedulerModeInterface):
-
     def __init__(self, program: str) -> None:
         self.program_name = program
         self.cores = 1
@@ -19,7 +18,9 @@ class SimpleAggregationMode(SchedulerModeInterface):
         self.sliced_results = [str(res) for res in sliced_results]
         self.number_jobs: int = 1
 
-    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime) -> Tuple[str, str, str]:
+    def generate_output_paths(
+        self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime
+    ) -> Tuple[str, str, str]:
         """Overrides SchedulerModeInterface.generate_output_paths"""
         timestamp = format_timestamp(t)
         output_file = f"aggregated_results_{timestamp}.txt"
@@ -28,9 +29,11 @@ class SimpleAggregationMode(SchedulerModeInterface):
         stderr_fp = str(error_dir / f"err_{timestamp}_aggregated")
         return output_fp, stdout_fp, stderr_fp
 
-    def generate_args(self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str) -> Tuple[str, ...]:
+    def generate_args(
+        self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str
+    ) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
-        assert(i == 0)
+        assert i == 0
         jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
         args = tuple([jobscript, "--output", output_fp] + self.sliced_results)
         return args

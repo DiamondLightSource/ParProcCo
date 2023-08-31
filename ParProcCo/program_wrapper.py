@@ -11,10 +11,14 @@ from .utils import get_filepath_on_path
 import logging
 import os
 
-class ProgramWrapper:
 
-    def __init__(self, processing_mode: SchedulerModeInterface, slicer : Optional[SlicerInterface] = None,
-                 aggregating_mode: Optional[SchedulerModeInterface] = None):
+class ProgramWrapper:
+    def __init__(
+        self,
+        processing_mode: SchedulerModeInterface,
+        slicer: Optional[SlicerInterface] = None,
+        aggregating_mode: Optional[SchedulerModeInterface] = None,
+    ):
         self.processing_mode = processing_mode
         self.slicer = slicer
         self.aggregating_mode = aggregating_mode
@@ -27,11 +31,11 @@ class ProgramWrapper:
         self.processing_mode.cores = cores
 
     def get_args(self, args: List[str], debug: bool = False):
-        '''
+        """
         Get arguments given passed-in arguments
         args  -- given arguments
         debug -- if True, add debug option to arguments if available for wrapped program
-        '''
+        """
         return args
 
     def create_slices(self, number_jobs: int, stop: Optional[int] = None) -> List[Optional[slice]]:
@@ -48,19 +52,19 @@ class ProgramWrapper:
     def get_cluster_runner_script(self) -> Optional[Path]:
         return get_filepath_on_path(self.processing_mode.program_name)
 
-    def get_environment(self) -> Optional[Dict[str,str]]:
-        test_modules = os.getenv('TEST_PPC_MODULES')
+    def get_environment(self) -> Optional[Dict[str, str]]:
+        test_modules = os.getenv("TEST_PPC_MODULES")
         if test_modules:
             return {"PPC_MODULES": test_modules}
 
-        loaded_modules = os.getenv('LOADEDMODULES', '').split(':')
-        logging.debug('Modules are %s', loaded_modules)
+        loaded_modules = os.getenv("LOADEDMODULES", "").split(":")
+        logging.debug("Modules are %s", loaded_modules)
         allowed = self.processing_mode.allowed_modules
-        logging.debug('Allowed include %s from %s', allowed, type(self.processing_mode))
+        logging.debug("Allowed include %s from %s", allowed, type(self.processing_mode))
         ppc_modules = []
         if allowed:
             for m in loaded_modules:
-                if m and m.split('/')[0] in allowed:
+                if m and m.split("/")[0] in allowed:
                     ppc_modules.append(m)
         else:
             for m in reversed(loaded_modules):
@@ -68,8 +72,8 @@ class ProgramWrapper:
                     ppc_modules.append(m)
                     break
 
-        logging.debug('Passing through %s', ppc_modules)
+        logging.debug("Passing through %s", ppc_modules)
         if ppc_modules:
-            return {'PPC_MODULES': ':'.join(ppc_modules)}
+            return {"PPC_MODULES": ":".join(ppc_modules)}
 
         return None
