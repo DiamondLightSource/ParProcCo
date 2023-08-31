@@ -13,10 +13,43 @@ class TestDataSlicer(unittest.TestCase):
 
     @parameterized.expand(
         [
-            ("all_ok", [4], {"stop": 8}, None, 4, [slice(0, 8, 4), slice(1, 8, 4), slice(2, 8, 4), slice(3, 8, 4)]),
-            ("no_stop", [4], {}, None, 4, [slice(0, None, 4), slice(1, None, 4), slice(2, None, 4), slice(3, None, 4)]),
-            ("stop_not_int", [4], {"stop": "8"}, "stop is <class 'str'>, should be int", None, None),
-            ("number_jobs_not_int", ["4"], {}, "number_jobs is <class 'str'>, should be int", None, None),
+            (
+                "all_ok",
+                [4],
+                {"stop": 8},
+                None,
+                4,
+                [slice(0, 8, 4), slice(1, 8, 4), slice(2, 8, 4), slice(3, 8, 4)],
+            ),
+            (
+                "no_stop",
+                [4],
+                {},
+                None,
+                4,
+                [
+                    slice(0, None, 4),
+                    slice(1, None, 4),
+                    slice(2, None, 4),
+                    slice(3, None, 4),
+                ],
+            ),
+            (
+                "stop_not_int",
+                [4],
+                {"stop": "8"},
+                "stop is <class 'str'>, should be int",
+                None,
+                None,
+            ),
+            (
+                "number_jobs_not_int",
+                ["4"],
+                {},
+                "number_jobs is <class 'str'>, should be int",
+                None,
+                None,
+            ),
             (
                 "too_many_slices",
                 [20],
@@ -39,7 +72,9 @@ class TestDataSlicer(unittest.TestCase):
             ),
         ]
     )
-    def test_slices(self, name, args, kwargs, error_msg, expected_length, expected_slices) -> None:
+    def test_slices(
+        self, name, args, kwargs, error_msg, expected_length, expected_slices
+    ) -> None:
         slicer = SimpleDataSlicer()
 
         if error_msg:

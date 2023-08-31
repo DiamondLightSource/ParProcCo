@@ -38,16 +38,24 @@ class ProgramWrapper:
         """
         return args
 
-    def create_slices(self, number_jobs: int, stop: Optional[int] = None) -> List[Optional[slice]]:
+    def create_slices(
+        self, number_jobs: int, stop: Optional[int] = None
+    ) -> List[Optional[slice]]:
         if number_jobs == 1 or self.slicer is None:
             return [None]
         return self.slicer.slice(number_jobs, stop)
 
-    def get_output(self, output: Optional[str], _program_args: Optional[List[str]]) -> Optional[Path]:
+    def get_output(
+        self, output: Optional[str], _program_args: Optional[List[str]]
+    ) -> Optional[Path]:
         return Path(output) if output else None
 
     def get_aggregate_script(self) -> Optional[Path]:
-        return get_filepath_on_path(self.aggregating_mode.program_name) if self.aggregating_mode else None
+        return (
+            get_filepath_on_path(self.aggregating_mode.program_name)
+            if self.aggregating_mode
+            else None
+        )
 
     def get_cluster_runner_script(self) -> Optional[Path]:
         return get_filepath_on_path(self.processing_mode.program_name)

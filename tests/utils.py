@@ -211,7 +211,10 @@ class TemporaryDirectory(object):
         self.autodelete = os.getenv("KEEP_TEMP", "no") == "no"
         if self.autodelete:
             self._finalizer = _weakref.finalize(
-                self, self._cleanup, self.name, warn_message="Implicitly cleaning up {!r}".format(self)
+                self,
+                self._cleanup,
+                self.name,
+                warn_message="Implicitly cleaning up {!r}".format(self),
             )
 
     @classmethod

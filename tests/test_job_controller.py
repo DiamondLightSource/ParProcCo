@@ -42,7 +42,9 @@ class TestJobController(unittest.TestCase):
             os.rmdir(self.base_dir)
 
     def test_all_jobs_fail(self) -> None:
-        with TemporaryDirectory(prefix="test_dir_", dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(
+            prefix="test_dir_", dir=self.base_dir
+        ) as working_directory:
             os.chdir(working_directory)
             cluster_output_name = "cluster_output"
             os.mkdir(cluster_output_name, 0o775)
@@ -55,7 +57,9 @@ class TestJobController(unittest.TestCase):
 
             input_path = setup_data_file(working_directory)
             runner_script_args = [jobscript.name, "--input-path", str(input_path)]
-            os.environ["PATH"] = ":".join([str(runner_script.parent), self.starting_path])
+            os.environ["PATH"] = ":".join(
+                [str(runner_script.parent), self.starting_path]
+            )
 
             wrapper = SimpleWrapper(runner_script.name, aggregation_script.name)
             wrapper.set_cores(6)
@@ -69,10 +73,12 @@ class TestJobController(unittest.TestCase):
             )
             with self.assertRaises(RuntimeError) as context:
                 jc.run(4, jobscript_args=runner_script_args)
-            self.assertTrue(f"All jobs failed. job_history: " in str(context.exception))
+            self.assertTrue("All jobs failed. job_history: " in str(context.exception))
 
     def test_end_to_end(self) -> None:
-        with TemporaryDirectory(prefix="test_dir_", dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(
+            prefix="test_dir_", dir=self.base_dir
+        ) as working_directory:
             os.chdir(working_directory)
             cluster_output_name = "cluster_output"
             os.mkdir(cluster_output_name, 0o775)
@@ -80,7 +86,9 @@ class TestJobController(unittest.TestCase):
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
             aggregation_script = setup_aggregation_script(working_directory)
-            os.environ["PATH"] = ":".join([str(runner_script.parent), self.starting_path])
+            os.environ["PATH"] = ":".join(
+                [str(runner_script.parent), self.starting_path]
+            )
 
             input_path = setup_data_file(working_directory)
             runner_script_args = [jobscript.name, "--input-path", str(input_path)]
@@ -99,12 +107,16 @@ class TestJobController(unittest.TestCase):
             with open(jc.aggregated_result, "r") as af:
                 agg_data = af.readlines()
 
-            self.assertEqual(agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"])
+            self.assertEqual(
+                agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"]
+            )
             for result in jc.sliced_results:
                 self.assertFalse(result.is_file())
 
     def test_single_job_does_not_aggregate(self) -> None:
-        with TemporaryDirectory(prefix="test_dir_", dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(
+            prefix="test_dir_", dir=self.base_dir
+        ) as working_directory:
             os.chdir(working_directory)
             cluster_output_name = "cluster_output"
             os.mkdir(cluster_output_name, 0o775)
@@ -112,11 +124,15 @@ class TestJobController(unittest.TestCase):
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
             aggregation_script = setup_aggregation_script(working_directory)
-            os.environ["PATH"] = ":".join([str(runner_script.parent), self.starting_path])
+            os.environ["PATH"] = ":".join(
+                [str(runner_script.parent), self.starting_path]
+            )
 
             input_path = setup_data_file(working_directory)
             runner_script_args = [jobscript.name, "--input-path", str(input_path)]
-            aggregated_file = Path(working_directory) / cluster_output_name / "aggregated_results.txt"
+            aggregated_file = (
+                Path(working_directory) / cluster_output_name / "aggregated_results.txt"
+            )
 
             wrapper = SimpleWrapper(runner_script.name, aggregation_script.name)
             wrapper.set_cores(6)
@@ -135,7 +151,9 @@ class TestJobController(unittest.TestCase):
             with open(jc.sliced_results[0], "r") as af:
                 agg_data = af.readlines()
 
-            self.assertEqual(agg_data, ["0\n", "2\n", "4\n", "6\n", "8\n", "10\n", "12\n", "14\n"])
+            self.assertEqual(
+                agg_data, ["0\n", "2\n", "4\n", "6\n", "8\n", "10\n", "12\n", "14\n"]
+            )
 
 
 if __name__ == "__main__":
