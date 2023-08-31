@@ -7,7 +7,6 @@ from ParProcCo.aggregator_interface import AggregatorInterface
 
 
 class SimpleDataAggregator(AggregatorInterface):
-
     def __init__(self) -> None:
         pass
 

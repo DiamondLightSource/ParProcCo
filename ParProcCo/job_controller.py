@@ -13,28 +13,36 @@ from .program_wrapper import ProgramWrapper
 
 
 class JobController:
-
-    def __init__(self, program_wrapper: ProgramWrapper, output_dir_or_file: Path, project: str, queue: str,
-                 cluster_resources: Optional[dict[str, str]]=None, timeout: timedelta=timedelta(hours=2)):
+    def __init__(
+        self,
+        program_wrapper: ProgramWrapper,
+        output_dir_or_file: Path,
+        project: str,
+        queue: str,
+        cluster_resources: Optional[dict[str, str]] = None,
+        timeout: timedelta = timedelta(hours=2),
+    ):
         """JobController is used to coordinate cluster job submissions with JobScheduler"""
         self.program_wrapper = program_wrapper
         self.output_file: Optional[Path] = None
         self.cluster_output_dir: Optional[Path] = None
         if output_dir_or_file is not None:
-            logging.debug('JC output: %s', output_dir_or_file)
+            logging.debug("JC output: %s", output_dir_or_file)
             if output_dir_or_file.is_dir():
                 output_dir = output_dir_or_file
             else:
                 output_dir = output_dir_or_file.parent
                 self.output_file = output_dir_or_file
             self.cluster_output_dir = check_location(output_dir)
-            logging.debug('JC cluster output: %s; file %s', self.cluster_output_dir, self.output_file)
+            logging.debug("JC cluster output: %s; file %s", self.cluster_output_dir, self.output_file)
         try:
             self.working_directory: Optional[Path] = check_location(os.getcwd())
         except Exception:
-            logging.warning(f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir)
+            logging.warning(
+                f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir
+            )
             self.working_directory = self.cluster_output_dir
-        logging.debug('JC working dir: %s', self.working_directory)
+        logging.debug("JC working dir: %s", self.working_directory)
         self.data_slicer: SlicerInterface
         self.project = project
         self.queue = queue
@@ -43,9 +51,9 @@ class JobController:
         self.sliced_results: Optional[List[Path]] = None
         self.aggregated_result: Optional[Path] = None
 
-    def run(self, number_jobs: int, jobscript_args: Optional[List] = None,
-            memory: str = "4G", job_name: str = "ParProcCo") -> None:
-
+    def run(
+        self, number_jobs: int, jobscript_args: Optional[List] = None, memory: str = "4G", job_name: str = "ParProcCo"
+    ) -> None:
         self.cluster_runner = check_location(get_absolute_path(self.program_wrapper.get_cluster_runner_script()))
         self.cluster_env = self.program_wrapper.get_environment()
         logging.debug("Cluster environment is %s", self.cluster_env)
@@ -64,22 +72,38 @@ class JobController:
             if out_file is not None and out_file.is_file() and self.output_file is not None:
                 out_file.rename(self.output_file)
         else:
-            logging.error(f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args},"\
-                          f" memory: {memory}, job_name: {job_name}")
+            logging.error(
+                f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args},"
+                f" memory: {memory}, job_name: {job_name}"
+            )
             raise RuntimeError(f"Sliced jobs failed\n")
 
-    def _run_sliced_jobs(self, slice_params: List[Optional[slice]], jobscript_args: Optional[List], memory: str,
-                         job_name: str) -> bool:
+    def _run_sliced_jobs(
+        self, slice_params: List[Optional[slice]], jobscript_args: Optional[List], memory: str, job_name: str
+    ) -> bool:
         if jobscript_args is None:
             jobscript_args = []
 
         processing_mode = self.program_wrapper.processing_mode
         processing_mode.set_parameters(slice_params)
 
-        job_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project, self.queue,
-                                     self.cluster_resources, self.timeout)
-        sliced_jobs_success = job_scheduler.run(processing_mode, self.cluster_runner, self.cluster_env, memory,
-                                                processing_mode.cores, jobscript_args, job_name)
+        job_scheduler = JobScheduler(
+            self.working_directory,
+            self.cluster_output_dir,
+            self.project,
+            self.queue,
+            self.cluster_resources,
+            self.timeout,
+        )
+        sliced_jobs_success = job_scheduler.run(
+            processing_mode,
+            self.cluster_runner,
+            self.cluster_env,
+            memory,
+            processing_mode.cores,
+            jobscript_args,
+            job_name,
+        )
 
         if not sliced_jobs_success:
             sliced_jobs_success = job_scheduler.rerun_killed_jobs()
@@ -88,7 +112,6 @@ class JobController:
         return sliced_jobs_success
 
     def _run_aggregation_job(self, memory: str) -> None:
-
         aggregator_path = self.program_wrapper.get_aggregate_script()
         aggregating_mode = self.program_wrapper.aggregating_mode
         if aggregating_mode is None or self.sliced_results is None:
@@ -101,11 +124,23 @@ class JobController:
             aggregator_path = check_location(get_absolute_path(aggregator_path))
             aggregation_args.append(aggregator_path)
 
-        aggregation_scheduler = JobScheduler(self.working_directory, self.cluster_output_dir, self.project,
-                                             self.queue, self.cluster_resources, self.timeout)
-        aggregation_success = aggregation_scheduler.run(aggregating_mode, self.cluster_runner, self.cluster_env, memory,
-                                                        aggregating_mode.cores, aggregation_args,
-                                                        aggregating_mode.__class__.__name__)
+        aggregation_scheduler = JobScheduler(
+            self.working_directory,
+            self.cluster_output_dir,
+            self.project,
+            self.queue,
+            self.cluster_resources,
+            self.timeout,
+        )
+        aggregation_success = aggregation_scheduler.run(
+            aggregating_mode,
+            self.cluster_runner,
+            self.cluster_env,
+            memory,
+            aggregating_mode.cores,
+            aggregation_args,
+            aggregating_mode.__class__.__name__,
+        )
 
         if not aggregation_success:
             aggregation_scheduler.rerun_killed_jobs(allow_all_failed=True)
@@ -115,6 +150,8 @@ class JobController:
             for result in self.sliced_results:
                 os.remove(str(result))
         else:
-            logging.warning(f"Aggregated job was unsuccessful with aggregating_mode: {aggregating_mode},"\
-                            f" cluster_runner: {self.cluster_runner}, cluster_env: {self.cluster_env}, aggregator_path: {aggregator_path}, aggregation_args: {aggregation_args}")
+            logging.warning(
+                f"Aggregated job was unsuccessful with aggregating_mode: {aggregating_mode},"
+                f" cluster_runner: {self.cluster_runner}, cluster_env: {self.cluster_env}, aggregator_path: {aggregator_path}, aggregation_args: {aggregation_args}"
+            )
             self.aggregated_result = None

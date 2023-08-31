@@ -9,12 +9,11 @@ from .utils import setup_aggregator_data_files, TemporaryDirectory
 
 
 class TestDataAggregator(unittest.TestCase):
-
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
 
     def test_aggregate_data(self) -> None:
-        with TemporaryDirectory(prefix='test_dir_') as working_directory:
+        with TemporaryDirectory(prefix="test_dir_") as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             if not cluster_output_dir.is_dir():
                 cluster_output_dir.mkdir(exist_ok=True, parents=True)
@@ -37,5 +36,5 @@ class TestDataAggregator(unittest.TestCase):
             self.assertEqual(agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

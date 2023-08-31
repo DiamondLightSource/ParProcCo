@@ -6,22 +6,24 @@ from typing import List, Optional, Tuple
 
 
 class SchedulerModeInterface:
-
     def __init__(self) -> None:
         self.number_jobs: int
         self.cores: int
         self.program_name: Optional[str]
-        self.allowed_modules: Optional[Tuple[str,...]] = None
+        self.allowed_modules: Optional[Tuple[str, ...]] = None
 
     def set_parameters(self, sliced_results: List) -> None:
         """Sets parameters for generating jobscript args for use within JobScheduler"""
         raise NotImplementedError
 
-    def generate_output_paths(self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime) -> Tuple[str, str, str]:
+    def generate_output_paths(
+        self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime
+    ) -> Tuple[str, str, str]:
         """Generates output, stdout and stderr file paths for job template within JobScheduler"""
         raise NotImplementedError
 
-    def generate_args(self, job_number: int, memory: str, cores: int, jobscript_args: List[str],
-                      output_fp: str) -> Tuple[str, ...]:
+    def generate_args(
+        self, job_number: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str
+    ) -> Tuple[str, ...]:
         """Generates jobscript args for use within JobScheduler"""
         raise NotImplementedError
