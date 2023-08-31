@@ -208,7 +208,7 @@ class JobProperties(BaseModel):
     """
     The job allocation can share nodes just other users with the "user" option or with the "mcs" option).
     """
-    get_user_environment: bool | None = None
+    get_user_environment: bool | str | None = None
     """
     Load new login environment for user on job node.
     """
