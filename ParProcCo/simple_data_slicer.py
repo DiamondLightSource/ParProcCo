@@ -13,10 +13,10 @@ class SimpleDataSlicer(SlicerInterface):
         self, number_jobs: int, stop: Optional[int] = None
     ) -> List[Optional[slice]]:
         """Overrides SlicerInterface.slice"""
-        if type(number_jobs) is not int:
+        if not isinstance(number_jobs, int):
             raise TypeError(f"number_jobs is {type(number_jobs)}, should be int\n")
 
-        if (stop is not None) and (type(stop) is not int):
+        if (stop is not None) and not isinstance(stop, int):
             raise TypeError(f"stop is {type(stop)}, should be int or None\n")
 
         if stop:

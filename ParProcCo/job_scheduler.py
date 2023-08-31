@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -340,7 +339,7 @@ class JobScheduler:
                     f" Dispatch time: {time_to_dispatch}; Wall time: {wall_time}."
                 )
 
-            self.job_history[self.batch_number][status_info.job.id] = status_info
+            self.job_history[self.batch_number][status_info.i] = status_info
 
     def resubmit_jobs(self, job_indices: List[int]) -> bool:
         self.batch_number += 1
@@ -349,8 +348,12 @@ class JobScheduler:
         logging.info(f"Resubmitting jobs with job_indices: {job_indices}")
         return self._run_and_monitor(job_indices)
 
-    def filter_killed_jobs(self, jobs: List[drmaa2.Job]) -> List[drmaa2.Job]:
-        killed_jobs = [job for job in jobs if job.info.terminating_signal == "SIGKILL"]
+    def filter_killed_jobs(self, jobs: List[StatusInfo]) -> List[StatusInfo]:
+        killed_jobs = [
+            job
+            for job in jobs
+            if job.info is not None and job.info.terminating_signal == "SIGKILL"
+        ]
         return killed_jobs
 
     def rerun_killed_jobs(self, allow_all_failed: bool = False):
@@ -368,7 +371,8 @@ class JobScheduler:
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             killed_jobs_indices = [job.i for job in killed_jobs]
             logging.info(
-                f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}"
+                f"Total failed_jobs: {len(failed_jobs)}."
+                f" Total killed_jobs: {len(killed_jobs)}"
             )
             if killed_jobs_indices:
                 return self.resubmit_jobs(killed_jobs_indices)

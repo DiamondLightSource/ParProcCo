@@ -58,6 +58,17 @@ class NXdataAggregator(AggregatorInterface):
             f"Aggregation completed in {aggregation_time.total_seconds():.3f}s. Sliced file paths: {data_files}."
         )
 
+    @staticmethod
+    def _require_dataset(
+        group: h5py.File | h5py.Group | h5py.AttributeManager, name: str
+    ) -> h5py.Dataset | np.ndarray:
+        if name in group:
+            data = group[name]
+            if isinstance(data, (h5py.Dataset, np.ndarray)):
+                return data
+            raise ValueError(f"{name} in {group} must be a dataset (is a {type(data)})")
+        raise ValueError(f"{name} is not found in {group}")
+
     def _initialise_arrays(self) -> None:
         self._get_all_axes()
 
@@ -138,17 +149,20 @@ class NXdataAggregator(AggregatorInterface):
             if not self.is_binoculars:
                 self.is_binoculars = "binoculars" in root
             self.nxentry_name = self._get_default_nxgroup(root, "NXentry")
-            nxentry = root[self.nxentry_name]
+            nxentry = root.require_group(self.nxentry_name)
             self.nxdata_name = self._get_default_nxgroup(nxentry, "NXdata")
             self.nxdata_path_name = "/".join([self.nxentry_name, self.nxdata_name])
-            nxdata = root[self.nxdata_path_name]
+            nxdata = root.require_group(self.nxdata_path_name)
             self._get_default_signals_and_axes(nxdata)
 
-            signal_shape = nxdata[self.signal_name].shape
+            signal = nxdata[self.signal_name]
+            assert isinstance(signal, h5py.Dataset)
+            signal_shape = signal.shape
             self.data_dimensions = len(signal_shape)
 
             if self.renormalisation:
                 weights = nxdata["weight"]
+                assert isinstance(weights, h5py.Dataset)
                 assert (
                     len(weights.shape) == self.data_dimensions
                 ), "signal and weight dimensions must match"
@@ -161,6 +175,7 @@ class NXdataAggregator(AggregatorInterface):
     ) -> str:
         if "default" in f.attrs:
             group_name = f.attrs["default"]
+            assert isinstance(group_name, (str, bytes))  # XXX
             group_name = decode_to_string(group_name)
             class_type = f[group_name].attrs.get("NX_class", "")
             class_type = decode_to_string(class_type)
@@ -196,7 +211,10 @@ class NXdataAggregator(AggregatorInterface):
 
         if "auxiliary_signals" in nxdata.attrs:
             self.aux_signal_names = [
-                decode_to_string(name) for name in nxdata.attrs["auxiliary_signals"]
+                decode_to_string(name)
+                for name in NXdataAggregator._require_dataset(
+                    nxdata.attrs, "auxiliary_signals"
+                )
             ]
             self.non_weight_aux_signal_names = [
                 name for name in self.aux_signal_names if name != "weight"
@@ -209,6 +227,7 @@ class NXdataAggregator(AggregatorInterface):
 
         if "signal" in nxdata.attrs:
             signal_name = nxdata.attrs["signal"]
+            assert isinstance(signal_name, (str, bytes))  # XXX
             self.signal_name = decode_to_string(signal_name)
         elif "data" in nxdata.keys():
             self.signal_name = "data"
@@ -216,7 +235,8 @@ class NXdataAggregator(AggregatorInterface):
         if hasattr(self, "signal_name"):
             if "axes" in nxdata.attrs:
                 self.axes_names = [
-                    decode_to_string(name) for name in nxdata.attrs["axes"]
+                    decode_to_string(name)
+                    for name in NXdataAggregator._require_dataset(nxdata.attrs, "axes")
                 ]
             else:
                 self._generate_axes_names(nxdata)
@@ -225,7 +245,7 @@ class NXdataAggregator(AggregatorInterface):
 
     def _generate_axes_names(self, nxdata: h5py.Group) -> None:
         self.use_default_axes = True
-        signal_shape = nxdata[self.signal_name].shape
+        signal_shape = NXdataAggregator._require_dataset(nxdata, self.signal_name).shape
         self.axes_names = [
             f"{letter}-axis" for letter in string.ascii_lowercase[: len(signal_shape)]
         ]
@@ -235,7 +255,10 @@ class NXdataAggregator(AggregatorInterface):
         self.all_axes = []
         for data_file in self.data_files:
             with h5py.File(data_file, "r") as f:
-                signal_shape = f[self.nxdata_path_name][self.signal_name].shape
+                nxdata = f.require_group(self.nxdata_path_name)
+                signal = nxdata[self.signal_name]
+                assert isinstance(signal, h5py.Dataset)
+                signal_shape = signal.shape
                 logging.info(
                     f"Signal '{'/'.join([self.nxdata_path_name, self.signal_name])}' read from {data_file}. Shape: {signal_shape}"
                 )
@@ -243,9 +266,9 @@ class NXdataAggregator(AggregatorInterface):
                 self.signal_shapes.append(signal_shape)
                 if self.aux_signal_names:
                     for aux_signal_name in self.aux_signal_names:
-                        aux_signal_shape = f[self.nxdata_path_name][
-                            aux_signal_name
-                        ].shape
+                        aux_signal_shape = NXdataAggregator._require_dataset(
+                            nxdata, aux_signal_name
+                        ).shape
                         logging.debug(
                             f"Auxiliary signal '{'/'.join([self.nxdata_path_name, aux_signal_name])}' read from {data_file}. Shape: {aux_signal_shape}"
                         )
@@ -256,7 +279,7 @@ class NXdataAggregator(AggregatorInterface):
                     axes = [np.arange(length) for length in signal_shape]
                 else:
                     axes = [
-                        f[self.nxdata_path_name][axis_name][...]
+                        NXdataAggregator._require_dataset(nxdata, axis_name)[...]
                         for axis_name in self.axes_names
                     ]
                 self.all_axes.append(axes)
@@ -271,21 +294,27 @@ class NXdataAggregator(AggregatorInterface):
             f"Accumulating volume with shape {self.accumulator_volume.shape} and axes {self.axes_names}"
         )
         for data_file, slices in zip(self.data_files, self.all_slices):
+            weights = None
             with h5py.File(data_file, "r") as f:
                 aux_signals = []
-                volume = f[self.nxdata_path_name][self.signal_name][...]
+                nxdata = f.require_group(self.nxdata_path_name)
+                volume = NXdataAggregator._require_dataset(nxdata, self.signal_name)[
+                    ...
+                ]
                 logging.debug(
                     f"Reading volume from {'/'.join([self.nxdata_path_name, self.signal_name])} in {data_file}. Shape is {volume.shape}"
                 )
                 if self.renormalisation:
-                    weights = f[self.nxdata_path_name]["weight"][...]
+                    weights = NXdataAggregator._require_dataset(nxdata, "weight")[...]
                 for name in self.non_weight_aux_signal_names:
-                    aux_signals.append(f[self.nxdata_path_name][name][...])
+                    aux_signals.append(
+                        NXdataAggregator._require_dataset(nxdata, name)[...]
+                    )
                     logging.debug(
                         f"Reading auxiliary signal from {'/'.join([self.nxdata_path_name, name])} in {data_file}"
                     )
 
-            if self.renormalisation:
+            if self.renormalisation and weights is not None:
                 volume = np.multiply(volume, weights)
                 self.accumulator_weights[slices] += weights
                 aux_signals = [
@@ -351,9 +380,10 @@ class NXdataAggregator(AggregatorInterface):
 
             f.attrs["default"] = self.nxentry_name
 
+            old_processed = None
             for i, filepath in enumerate(self.data_files):
                 with h5py.File(filepath, "r") as df:
-                    data_nxentry_group = df[self.nxentry_name]
+                    data_nxentry_group = df.require_group(self.nxentry_name)
                     group_name = self._get_group_name(data_nxentry_group, "NXprocess")
                     for j, name in enumerate(group_name):
                         if "old_processed" not in f:
@@ -366,7 +396,7 @@ class NXdataAggregator(AggregatorInterface):
                             name, old_processed, name=f"process{i}.{j}"
                         )
                         logging.info(
-                            f"Copied '{'/'.join([data_nxentry_group.name, name])}' group in {filepath} to"
+                            f"Copied '{'/'.join([data_nxentry_group.name, name])}' group in {filepath} to"  # pyright: ignore[reportGeneralTypeIssues]
                             f" '{'/'.join(['old_processed', f'process{i}.{j}'])}' group in {aggregation_output}"
                         )
 
