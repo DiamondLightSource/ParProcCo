@@ -12,6 +12,10 @@ setup(
     extras_require={
         "testing": ["parameterized"],
     },
-    scripts=["scripts/nxdata_aggregate", "scripts/ppc_cluster_runner", "scripts/ppc_cluster_submit"],
+    scripts=[
+        "scripts/nxdata_aggregate",
+        "scripts/ppc_cluster_runner",
+        "scripts/ppc_cluster_submit",
+    ],
     url="https://github.com/DiamondLightSource/ParProcCo",
 )

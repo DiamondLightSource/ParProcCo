@@ -38,7 +38,9 @@ class JobScheduler:
     ):
         """JobScheduler can be used for cluster job submissions"""
         self.batch_number = 0
-        self.cluster_output_dir: Optional[Path] = Path(cluster_output_dir) if cluster_output_dir else None
+        self.cluster_output_dir: Optional[Path] = (
+            Path(cluster_output_dir) if cluster_output_dir else None
+        )
         self.job_completion_status: Dict[str, bool] = {}
         self.job_history: Dict[int, Dict[int, StatusInfo]] = {}
         self.jobscript: Path
@@ -65,7 +67,7 @@ class JobScheduler:
 
     def check_queue_list(self, queue: str) -> str:
         if not queue:
-            raise ValueError(f"queue must be non-empty string")
+            raise ValueError("queue must be non-empty string")
         queue = queue.lower()
         with os.popen("qconf -sql") as q_proc:
             q_name_list = q_proc.read().split()
@@ -76,13 +78,15 @@ class JobScheduler:
 
     def check_project_list(self, project: str) -> str:
         if not project:
-            raise ValueError(f"project must be non-empty string")
+            raise ValueError("project must be non-empty string")
         with os.popen("qconf -sprjl") as prj_proc:
             prj_name_list = prj_proc.read().split()
         if project in prj_name_list:
             return project
         else:
-            raise ValueError(f"{project} must be in list of project names: {prj_name_list}\n")
+            raise ValueError(
+                f"{project} must be in list of project names: {prj_name_list}\n"
+            )
 
     def get_output_paths(self) -> List[Path]:
         return self.output_paths
@@ -117,7 +121,9 @@ class JobScheduler:
             jobscript_args = []
         self.jobscript_args = jobscript_args
         self.job_history[self.batch_number] = {}
-        self.job_completion_status = {str(i): False for i in range(scheduler_mode.number_jobs)}
+        self.job_completion_status = {
+            str(i): False for i in range(scheduler_mode.number_jobs)
+        }
         self.output_paths.clear()
         return self._run_and_monitor(job_indices)
 
@@ -129,13 +135,17 @@ class JobScheduler:
         return self.get_success()
 
     def _run_jobs(self, session: drmaa2.JobSession, job_indices: List[int]) -> None:
-        logging.debug(f"Running jobs on cluster for jobscript {self.jobscript} and args {self.jobscript_args}")
+        logging.debug(
+            f"Running jobs on cluster for jobscript {self.jobscript} and args {self.jobscript_args}"
+        )
         try:
             # Run all input paths in parallel:
             self.status_infos = []
             for i in job_indices:
                 template = self._create_template(i)
-                logging.debug(f"Submitting drmaa job with jobscript {self.jobscript} and args {template.args}")
+                logging.debug(
+                    f"Submitting drmaa job with jobscript {self.jobscript} and args {template.args}"
+                )
                 job = session.run_job(template)
                 self.status_infos.append(StatusInfo(job, Path(template.output_path), i))
                 logging.debug(
@@ -143,10 +153,10 @@ class JobScheduler:
                     f" has been submitted with id {job.id}"
                 )
         except drmaa2.Drmaa2Exception:
-            logging.error(f"Drmaa exception", exc_info=True)
+            logging.error("Drmaa exception", exc_info=True)
             raise
         except Exception:
-            logging.error(f"Unknown error occurred running drmaa job", exc_info=True)
+            logging.error("Unknown error occurred running drmaa job", exc_info=True)
             raise
 
     def _create_template(self, i: int) -> drmaa2.JobTemplate:
@@ -171,8 +181,12 @@ class JobScheduler:
         )
         if output_fp and output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
-        args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
-        logging.info(f"creating template with jobscript: {str(self.jobscript)} and args: {args}")
+        args = self.scheduler_mode.generate_args(
+            i, self.memory, self.cores, self.jobscript_args, output_fp
+        )
+        logging.info(
+            f"creating template with jobscript: {str(self.jobscript)} and args: {args}"
+        )
 
         self.resources["m_mem_free"] = self.memory
         jt = drmaa2.JobTemplate(
@@ -188,7 +202,7 @@ class JobScheduler:
                 "error_path": stderr_fp,
                 "queue_name": self.queue,
                 "implementation_specific": {
-                    "uge_jt_pe": f"smp",
+                    "uge_jt_pe": "smp",
                 },
             }
         )
@@ -225,7 +239,9 @@ class JobScheduler:
                         jobs_remaining.append(job)
                         logging.debug(f"Job {job.id} still running")
                 job_list = jobs_remaining
-                logging.info(f"Jobs remaining = {len(jobs_remaining)} after {total_time}s")
+                logging.info(
+                    f"Jobs remaining = {len(jobs_remaining)} after {total_time}s"
+                )
 
             jobs_remaining = []
             for job in job_list:
@@ -237,11 +253,13 @@ class JobScheduler:
                 # Termination takes some time, wait a max of 2 mins
                 session.wait_all_terminated(jobs_remaining, 120)
                 total_time += 120
-                logging.info(f"Jobs terminated = {len(jobs_remaining)} after {total_time}s")
+                logging.info(
+                    f"Jobs terminated = {len(jobs_remaining)} after {total_time}s"
+                )
         except drmaa2.Drmaa2Exception:
-            logging.error(f"Drmaa exception", exc_info=True)
+            logging.error("Drmaa exception", exc_info=True)
         except Exception:
-            logging.error(f"Unknown error occurred running drmaa job", exc_info=True)
+            logging.error("Unknown error occurred running drmaa job", exc_info=True)
 
     def _report_job_info(self) -> None:
         # Iterate through jobs with logging to check individual job outcomes
@@ -253,7 +271,10 @@ class JobScheduler:
                 ]  # Returns job state and job substate (always seems to be None)
                 status_info.info = status_info.job.get_info()
             except Exception:
-                logging.error(f"Failed to get job information for job {status_info.job.id}", exc_info=True)
+                logging.error(
+                    f"Failed to get job information for job {status_info.job.id}",
+                    exc_info=True,
+                )
                 raise
 
             dispatch_time = status_info.info.dispatch_time
@@ -262,7 +283,9 @@ class JobScheduler:
                     time_to_dispatch = dispatch_time - status_info.info.submission_time
                     wall_time = status_info.info.finish_time - dispatch_time
                 except Exception:
-                    logging.error(f"Failed to get job submission time statistics for job {status_info.job.id}")
+                    logging.error(
+                        f"Failed to get job submission time statistics for job {status_info.job.id}"
+                    )
                     raise
             else:
                 time_to_dispatch = "n/a"
@@ -337,10 +360,16 @@ class JobScheduler:
             logging.warning("No failed jobs to rerun")
             return True
         elif allow_all_failed or any(self.job_completion_status.values()):
-            failed_jobs = [job_info for job_info in job_history[0].values() if job_info.final_state != "SUCCESS"]
+            failed_jobs = [
+                job_info
+                for job_info in job_history[0].values()
+                if job_info.final_state != "SUCCESS"
+            ]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             killed_jobs_indices = [job.i for job in killed_jobs]
-            logging.info(f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}")
+            logging.info(
+                f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}"
+            )
             if killed_jobs_indices:
                 return self.resubmit_jobs(killed_jobs_indices)
             return True

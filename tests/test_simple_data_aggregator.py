@@ -25,7 +25,10 @@ class TestDataAggregator(unittest.TestCase):
                     lines = f.readlines()
                     written_data.append(lines)
 
-            self.assertEqual(written_data, [["0\n", "8\n"], ["2\n", "10\n"], ["4\n", "12\n"], ["6\n", "14\n"]])
+            self.assertEqual(
+                written_data,
+                [["0\n", "8\n"], ["2\n", "10\n"], ["4\n", "12\n"], ["6\n", "14\n"]],
+            )
 
             aggregator = SimpleDataAggregator()
             agg_data_path = aggregator.aggregate(aggregation_output, sliced_data_files)
@@ -33,7 +36,9 @@ class TestDataAggregator(unittest.TestCase):
             with open(agg_data_path, "r") as af:
                 agg_data = af.readlines()
 
-            self.assertEqual(agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"])
+            self.assertEqual(
+                agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"]
+            )
 
 
 if __name__ == "__main__":

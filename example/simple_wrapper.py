@@ -12,5 +12,7 @@ from .simple_processing_mode import SimpleProcessingMode
 class SimpleWrapper(ProgramWrapper):
     def __init__(self, processing_script: Path, aggregating_script: Path):
         super().__init__(
-            SimpleProcessingMode(processing_script), SimpleDataSlicer(), SimpleAggregationMode(aggregating_script)
+            SimpleProcessingMode(processing_script),
+            SimpleDataSlicer(),
+            SimpleAggregationMode(aggregating_script),
         )

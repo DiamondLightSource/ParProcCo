@@ -27,7 +27,11 @@ def get_filepath_on_path(filename: Optional[str]) -> Optional[Path]:
     if filename is None:
         return None
     paths = os.environ["PATH"].split(":")
-    path_gen = (os.path.join(p, filename) for p in paths if os.path.isfile(os.path.join(p, filename)))
+    path_gen = (
+        os.path.join(p, filename)
+        for p in paths
+        if os.path.isfile(os.path.join(p, filename))
+    )
     try:
         filepath = next(path_gen)
         return filepath
@@ -86,7 +90,9 @@ class PPCCluster(YAMLObject):
 
     module: str  # module loaded to submit jobs
     default_queue: str  # default cluster queue
-    user_queues: Optional[Dict[str, List[str]]] = None  # specific queues with allowed users
+    user_queues: Optional[
+        Dict[str, List[str]]
+    ] = None  # specific queues with allowed users
     resources: Optional[Dict[str, str]] = None  # job resources
 
 
@@ -138,7 +144,10 @@ def load_cfg() -> PPCConfig:
             for us in ccfg.user_queues.values():
                 common = users.intersection(set(us))
                 if common:
-                    raise ValueError("Users %s cannot be assigned to more than one queue", ", ".join(common))
+                    raise ValueError(
+                        "Users %s cannot be assigned to more than one queue",
+                        ", ".join(common),
+                    )
                 users.update(us)
     return ppc_config
 
@@ -155,7 +164,9 @@ def set_up_wrapper(cfg: PPCConfig, program: str):
         import sys
 
         if sys.version_info < (3, 10):
-            from backports.entry_points_selectable import entry_points  # @UnresolvedImport
+            from backports.entry_points_selectable import (
+                entry_points,
+            )  # @UnresolvedImport
         else:
             from importlib.metadata import entry_points  # @UnresolvedImport
 
@@ -164,18 +175,24 @@ def set_up_wrapper(cfg: PPCConfig, program: str):
         try:
             package = eps[program].module
         except Exception as exc:
-            raise ValueError(f"Cannot find {program} in {PPC_ENTRY_POINT} {eps}") from exc
+            raise ValueError(
+                f"Cannot find {program} in {PPC_ENTRY_POINT} {eps}"
+            ) from exc
 
     import importlib
 
     try:
         wrapper_module = importlib.import_module(f"{package}.{program}_wrapper")
     except Exception as exc:
-        raise ValueError(f"Cannot import {program}_wrapper as a Python module from package {package}") from exc
+        raise ValueError(
+            f"Cannot import {program}_wrapper as a Python module from package {package}"
+        ) from exc
     try:
         return wrapper_module.Wrapper()
     except Exception as exc:
-        raise ValueError(f"Cannot create Wrapper from {program}_wrapper module") from exc
+        raise ValueError(
+            f"Cannot create Wrapper from {program}_wrapper module"
+        ) from exc
 
 
 def find_cfg_file(name: str) -> Path:

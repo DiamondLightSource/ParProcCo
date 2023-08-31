@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
-from ParProcCo.utils import check_jobscript_is_readable, check_location, format_timestamp, get_absolute_path
+from ParProcCo.utils import (
+    check_jobscript_is_readable,
+    check_location,
+    format_timestamp,
+    get_absolute_path,
+)
 
 
 class SimpleAggregationMode(SchedulerModeInterface):
@@ -34,6 +39,10 @@ class SimpleAggregationMode(SchedulerModeInterface):
     ) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert i == 0
-        jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
+        jobscript = str(
+            check_jobscript_is_readable(
+                check_location(get_absolute_path(jobscript_args[0]))
+            )
+        )
         args = tuple([jobscript, "--output", output_fp] + self.sliced_results)
         return args

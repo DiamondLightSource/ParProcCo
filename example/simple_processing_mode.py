@@ -42,9 +42,23 @@ class SimpleProcessingMode(SchedulerModeInterface):
         """Overrides SchedulerModeInterface.generate_args"""
         assert i < self.number_jobs
         slice_param = slice_to_string(self.slice_params[i])
-        jobscript = str(check_jobscript_is_readable(check_location(get_absolute_path(jobscript_args[0]))))
+        jobscript = str(
+            check_jobscript_is_readable(
+                check_location(get_absolute_path(jobscript_args[0]))
+            )
+        )
         args = tuple(
-            [jobscript, "--memory", memory, "--cores", str(cores), "--output", output_fp, "--images", slice_param]
+            [
+                jobscript,
+                "--memory",
+                memory,
+                "--cores",
+                str(cores),
+                "--output",
+                output_fp,
+                "--images",
+                slice_param,
+            ]
             + jobscript_args[1:]
         )
         return args

@@ -47,24 +47,38 @@ class TestNXdataAggregator(unittest.TestCase):
     @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_renormalise(self) -> None:
         output_file_paths = [
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+            ),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+            ),
         ]
         aggregator = NXdataAggregator()
         aggregator._renormalise(output_file_paths)
-        with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
+        with h5py.File(
+            "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r"
+        ) as f:
             volumes_array = f["processed/reciprocal_space/volume"][...]
             weights_array = f["processed/reciprocal_space/weight"][...]
-        np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
-        np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
+        np.testing.assert_allclose(
+            aggregator.accumulator_volume, volumes_array, rtol=1e-12
+        )
+        np.testing.assert_allclose(
+            aggregator.accumulator_weights, weights_array, rtol=2.1e-14
+        )
 
     @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_initialise_arrays_applied_data(self) -> None:
         aggregator = NXdataAggregator()
         aggregator.data_dimensions = 3
         aggregator.data_files = [
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+            ),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+            ),
         ]
         aggregator.nxentry_name = "processed"
         aggregator.nxdata_name = "reciprocal_space"
@@ -87,16 +101,25 @@ class TestNXdataAggregator(unittest.TestCase):
         self.assertEqual(len(aggregator.accumulator_axis_ranges[1]), 77)
         self.assertEqual(len(aggregator.accumulator_axis_ranges[2]), 13)
         self.assertEqual(aggregator.accumulator_axis_ranges[0][0], -0.2)
-        self.assertAlmostEqual(aggregator.accumulator_axis_ranges[0][-1], 1.44, places=14)
+        self.assertAlmostEqual(
+            aggregator.accumulator_axis_ranges[0][-1], 1.44, places=14
+        )
         self.assertEqual(aggregator.accumulator_axis_ranges[1][0], -0.08)
         self.assertEqual(aggregator.accumulator_axis_ranges[1][-1], 1.44)
         self.assertEqual(aggregator.accumulator_axis_ranges[2][0], 0.86)
         self.assertEqual(aggregator.accumulator_axis_ranges[2][-1], 1.1)
-        self.assertTrue(np.array_equal(aggregator.accumulator_volume, np.zeros([83, 77, 13])))
-        self.assertTrue(np.array_equal(aggregator.accumulator_weights, np.zeros([83, 77, 13])))
+        self.assertTrue(
+            np.array_equal(aggregator.accumulator_volume, np.zeros([83, 77, 13]))
+        )
+        self.assertTrue(
+            np.array_equal(aggregator.accumulator_weights, np.zeros([83, 77, 13]))
+        )
         self.assertEqual(
             aggregator.all_slices,
-            [(slice(0, 83), slice(0, 77), slice(0, 13)), (slice(0, 83), slice(0, 77), slice(0, 13))],
+            [
+                (slice(0, 83), slice(0, 77), slice(0, 13)),
+                (slice(0, 83), slice(0, 77), slice(0, 13)),
+            ],
         )
 
     @parameterized.expand(
@@ -112,7 +135,15 @@ class TestNXdataAggregator(unittest.TestCase):
                 AssertionError,
                 "axes_lengths must equal volumes_array.shape",
             ),
-            ("non_weight_signals", (2, 3, 4), False, ["other_0", "other_1"], ["other_0", "other_1"], None, None),
+            (
+                "non_weight_signals",
+                (2, 3, 4),
+                False,
+                ["other_0", "other_1"],
+                ["other_0", "other_1"],
+                None,
+                None,
+            ),
             (
                 "non_weight_signals_plus_weight",
                 (2, 3, 4),
@@ -125,7 +156,14 @@ class TestNXdataAggregator(unittest.TestCase):
         ]
     )
     def test_initialise_arrays(
-        self, name, shape, has_weight, aux_signal_names, non_weight_names, error_name, error_msg
+        self,
+        name,
+        shape,
+        has_weight,
+        aux_signal_names,
+        non_weight_names,
+        error_name,
+        error_msg,
     ) -> None:
         aggregator = NXdataAggregator()
         aggregator.data_dimensions = 3
@@ -156,7 +194,9 @@ class TestNXdataAggregator(unittest.TestCase):
                 volume_data = np.reshape(np.array([i for i in range(24)]), shape)
                 nxdata_group.create_dataset("volume", data=volume_data)
                 if aux_signal_names:
-                    aux_data = np.reshape(np.array([i * 2 + 3 for i in range(24)]), (2, 3, 4))
+                    aux_data = np.reshape(
+                        np.array([i * 2 + 3 for i in range(24)]), (2, 3, 4)
+                    )
                     for name in aux_signal_names:
                         nxdata_group.create_dataset(name, data=aux_data)
 
@@ -169,7 +209,9 @@ class TestNXdataAggregator(unittest.TestCase):
                 volume_data = np.reshape(np.array([i for i in range(30)]), (3, 2, 5))
                 nxdata_group.create_dataset("volume", data=volume_data)
                 if aux_signal_names:
-                    aux_data = np.reshape(np.array([i * 2 + 4 for i in range(30)]), (3, 2, 5))
+                    aux_data = np.reshape(
+                        np.array([i * 2 + 4 for i in range(30)]), (3, 2, 5)
+                    )
                     for name in aux_signal_names:
                         nxdata_group.create_dataset(name, data=aux_data)
 
@@ -185,18 +227,26 @@ class TestNXdataAggregator(unittest.TestCase):
             self.assertEqual(aggregator.axes_maxs, [0.4, 1.4, 0.4])
             self.assertEqual(
                 aggregator.all_slices,
-                [(slice(0, 2), slice(0, 3), slice(0, 4)), (slice(0, 3), slice(1, 3), slice(0, 5))],
+                [
+                    (slice(0, 2), slice(0, 3), slice(0, 4)),
+                    (slice(0, 3), slice(1, 3), slice(0, 5)),
+                ],
             )
             self.assertEqual(aggregator.accumulator_axis_lengths, [3, 3, 5])
             for l, e in zip(
-                aggregator.accumulator_axis_ranges, [[0.0, 0.2, 0.4], [1.0, 1.2, 1.4], [-0.4, -0.2, 0.0, 0.2, 0.4]]
+                aggregator.accumulator_axis_ranges,
+                [[0.0, 0.2, 0.4], [1.0, 1.2, 1.4], [-0.4, -0.2, 0.0, 0.2, 0.4]],
             ):
                 np.testing.assert_allclose(np.array(l), e, rtol=1e-14)
-            self.assertTrue(np.array_equal(aggregator.accumulator_volume, np.zeros([3, 3, 5])))
+            self.assertTrue(
+                np.array_equal(aggregator.accumulator_volume, np.zeros([3, 3, 5]))
+            )
             self.assertEqual(aggregator.non_weight_aux_signal_names, non_weight_names)
             self.assertEqual(aggregator.aux_signal_names, aux_signal_names)
             if has_weight:
-                self.assertTrue(np.array_equal(aggregator.accumulator_weights, np.zeros([3, 3, 5])))
+                self.assertTrue(
+                    np.array_equal(aggregator.accumulator_weights, np.zeros([3, 3, 5]))
+                )
             else:
                 self.assertFalse(hasattr(aggregator, "accumulator_weights"))
 
@@ -210,8 +260,12 @@ class TestNXdataAggregator(unittest.TestCase):
     @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_get_nxdata_applied_data(self) -> None:
         output_data_files = [
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+            ),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+            ),
         ]
         aggregator = NXdataAggregator()
         aggregator.data_files = output_data_files
@@ -229,11 +283,25 @@ class TestNXdataAggregator(unittest.TestCase):
         [
             ("normal", (2, 3, 4), True, None, None),
             ("no_aux", (2, 3, 4), False, None, None),
-            ("shape_wrong", (2, 4, 3), True, AssertionError, "signal and weight shapes must match"),
-            ("dims_wrong", (2, 12), True, AssertionError, "signal and weight dimensions must match"),
+            (
+                "shape_wrong",
+                (2, 4, 3),
+                True,
+                AssertionError,
+                "signal and weight shapes must match",
+            ),
+            (
+                "dims_wrong",
+                (2, 12),
+                True,
+                AssertionError,
+                "signal and weight dimensions must match",
+            ),
         ]
     )
-    def test_get_nx_data_param(self, name, shape, has_weight, error_name, error_msg) -> None:
+    def test_get_nx_data_param(
+        self, name, shape, has_weight, error_name, error_msg
+    ) -> None:
         aggregator = NXdataAggregator()
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
             file_path = Path(working_directory) / "output.nxs"
@@ -242,16 +310,18 @@ class TestNXdataAggregator(unittest.TestCase):
             self.create_basic_nexus_file(file_path, has_weight)
             with h5py.File(file_path, "r+") as f:
                 nxdata_group = f["default_entry/default_data"]
-                nxdata_group.attrs[f"a-axis_indices"] = 0
-                nxdata_group.attrs[f"b-axis_indices"] = 1
-                nxdata_group.attrs[f"c-axis_indices"] = 2
+                nxdata_group.attrs["a-axis_indices"] = 0
+                nxdata_group.attrs["b-axis_indices"] = 1
+                nxdata_group.attrs["c-axis_indices"] = 2
                 nxdata_group.create_dataset("a-axis", data=[0.0, 0.2])
                 nxdata_group.create_dataset("b-axis", data=[1.0, 1.2, 1.4])
                 nxdata_group.create_dataset("c-axis", data=[-0.4, -0.2, 0.0, 0.2])
                 volume_data = np.reshape(np.array([i for i in range(24)]), (2, 3, 4))
                 nxdata_group.create_dataset("volume", data=volume_data)
                 if has_weight:
-                    weight_data = np.reshape(np.array([i * 2 + 3 for i in range(24)]), shape)
+                    weight_data = np.reshape(
+                        np.array([i * 2 + 3 for i in range(24)]), shape
+                    )
                     nxdata_group.create_dataset("weight", data=weight_data)
 
             if error_name:
@@ -288,12 +358,28 @@ class TestNXdataAggregator(unittest.TestCase):
             ),
             ("bytes", "NXentry", b"default_entry", True, None, None),
             ("no_default", "NXentry", "default_entry", False, None, None),
-            ("no_default_no_class", None, "default_entry", False, ValueError, "no NXentry group found"),
-            ("no_default_wrong_class", "NXprocess", "default_entry", False, ValueError, "no NXentry group found"),
+            (
+                "no_default_no_class",
+                None,
+                "default_entry",
+                False,
+                ValueError,
+                "no NXentry group found",
+            ),
+            (
+                "no_default_wrong_class",
+                "NXprocess",
+                "default_entry",
+                False,
+                ValueError,
+                "no NXentry group found",
+            ),
             ("no_groups", None, None, False, ValueError, "no NXentry group found"),
         ]
     )
-    def test_get_default_nxgroup(self, name, default_class, default_name, has_default, error_name, error_msg) -> None:
+    def test_get_default_nxgroup(
+        self, name, default_class, default_name, has_default, error_name, error_msg
+    ) -> None:
         aggregator = NXdataAggregator()
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
             file_path = Path(working_directory) / "output.nxs"
@@ -328,7 +414,9 @@ class TestNXdataAggregator(unittest.TestCase):
                     aggregator._get_default_nxgroup(f, "NXentry")
                     self.assertEqual(
                         cm.output,
-                        ['WARNING:root:KeyError: entry0 could not be accessed in <HDF5 file "output.nxs" (mode r+)>'],
+                        [
+                            'WARNING:root:KeyError: entry0 could not be accessed in <HDF5 file "output.nxs" (mode r+)>'
+                        ],
                     )
 
     @parameterized.expand(
@@ -384,7 +472,9 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator.nxdata_path_name = "entry_group/data_group"
 
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
-            aggregator.data_files = [Path(working_directory) / f"output{i}.nxs" for i in range(3)]
+            aggregator.data_files = [
+                Path(working_directory) / f"output{i}.nxs" for i in range(3)
+            ]
             for file_path in aggregator.data_files:
                 with h5py.File(file_path, "w") as f:
                     entry_group = f.create_group("entry_group")
@@ -393,7 +483,9 @@ class TestNXdataAggregator(unittest.TestCase):
                     data_group.attrs["signal"] = "volume"
                     data_group.attrs["auxiliary_signals"] = ["weight"]
 
-                    volume_data = np.reshape(np.array([i for i in range(24)]), (2, 3, 4))
+                    volume_data = np.reshape(
+                        np.array([i for i in range(24)]), (2, 3, 4)
+                    )
                     data_group.create_dataset("volume", data=volume_data)
 
             with h5py.File(aggregator.data_files[0], "r") as f:
@@ -460,7 +552,9 @@ class TestNXdataAggregator(unittest.TestCase):
                 nxdata_group.create_dataset("volume", data=volume_data)
                 if aux_signal_names:
                     for name in aux_signal_names:
-                        data = np.reshape(np.array([i * 2 + 3 for i in range(24)]), (2, 3, 4))
+                        data = np.reshape(
+                            np.array([i * 2 + 3 for i in range(24)]), (2, 3, 4)
+                        )
                         nxdata_group.create_dataset(name, data=data)
 
             with h5py.File(file_path_1, "r+") as f:
@@ -468,21 +562,28 @@ class TestNXdataAggregator(unittest.TestCase):
                 if not use_default_axes:
                     nxdata_group.create_dataset("a-axis", data=[0.0, 0.2, 0.4])
                     nxdata_group.create_dataset("b-axis", data=[1.2, 1.4])
-                    nxdata_group.create_dataset("c-axis", data=[-0.4, -0.2, 0.0, 0.2, 0.4])
+                    nxdata_group.create_dataset(
+                        "c-axis", data=[-0.4, -0.2, 0.0, 0.2, 0.4]
+                    )
                 volume_data = np.reshape(np.array([i for i in range(30)]), (3, 2, 5))
                 nxdata_group.create_dataset("volume", data=volume_data)
                 if aux_signal_names:
                     for name in aux_signal_names:
-                        data = np.reshape(np.array([i * 2 + 4 for i in range(30)]), (3, 2, 5))
+                        data = np.reshape(
+                            np.array([i * 2 + 4 for i in range(30)]), (3, 2, 5)
+                        )
                         nxdata_group.create_dataset(name, data=data)
 
             aggregator._get_all_axes()
 
             self.assertEqual(aggregator.signal_shapes, [(2, 3, 4), (3, 2, 5)])
-            all_axes_flat = np.hstack([item for axis in aggregator.all_axes for item in axis])
+            all_axes_flat = np.hstack(
+                [item for axis in aggregator.all_axes for item in axis]
+            )
             if use_default_axes:
                 np.testing.assert_allclose(
-                    all_axes_flat, np.array([0, 1, 0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 0, 1, 0, 1, 2, 3, 4])
+                    all_axes_flat,
+                    np.array([0, 1, 0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 0, 1, 0, 1, 2, 3, 4]),
                 )
                 self.assertEqual(aggregator.axes_spacing, [1, 1, 1])
             else:
@@ -512,17 +613,31 @@ class TestNXdataAggregator(unittest.TestCase):
                         ]
                     ),
                 )
-                np.testing.assert_allclose(aggregator.axes_spacing, [0.2, 0.2, 0.2], rtol=1e-14)
+                np.testing.assert_allclose(
+                    aggregator.axes_spacing, [0.2, 0.2, 0.2], rtol=1e-14
+                )
 
     @parameterized.expand(
         [
             ("renormalised_no_aux", True, ["weight"], []),
-            ("renormalised_aux", True, ["weight", "aux_signal_0", "aux_signal_1"], ["aux_signal_0", "aux_signal_1"]),
+            (
+                "renormalised_aux",
+                True,
+                ["weight", "aux_signal_0", "aux_signal_1"],
+                ["aux_signal_0", "aux_signal_1"],
+            ),
             ("no_weight_no_aux", False, None, []),
-            ("no_weight_aux", False, ["aux_signal_0", "aux_signal_1"], ["aux_signal_0", "aux_signal_1"]),
+            (
+                "no_weight_aux",
+                False,
+                ["aux_signal_0", "aux_signal_1"],
+                ["aux_signal_0", "aux_signal_1"],
+            ),
         ]
     )
-    def test_accumulate_volumes(self, name, renormalisation, aux_signal_names, non_weight_aux_signal_names) -> None:
+    def test_accumulate_volumes(
+        self, name, renormalisation, aux_signal_names, non_weight_aux_signal_names
+    ) -> None:
         aggregator = NXdataAggregator()
         aggregator.nxdata_path_name = "default_entry/default_data"
         aggregator.signal_name = "volume"
@@ -539,7 +654,9 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator.accumulator_volume = np.zeros((3, 3, 5))
         if renormalisation:
             aggregator.accumulator_weights = np.zeros((3, 3, 5))
-        aggregator.accumulator_aux_signals = [np.zeros((3, 3, 5))] * len(non_weight_aux_signal_names)
+        aggregator.accumulator_aux_signals = [np.zeros((3, 3, 5))] * len(
+            non_weight_aux_signal_names
+        )
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
             file_path_0 = Path(working_directory) / "output0.nxs"
             file_path_1 = Path(working_directory) / "output1.nxs"
@@ -554,11 +671,16 @@ class TestNXdataAggregator(unittest.TestCase):
                 volume_data = np.reshape(np.array([i for i in range(24)]), (2, 3, 4))
                 nxdata_group.create_dataset("volume", data=volume_data)
                 if renormalisation:
-                    weight_data = np.reshape(np.array([i * 2 + 3 for i in range(24)]), (2, 3, 4))
+                    weight_data = np.reshape(
+                        np.array([i * 2 + 3 for i in range(24)]), (2, 3, 4)
+                    )
                     nxdata_group.create_dataset("weight", data=weight_data)
                 if non_weight_aux_signal_names:
                     for count, name in enumerate(non_weight_aux_signal_names):
-                        signal = np.reshape(np.array([i * 3 + (count + 5) for i in range(24)]), (2, 3, 4))
+                        signal = np.reshape(
+                            np.array([i * 3 + (count + 5) for i in range(24)]),
+                            (2, 3, 4),
+                        )
                         nxdata_group.create_dataset(name, data=signal)
 
             with h5py.File(file_path_1, "r+") as f:
@@ -566,11 +688,16 @@ class TestNXdataAggregator(unittest.TestCase):
                 volume_data = np.reshape(np.array([i for i in range(30)]), (3, 2, 5))
                 nxdata_group.create_dataset("volume", data=volume_data)
                 if renormalisation:
-                    weight_data = np.reshape(np.array([i * 2 + 4 for i in range(30)]), (3, 2, 5))
+                    weight_data = np.reshape(
+                        np.array([i * 2 + 4 for i in range(30)]), (3, 2, 5)
+                    )
                     nxdata_group.create_dataset("weight", data=weight_data)
                 if non_weight_aux_signal_names:
                     for count, name in enumerate(non_weight_aux_signal_names):
-                        signal = np.reshape(np.array([i * 4 + (count + 2) for i in range(30)]), (3, 2, 5))
+                        signal = np.reshape(
+                            np.array([i * 4 + (count + 2) for i in range(30)]),
+                            (3, 2, 5),
+                        )
                         nxdata_group.create_dataset(name, data=signal)
 
             aggregator._accumulate_volumes()
@@ -625,7 +752,9 @@ class TestNXdataAggregator(unittest.TestCase):
                 ]
                 self.assertEqual(aggregator.accumulator_volume.shape, (3, 3, 5))
                 np.testing.assert_allclose(
-                    aggregator.accumulator_volume, np.array(volume).reshape(3, 3, 5), rtol=6.9e-9
+                    aggregator.accumulator_volume,
+                    np.array(volume).reshape(3, 3, 5),
+                    rtol=6.9e-9,
                 )
                 weight = [
                     7.0,
@@ -675,7 +804,9 @@ class TestNXdataAggregator(unittest.TestCase):
                     0.0,
                 ]
                 np.testing.assert_allclose(
-                    aggregator.accumulator_weights, np.array(weight).reshape(3, 3, 5), rtol=1e-14
+                    aggregator.accumulator_weights,
+                    np.array(weight).reshape(3, 3, 5),
+                    rtol=1e-14,
                 )
             else:
                 volume = [
@@ -726,7 +857,11 @@ class TestNXdataAggregator(unittest.TestCase):
                     0.0,
                 ]
                 self.assertEqual(aggregator.accumulator_volume.shape, (3, 3, 5))
-                np.testing.assert_allclose(aggregator.accumulator_volume, np.array(volume).reshape(3, 3, 5), rtol=1e-14)
+                np.testing.assert_allclose(
+                    aggregator.accumulator_volume,
+                    np.array(volume).reshape(3, 3, 5),
+                    rtol=1e-14,
+                )
                 self.assertFalse(hasattr(aggregator, "accumulator_weights"))
 
             for aux_signal in aggregator.accumulator_aux_signals:
@@ -827,14 +962,20 @@ class TestNXdataAggregator(unittest.TestCase):
                         0.0,
                         0.0,
                     ]
-                np.testing.assert_allclose(aux_signal, np.array(signal).reshape(3, 3, 5), rtol=1e-14)
+                np.testing.assert_allclose(
+                    aux_signal, np.array(signal).reshape(3, 3, 5), rtol=1e-14
+                )
 
     @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_accumulate_volumes_applied_data(self) -> None:
         aggregator = NXdataAggregator()
         aggregator.data_files = [
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+            ),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+            ),
         ]
         aggregator.nxentry_name = "processed"
         aggregator.nxdata_name = "reciprocal_space"
@@ -857,21 +998,34 @@ class TestNXdataAggregator(unittest.TestCase):
             ]
             for i in range(3)
         ]
-        aggregator.all_slices = [(slice(0, 83), slice(0, 77), slice(0, 13)), (slice(0, 83), slice(0, 77), slice(0, 13))]
+        aggregator.all_slices = [
+            (slice(0, 83), slice(0, 77), slice(0, 13)),
+            (slice(0, 83), slice(0, 77), slice(0, 13)),
+        ]
         aggregator._accumulate_volumes()
 
-        with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
+        with h5py.File(
+            "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r"
+        ) as f:
             volumes_array = f["processed/reciprocal_space/volume"][...]
             weights_array = f["processed/reciprocal_space/weight"][...]
         self.assertEqual(aggregator.accumulator_volume.shape, (83, 77, 13))
-        np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
-        np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
+        np.testing.assert_allclose(
+            aggregator.accumulator_volume, volumes_array, rtol=1e-12
+        )
+        np.testing.assert_allclose(
+            aggregator.accumulator_weights, weights_array, rtol=2.1e-14
+        )
 
     @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_write_aggregation_file(self) -> None:
         sliced_data_files = [
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"),
-            Path("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+            ),
+            Path(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+            ),
         ]
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
@@ -880,12 +1034,21 @@ class TestNXdataAggregator(unittest.TestCase):
             aggregation_file = cluster_output_dir / "aggregated_results.nxs"
 
             aggregator = NXdataAggregator()
-            aggregation_results = aggregator.aggregate(aggregation_file, sliced_data_files)
-            with h5py.File("/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r") as f:
+            aggregation_results = aggregator.aggregate(
+                aggregation_file, sliced_data_files
+            )
+            with h5py.File(
+                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs",
+                "r",
+            ) as f:
                 volumes_array = f["processed/reciprocal_space/volume"][...]
                 weights_array = f["processed/reciprocal_space/weight"][...]
-            np.testing.assert_allclose(aggregator.accumulator_volume, volumes_array, rtol=1e-12)
-            np.testing.assert_allclose(aggregator.accumulator_weights, weights_array, rtol=2.1e-14)
+            np.testing.assert_allclose(
+                aggregator.accumulator_volume, volumes_array, rtol=1e-12
+            )
+            np.testing.assert_allclose(
+                aggregator.accumulator_weights, weights_array, rtol=2.1e-14
+            )
 
             self.assertEqual(aggregation_results, aggregation_file)
             with h5py.File(aggregation_results, "r") as af:

@@ -34,12 +34,18 @@ class JobController:
                 output_dir = output_dir_or_file.parent
                 self.output_file = output_dir_or_file
             self.cluster_output_dir = check_location(output_dir)
-            logging.debug("JC cluster output: %s; file %s", self.cluster_output_dir, self.output_file)
+            logging.debug(
+                "JC cluster output: %s; file %s",
+                self.cluster_output_dir,
+                self.output_file,
+            )
         try:
             self.working_directory: Optional[Path] = check_location(os.getcwd())
         except Exception:
             logging.warning(
-                f"Could not use %s as working directory on cluster so using %s", os.getcwd(), self.cluster_output_dir
+                "Could not use %s as working directory on cluster so using %s",
+                os.getcwd(),
+                self.cluster_output_dir,
             )
             self.working_directory = self.cluster_output_dir
         logging.debug("JC working dir: %s", self.working_directory)
@@ -52,34 +58,52 @@ class JobController:
         self.aggregated_result: Optional[Path] = None
 
     def run(
-        self, number_jobs: int, jobscript_args: Optional[List] = None, memory: str = "4G", job_name: str = "ParProcCo"
+        self,
+        number_jobs: int,
+        jobscript_args: Optional[List] = None,
+        memory: str = "4G",
+        job_name: str = "ParProcCo",
     ) -> None:
-        self.cluster_runner = check_location(get_absolute_path(self.program_wrapper.get_cluster_runner_script()))
+        self.cluster_runner = check_location(
+            get_absolute_path(self.program_wrapper.get_cluster_runner_script())
+        )
         self.cluster_env = self.program_wrapper.get_environment()
         logging.debug("Cluster environment is %s", self.cluster_env)
         slice_params = self.program_wrapper.create_slices(number_jobs)
 
-        sliced_jobs_success = self._run_sliced_jobs(slice_params, jobscript_args, memory, job_name)
+        sliced_jobs_success = self._run_sliced_jobs(
+            slice_params, jobscript_args, memory, job_name
+        )
 
         if sliced_jobs_success and self.sliced_results:
             logging.info("Sliced jobs ran successfully.")
             if number_jobs == 1:
-                out_file = self.sliced_results[0] if len(self.sliced_results) > 0 else None
+                out_file = (
+                    self.sliced_results[0] if len(self.sliced_results) > 0 else None
+                )
             else:
                 self._run_aggregation_job(memory)
                 out_file = self.aggregated_result
 
-            if out_file is not None and out_file.is_file() and self.output_file is not None:
+            if (
+                out_file is not None
+                and out_file.is_file()
+                and self.output_file is not None
+            ):
                 out_file.rename(self.output_file)
         else:
             logging.error(
                 f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args},"
                 f" memory: {memory}, job_name: {job_name}"
             )
-            raise RuntimeError(f"Sliced jobs failed\n")
+            raise RuntimeError("Sliced jobs failed\n")
 
     def _run_sliced_jobs(
-        self, slice_params: List[Optional[slice]], jobscript_args: Optional[List], memory: str, job_name: str
+        self,
+        slice_params: List[Optional[slice]],
+        jobscript_args: Optional[List],
+        memory: str,
+        job_name: str,
     ) -> bool:
         if jobscript_args is None:
             jobscript_args = []
@@ -108,7 +132,9 @@ class JobController:
         if not sliced_jobs_success:
             sliced_jobs_success = job_scheduler.rerun_killed_jobs()
 
-        self.sliced_results = job_scheduler.get_output_paths() if sliced_jobs_success else None
+        self.sliced_results = (
+            job_scheduler.get_output_paths() if sliced_jobs_success else None
+        )
         return sliced_jobs_success
 
     def _run_aggregation_job(self, memory: str) -> None:

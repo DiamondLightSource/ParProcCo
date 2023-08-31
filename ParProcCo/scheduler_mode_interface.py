@@ -23,7 +23,12 @@ class SchedulerModeInterface:
         raise NotImplementedError
 
     def generate_args(
-        self, job_number: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str
+        self,
+        job_number: int,
+        memory: str,
+        cores: int,
+        jobscript_args: List[str],
+        output_fp: str,
     ) -> Tuple[str, ...]:
         """Generates jobscript args for use within JobScheduler"""
         raise NotImplementedError
