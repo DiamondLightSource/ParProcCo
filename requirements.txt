@@ -1,6 +1,6 @@
-h5py==2.10.0
-numpy==1.19.5
+h5py==3.9.0
+numpy==1.25.2
 parameterized==0.8.1
+pydantic==2.1.1
 PyYAML==6.0
-setuptools==49.6.0.post20210108
-uge_drmaa2==8.7.0
+requests==2.31.0

@@ -37,7 +37,7 @@ class SimpleProcessingMode(SchedulerModeInterface):
         return output_fp, stdout_fp, stderr_fp
 
     def generate_args(
-        self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str
+        self, i: int, memory: int, cores: int, jobscript_args: List[str], output_fp: str
     ) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert i < self.number_jobs
@@ -51,7 +51,7 @@ class SimpleProcessingMode(SchedulerModeInterface):
             [
                 jobscript,
                 "--memory",
-                memory,
+                str(memory),
                 "--cores",
                 str(cores),
                 "--output",

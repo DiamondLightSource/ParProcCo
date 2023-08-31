@@ -23,6 +23,13 @@ def check_jobscript_is_readable(jobscript: Path) -> Path:
     return jobscript
 
 
+def jobscript_to_string(jobscript: Path) -> str:
+    js = check_jobscript_is_readable(jobscript)
+    with open(js, "r") as f:
+        data = f.read()
+    return data
+
+
 def get_filepath_on_path(filename: Optional[str]) -> Optional[Path]:
     if filename is None:
         return None
@@ -37,6 +44,10 @@ def get_filepath_on_path(filename: Optional[str]) -> Optional[Path]:
         return Path(filepath)
     except StopIteration:
         raise FileNotFoundError(f"{filename} not found on PATH {paths}")
+
+
+def get_slurm_token() -> str:
+    return os.environ["SLURM_JWT"]
 
 
 def check_location(location: Union[Path, str]) -> Path:
@@ -68,7 +79,7 @@ def get_absolute_path(filename: Path | str | None) -> str:
         f = which(filename)
         if f:
             return str(f)
-    raise ValueError(f"{filename} not found")
+    raise FileNotFoundError(f"{filename} not found")
 
 
 def slice_to_string(s: Optional[slice]) -> str:

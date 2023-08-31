@@ -1,6 +1,6 @@
 h5py
 numpy
 parameterized
+pydantic
 PyYAML
-setuptools
-uge_drmaa2
+requests
