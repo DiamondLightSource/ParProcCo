@@ -16,9 +16,6 @@ from .utils import (
     setup_data_file,
     setup_runner_script,
     setup_jobscript,
-    CLUSTER_PROJ,
-    CLUSTER_QUEUE,
-    CLUSTER_RESOURCES,
     TemporaryDirectory,
 )
 
@@ -32,6 +29,7 @@ class TestJobController(unittest.TestCase):
         self.base_dir: str = get_tmp_base_dir()
         self.current_dir: str = os.getcwd()
         self.starting_path = os.environ["PATH"]
+        self.url = "https://slurm-rest.diamond.ac.uk:8443"
 
     def tearDown(self):
         os.environ["PATH"] = self.starting_path
@@ -56,7 +54,7 @@ class TestJobController(unittest.TestCase):
                 f.write("import time\ntime.sleep(60)\n")
 
             input_path = setup_data_file(working_directory)
-            runner_script_args = [jobscript.name, "--input-path", str(input_path)]
+            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             os.environ["PATH"] = ":".join(
                 [str(runner_script.parent), self.starting_path]
             )
@@ -64,11 +62,9 @@ class TestJobController(unittest.TestCase):
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
             jc = JobController(
+                self.url,
                 wrapper,
                 Path(cluster_output_name),
-                project=CLUSTER_PROJ,
-                queue=CLUSTER_QUEUE,
-                cluster_resources=CLUSTER_RESOURCES,
                 timeout=timedelta(seconds=1),
             )
             with self.assertRaises(RuntimeError) as context:
@@ -91,16 +87,14 @@ class TestJobController(unittest.TestCase):
             )
 
             input_path = setup_data_file(working_directory)
-            runner_script_args = [jobscript.name, "--input-path", str(input_path)]
+            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
             jc = JobController(
+                self.url,
                 wrapper,
                 Path(cluster_output_name),
-                project=CLUSTER_PROJ,
-                queue=CLUSTER_QUEUE,
-                cluster_resources=CLUSTER_RESOURCES,
             )
             jc.run(4, jobscript_args=runner_script_args)
 
@@ -131,7 +125,7 @@ class TestJobController(unittest.TestCase):
             )
 
             input_path = setup_data_file(working_directory)
-            runner_script_args = [jobscript.name, "--input-path", str(input_path)]
+            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             aggregated_file = (
                 Path(working_directory) / cluster_output_name / "aggregated_results.txt"
             )
@@ -139,11 +133,9 @@ class TestJobController(unittest.TestCase):
             wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
             jc = JobController(
+                self.url,
                 wrapper,
                 Path(cluster_output_name),
-                project=CLUSTER_PROJ,
-                queue=CLUSTER_QUEUE,
-                cluster_resources=CLUSTER_RESOURCES,
             )
             jc.run(1, jobscript_args=runner_script_args)
 

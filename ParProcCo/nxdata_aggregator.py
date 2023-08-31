@@ -116,7 +116,8 @@ class NXdataAggregator(AggregatorInterface):
             ]
             self.accumulator_axis_ranges.append(ranges)
         logging.debug(
-            f"Calculated accumulator_axis_lengths: {self.accumulator_axis_lengths} and accumulator_axis_ranges: {self.accumulator_axis_ranges}"
+            f"Calculated accumulator_axis_lengths: {self.accumulator_axis_lengths} and accumulator_axis_ranges:"
+            f" {self.accumulator_axis_ranges}"
         )
 
         for axes, slices in zip(self.all_axes, self.all_slices):
@@ -260,7 +261,8 @@ class NXdataAggregator(AggregatorInterface):
                 assert isinstance(signal, h5py.Dataset)
                 signal_shape = signal.shape
                 logging.info(
-                    f"Signal '{'/'.join([self.nxdata_path_name, self.signal_name])}' read from {data_file}. Shape: {signal_shape}"
+                    f"Signal '{'/'.join([self.nxdata_path_name, self.signal_name])}' read from {data_file}."
+                    f" Shape: {signal_shape}"
                 )
                 assert len(signal_shape) == self.data_dimensions
                 self.signal_shapes.append(signal_shape)
@@ -270,7 +272,8 @@ class NXdataAggregator(AggregatorInterface):
                             nxdata, aux_signal_name
                         ).shape
                         logging.debug(
-                            f"Auxiliary signal '{'/'.join([self.nxdata_path_name, aux_signal_name])}' read from {data_file}. Shape: {aux_signal_shape}"
+                            f"Auxiliary signal '{'/'.join([self.nxdata_path_name, aux_signal_name])}' read from"
+                            f" {data_file}. Shape: {aux_signal_shape}"
                         )
                         assert (
                             signal_shape == aux_signal_shape
@@ -302,7 +305,8 @@ class NXdataAggregator(AggregatorInterface):
                     ...
                 ]
                 logging.debug(
-                    f"Reading volume from {'/'.join([self.nxdata_path_name, self.signal_name])} in {data_file}. Shape is {volume.shape}"
+                    f"Reading volume from {'/'.join([self.nxdata_path_name, self.signal_name])} in {data_file}."
+                    f" Shape is {volume.shape}"
                 )
                 if self.renormalisation:
                     weights = NXdataAggregator._require_dataset(nxdata, "weight")[...]

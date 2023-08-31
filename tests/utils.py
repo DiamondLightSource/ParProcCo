@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import drmaa2
 import getpass
 import os
 from os import path
@@ -21,7 +20,7 @@ else:
 
 def get_gh_testing() -> bool:
     try:
-        drmaa2.get_drmaa_version()
+        token = os.environ["SLURM_JWT"]
         return False
     except Exception:
         return True
@@ -170,10 +169,10 @@ def setup_runner_script(working_directory: str) -> Path:
     runner_script = Path(working_directory) / "test_runner_script"
     with open(runner_script, "x") as f:
         runner_script_lines = f"""
-#/usr/bin/bash
+#!/usr/bin/bash
 . /etc/profile.d/modules.sh
 
-module load python/3.9
+module load python/3.11
 export PYTHONPATH="${{PYTHONPATH}}:{parent_dir}"
 
 echo "Executing |$@|"
