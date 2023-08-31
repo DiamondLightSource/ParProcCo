@@ -55,7 +55,7 @@ class JobScheduler:
         self.working_directory = (
             Path(working_directory)
             if working_directory
-            else (self.cluster_output_dir if cluster_output_dir else Path.home())
+            else (self.cluster_output_dir if self.cluster_output_dir else Path.home())
         )
         self.resources: Dict[str, str] = {}
         if cluster_resources:
@@ -104,7 +104,7 @@ class JobScheduler:
         self,
         scheduler_mode: SchedulerModeInterface,
         jobscript: Path,
-        job_env: Dict[str, str],
+        job_env: Optional[Dict[str, str]],
         memory: str = "4G",
         cores: int = 6,
         jobscript_args: Optional[List] = None,

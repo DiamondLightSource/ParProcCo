@@ -34,7 +34,7 @@ def get_filepath_on_path(filename: Optional[str]) -> Optional[Path]:
     )
     try:
         filepath = next(path_gen)
-        return filepath
+        return Path(filepath)
     except StopIteration:
         raise FileNotFoundError(f"{filename} not found on PATH {paths}")
 
@@ -49,7 +49,7 @@ def check_location(location: Union[Path, str]) -> Path:
     )
 
 
-def format_timestamp(t: datetime.datetime) -> str:
+def format_timestamp(t: datetime) -> str:
     return t.strftime("%Y%m%d_%H%M")
 
 
@@ -58,15 +58,16 @@ def decode_to_string(any_string: Union[bytes, str]) -> str:
     return output
 
 
-def get_absolute_path(filename: Union[Path, str]) -> str:
-    p = Path(filename).resolve()
-    if p.is_file():
-        return str(p)
-    from shutil import which
+def get_absolute_path(filename: Path | str | None) -> str:
+    if filename is not None:
+        p = Path(filename).resolve()
+        if p.is_file():
+            return str(p)
+        from shutil import which
 
-    f = which(filename)
-    if f:
-        return f
+        f = which(filename)
+        if f:
+            return str(f)
     raise ValueError(f"{filename} not found")
 
 
@@ -199,7 +200,7 @@ def find_cfg_file(name: str) -> Path:
     """ """
     cp = os.getenv("PPC_CONFIG")
     if cp:
-        return cp
+        return Path(cp)
 
     cp = Path.home() / ("." + name)
     if cp.is_file():
