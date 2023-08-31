@@ -16,7 +16,7 @@ from ParProcCo.utils import (
 
 class SimpleProcessingMode(SchedulerModeInterface):
     def __init__(self, program: Optional[Path] = None) -> None:
-        self.program_name: Optional[str] = program
+        self.program_name: Optional[str] = None if program is None else program.name
         self.cores = 1
         self.allowed_modules = ("python",)
 

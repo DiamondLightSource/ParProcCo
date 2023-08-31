@@ -61,7 +61,7 @@ class TestJobController(unittest.TestCase):
                 [str(runner_script.parent), self.starting_path]
             )
 
-            wrapper = SimpleWrapper(runner_script.name, aggregation_script.name)
+            wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
             jc = JobController(
                 wrapper,
@@ -93,7 +93,7 @@ class TestJobController(unittest.TestCase):
             input_path = setup_data_file(working_directory)
             runner_script_args = [jobscript.name, "--input-path", str(input_path)]
 
-            wrapper = SimpleWrapper(runner_script.name, aggregation_script.name)
+            wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
             jc = JobController(
                 wrapper,
@@ -104,12 +104,14 @@ class TestJobController(unittest.TestCase):
             )
             jc.run(4, jobscript_args=runner_script_args)
 
+            assert jc.aggregated_result
             with open(jc.aggregated_result, "r") as af:
                 agg_data = af.readlines()
 
             self.assertEqual(
                 agg_data, ["0\n", "8\n", "2\n", "10\n", "4\n", "12\n", "6\n", "14\n"]
             )
+            assert jc.sliced_results
             for result in jc.sliced_results:
                 self.assertFalse(result.is_file())
 
@@ -134,7 +136,7 @@ class TestJobController(unittest.TestCase):
                 Path(working_directory) / cluster_output_name / "aggregated_results.txt"
             )
 
-            wrapper = SimpleWrapper(runner_script.name, aggregation_script.name)
+            wrapper = SimpleWrapper(runner_script, aggregation_script)
             wrapper.set_cores(6)
             jc = JobController(
                 wrapper,
@@ -145,6 +147,7 @@ class TestJobController(unittest.TestCase):
             )
             jc.run(1, jobscript_args=runner_script_args)
 
+            assert jc.sliced_results
             self.assertEqual(len(jc.sliced_results), 1)
             self.assertFalse(aggregated_file.is_file())
             self.assertTrue(jc.sliced_results[0].is_file())

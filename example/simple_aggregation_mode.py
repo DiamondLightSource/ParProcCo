@@ -14,8 +14,8 @@ from ParProcCo.utils import (
 
 
 class SimpleAggregationMode(SchedulerModeInterface):
-    def __init__(self, program: str) -> None:
-        self.program_name = program
+    def __init__(self, program: Path) -> None:
+        self.program_name = program.name
         self.cores = 1
 
     def set_parameters(self, sliced_results: List) -> None:
