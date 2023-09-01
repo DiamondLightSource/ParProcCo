@@ -304,7 +304,7 @@ class JobProperties(BaseModel):
     """
     Do not automatically terminate a job if one of the nodes it has been allocated fails.
     """
-    nodes: list[int] | None = Field(None, max_length=2, min_length=1)
+    nodes: list[int] | None = Field(default=None, max_length=2, min_length=1)
     """
     Request that a minimum of minnodes nodes and a maximum node count.
     """
@@ -340,7 +340,7 @@ class JobProperties(BaseModel):
     """
     Allocate resources for the job from the named reservation.
     """
-    signal: str | None = Field(None, pattern="(B:|)sig_num(@sig_time|)")
+    signal: str | None = Field(default=None, pattern="(B:|)sig_num(@sig_time|)")
     """
     When a job is within sig_time seconds of its end time, send it the signal sig_num.
     """

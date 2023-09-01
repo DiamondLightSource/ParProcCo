@@ -14,7 +14,13 @@ from pydantic import BaseModel
 from .scheduler_mode_interface import SchedulerModeInterface
 from .utils import check_jobscript_is_readable
 from models.slurmdb_rest import DbJob, DbJobInfo
-from models.slurm_rest import JobProperties, JobsResponse, JobResponseProperties, JobSubmission, JobSubmissionResponse
+from models.slurm_rest import (
+    JobProperties,
+    JobsResponse,
+    JobResponseProperties,
+    JobSubmission,
+    JobSubmissionResponse,
+)
 
 # WIP: Migrating from drmaa2 to slurm as in https://github.com/DiamondLightSource/python-zocalo
 
@@ -118,7 +124,7 @@ class JobScheduler:
         self.jobscript_args: List
         self.output_paths: List[Path] = []
         self.start_time = datetime.now()
-        self.status_infos: Dict[str:StatusInfo]
+        self.status_infos: Dict[int, StatusInfo]
         self.timeout = timeout
         self.working_directory = (
             Path(working_directory)
@@ -132,28 +138,43 @@ class JobScheduler:
         self._url = url
         self._version = version
         self._session = requests.Session()
-        self._session.headers["X-SLURM-USER-NAME"] = user_name if user_name else os.environ["USER"]
+        self._session.headers["X-SLURM-USER-NAME"] = (
+            user_name if user_name else os.environ["USER"]
+        )
         self.user = user_name if user_name else os.environ["USER"]
         self.token = user_token if user_token else os.environ["SLURM_JWT"]
-        self._session.headers["X-SLURM-USER-TOKEN"] = user_token if user_token else os.environ["SLURM_JWT"]
+        self._session.headers["X-SLURM-USER-TOKEN"] = (
+            user_token if user_token else os.environ["SLURM_JWT"]
+        )
 
-    def get(self, endpoint: str, params: dict[str, Any] = None, timeout: float | None = None) -> requests.Response:
-        response = self._session.get(f"{self._url}/{endpoint}", params=params, timeout=timeout)
+    def get(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> requests.Response:
+        response = self._session.get(
+            f"{self._url}/{endpoint}", params=params, timeout=timeout
+        )
         response.raise_for_status()
         return response
 
     def put(
         self,
         endpoint: str,
-        params: dict[str, Any] = None,
-        json: dict[str, Any] = None,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
         timeout: float | None = None,
     ) -> requests.Response:
-        response = self._session.put(f"{self._url}/{endpoint}", params=params, json=json, timeout=timeout)
+        response = self._session.put(
+            f"{self._url}/{endpoint}", params=params, json=json, timeout=timeout
+        )
         response.raise_for_status()
         return response
 
-    def _prepare_request(self, data: BaseModel) -> tuple[str, dict[str, str]] | tuple[None, None]:
+    def _prepare_request(
+        self, data: BaseModel
+    ) -> tuple[str, dict[str, str]] | tuple[None, None]:
         if data is None:
             return None, None
         return data.model_dump_json(exclude_defaults=True), {
@@ -168,8 +189,15 @@ class JobScheduler:
         resp = requests.post(url, data=jdata, headers=headers)
         return resp
 
-    def delete(self, endpoint: str, params: dict[str, Any] = None, timeout: float | None = None) -> requests.Response:
-        response = self._session.delete(f"{self._url}/{endpoint}", params=params, timeout=timeout)
+    def delete(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> requests.Response:
+        response = self._session.delete(
+            f"{self._url}/{endpoint}", params=params, timeout=timeout
+        )
         response.raise_for_status()
         return response
 
@@ -206,7 +234,9 @@ class JobScheduler:
         elif isinstance(job, DbJob):
             return job.state.current
 
-    def update_status_infos(self, job_id, job_info: DbJob | JobResponseProperties, state: str):
+    def update_status_infos(
+        self, job_id: int, job_info: DbJob | JobResponseProperties, state: str
+    ):
         if isinstance(job_info, JobResponseProperties):
             try:
                 slots = int((job_info.tres_alloc_str.split(",")[1]).split("=")[1])
@@ -214,7 +244,9 @@ class JobScheduler:
                 time_to_dispatch = dispatch_time - job_info.submit_time
                 wall_time = job_info.end_time - dispatch_time
             except Exception:
-                logging.error(f"Failed to get job submission time statistics for job {job_info}")
+                logging.error(
+                    f"Failed to get job submission time statistics for job {job_info}"
+                )
                 raise
         else:
             try:
@@ -224,7 +256,9 @@ class JobScheduler:
                 time_to_dispatch = dispatch_time - job_time.submission
                 wall_time = job_time.end - dispatch_time
             except Exception:
-                logging.error(f"Failed to get job submission time statistics for job {job_info}")
+                logging.error(
+                    f"Failed to get job submission time statistics for job {job_info}"
+                )
                 raise
 
         self.status_infos[job_id].slots = slots
@@ -288,12 +322,16 @@ class JobScheduler:
         return self.get_success()
 
     def _run_jobs(self, job_indices: List[int]) -> None:
-        logging.debug(f"Running jobs on cluster for jobscript {self.jobscript_path} and args {self.jobscript_args}")
+        logging.debug(
+            f"Running jobs on cluster for jobscript {self.jobscript_path} and args {self.jobscript_args}"
+        )
         try:
             self.status_infos = {}
             for i in job_indices:
                 template = self.make_job_submission(i)
                 resp = self.submit_job(template)
+                if resp.job_id is None:
+                    raise ValueError("Job submission failed", resp.errors)
                 self.status_infos[resp.job_id] = StatusInfo(
                     Path(template.job.standard_output),
                     i,
@@ -329,8 +367,12 @@ class JobScheduler:
         )
         if output_fp and output_fp not in self.output_paths:
             self.output_paths.append(Path(output_fp))
-        args = self.scheduler_mode.generate_args(i, self.memory, self.cores, self.jobscript_args, output_fp)
-        self.jobscript_command = " ".join([f"#!/bin/bash\n{self.jobscript_path}", *args])
+        args = self.scheduler_mode.generate_args(
+            i, self.memory, self.cores, self.jobscript_args, output_fp
+        )
+        self.jobscript_command = " ".join(
+            [f"#!/bin/bash\n{self.jobscript_path}", *args]
+        )
         logging.info(f"creating template with command: {self.jobscript_command}")
         job = JobProperties(
             name=self.job_name,
@@ -419,7 +461,9 @@ class JobScheduler:
                 # Termination takes some time, wait a max of 2 mins
                 self.wait_all_jobs_terminated(jobs_remaining, 120)
                 total_time += 120
-                logging.info(f"Jobs terminated = {len(jobs_remaining)} after {total_time}s")
+                logging.info(
+                    f"Jobs terminated = {len(jobs_remaining)} after {total_time}s"
+                )
         except Exception:
             logging.error("Unknown error occurred running slurm job", exc_info=True)
 
@@ -482,9 +526,11 @@ class JobScheduler:
         logging.info(f"Resubmitting jobs with job_indices: {job_indices}")
         return self._run_and_monitor(job_indices)
 
-    def filter_killed_jobs(self, jobs: Dict[str:StatusInfo]) -> Dict[str:StatusInfo]:
+    def filter_killed_jobs(self, jobs: Dict[str, StatusInfo]) -> Dict[str, StatusInfo]:
         killed_jobs = {
-            job_id: status_info for job_id, status_info in jobs.items() if status_info.current_state == "CANCELLED"
+            job_id: status_info
+            for job_id, status_info in jobs.items()
+            if status_info.current_state == "CANCELLED"
         }
         return killed_jobs
 
@@ -496,11 +542,15 @@ class JobScheduler:
             return True
         elif allow_all_failed or any(self.job_completion_status.values()):
             failed_jobs = {
-                job_id: job_info for job_id, job_info in job_history[0].items() if job_info.final_state != "COMPLETED"
+                job_id: job_info
+                for job_id, job_info in job_history[0].items()
+                if job_info.final_state != "COMPLETED"
             }
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             killed_jobs_indices = [job.i for job in killed_jobs.values()]
-            logging.info(f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}")
+            logging.info(
+                f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}"
+            )
             if killed_jobs_indices:
                 return self.resubmit_jobs(killed_jobs_indices)
             return True

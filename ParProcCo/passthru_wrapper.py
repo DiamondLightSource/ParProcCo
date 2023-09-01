@@ -34,7 +34,7 @@ class PassThruProcessingMode(SchedulerModeInterface):
         return str(output_dir) if output_dir else "", stdout_fp, stderr_fp
 
     def generate_args(
-        self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str
+        self, i: int, memory: int, cores: int, jobscript_args: List[str], output_fp: str
     ) -> Tuple[str, ...]:
         """Overrides SchedulerModeInterface.generate_args"""
         assert i < self.number_jobs
@@ -43,7 +43,7 @@ class PassThruProcessingMode(SchedulerModeInterface):
                 check_location(get_absolute_path(jobscript_args[0]))
             )
         )
-        args = [jobscript, "--memory", memory, "--cores", str(cores)]
+        args = [jobscript, "--memory", str(memory), "--cores", str(cores)]
         if output_fp:
             args += ("--output", output_fp)
         args += jobscript_args[1:]

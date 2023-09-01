@@ -64,7 +64,7 @@ class JobController:
         self,
         number_jobs: int,
         jobscript_args: Optional[List] = None,
-        memory: str = "4G",
+        memory: int = 4000,
         job_name: str = "ParProcCo",
     ) -> None:
         self.cluster_runner = check_location(
@@ -105,7 +105,7 @@ class JobController:
         self,
         slice_params: List[Optional[slice]],
         jobscript_args: Optional[List],
-        memory: str,
+        memory: int,
         job_name: str,
     ) -> bool:
         if jobscript_args is None:
@@ -141,7 +141,7 @@ class JobController:
         )
         return sliced_jobs_success
 
-    def _run_aggregation_job(self, memory: str) -> None:
+    def _run_aggregation_job(self, memory: int) -> None:
         aggregator_path = self.program_wrapper.get_aggregate_script()
         aggregating_mode = self.program_wrapper.aggregating_mode
         if aggregating_mode is None or self.sliced_results is None:

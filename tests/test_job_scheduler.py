@@ -40,7 +40,9 @@ class TestJobScheduler(unittest.TestCase):
             os.rmdir(self.base_dir)
 
     def test_create_job_scheduler(self) -> None:
-        with TemporaryDirectory(prefix="test_dir_", dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(
+            prefix="test_dir_", dir=self.base_dir
+        ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
             js = create_js(working_directory, cluster_output_dir)
         self.assertTrue(
@@ -49,7 +51,9 @@ class TestJobScheduler(unittest.TestCase):
         )
 
     def test_create_job_submission(self) -> None:
-        with TemporaryDirectory(prefix="test_dir_", dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(
+            prefix="test_dir_", dir=self.base_dir
+        ) as working_directory:
             input_path = Path("path/to/file.extension")
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
             scheduler = create_js(working_directory, cluster_output_dir)
@@ -247,7 +251,9 @@ class TestJobScheduler(unittest.TestCase):
                 )
                 self.assertEqual(len(context.output), 8)
                 for warn_msg in context.output[:4]:
-                    self.assertTrue(warn_msg.endswith(" timed out. Terminating job now."))
+                    self.assertTrue(
+                        warn_msg.endswith(" timed out. Terminating job now.")
+                    )
                 for err_msg in context.output[4:]:
                     self.assertTrue("has not created output file" in err_msg)
 
@@ -369,7 +375,9 @@ class TestJobScheduler(unittest.TestCase):
             self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
 
     def test_get_jobs(self) -> None:
-        with TemporaryDirectory(prefix="test_dir_", dir=self.base_dir) as working_directory:
+        with TemporaryDirectory(
+            prefix="test_dir_", dir=self.base_dir
+        ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
             js = create_js(working_directory, cluster_output_dir)
             jobs = js.get_jobs()
