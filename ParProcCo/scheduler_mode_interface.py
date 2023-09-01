@@ -25,7 +25,7 @@ class SchedulerModeInterface:
     def generate_args(
         self,
         job_number: int,
-        memory: str,
+        memory: int,
         cores: int,
         jobscript_args: List[str],
         output_fp: str,

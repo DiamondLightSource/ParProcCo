@@ -38,7 +38,7 @@ class NXdataAggregationMode(SchedulerModeInterface):
     def generate_args(
         self,
         i: int,
-        _memory: str,
+        _memory: int,
         _cores: int,
         jobscript_args: List[str],
         output_fp: str,
