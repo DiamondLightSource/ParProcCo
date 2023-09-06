@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import getpass
+import logging
 import os
 from os import path
 from pathlib import Path
+import shutil as _shutil
+from tempfile import mkdtemp
 from typing import List, Tuple
+import weakref as _weakref
 
 
 _sge_cell = os.getenv("SGE_CELL")
@@ -18,12 +22,12 @@ else:
     CLUSTER_RESOURCES = {"cpu_model": "intel-xeon"}
 
 
-def get_gh_testing() -> bool:
+def get_slurm_rest_url() -> str | None:
     try:
-        token = os.environ["SLURM_JWT"]
-        return False
+        url = os.environ["SLURM_REST_URL"]
+        return url
     except Exception:
-        return True
+        return None
 
 
 def get_tmp_base_dir() -> str:
@@ -182,12 +186,6 @@ eval "$@"
         f.write(runner_script_lines)
     os.chmod(runner_script, 0o775)
     return runner_script
-
-
-from tempfile import mkdtemp
-import weakref as _weakref
-import logging
-import shutil as _shutil
 
 
 # class copied from tempfile and modified to
