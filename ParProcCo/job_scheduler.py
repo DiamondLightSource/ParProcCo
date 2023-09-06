@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 import logging
-import os
 import requests
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from pydantic import BaseModel
 
 from .scheduler_mode_interface import SchedulerModeInterface
-from .utils import check_jobscript_is_readable
-from models.slurmdb_rest import DbJob, DbJobInfo
+from .utils import check_jobscript_is_readable, get_slurm_token, get_user, get_ppc_dir
 from models.slurm_rest import (
     JobProperties,
     JobsResponse,
@@ -27,62 +25,87 @@ from models.slurm_rest import (
 
 class SLURMSTATE(str, Enum):
     # The following are states from https://slurm.schedmd.com/squeue.html#SECTION_JOB-STATE-CODES
-    BF = (
+    BOOT_FAIL = (
         "BOOT_FAIL"  # Job terminated due to launch failure, typically due to a hardware failure
         # (e.g. unable to boot the node or block and the job can not be requeued).
     )
-    CA = (
+    CANCELLED = (
         "CANCELLED"  # Job was explicitly cancelled by the user or system administrator.
         # The job may or may not have been initiated
     )
-    CD = "COMPLETED"  # Job has terminated all processes on all nodes with an exit code of zero
-    CF = (
+    COMPLETED = "COMPLETED"  # Job has terminated all processes on all nodes with an exit code of zero
+    CONFIGURING = (
         "CONFIGURING"  # Job has been allocated resources, but are waiting for them to become ready for
         # use (e.g. booting)
     )
-    CG = "COMPLETING"  # Job is in the process of completing. Some processes on some nodes may still be active
-    DL = "DEADLINE"  # Job terminated on deadline
-    F = "FAILED"  # Job terminated with non-zero exit code or other failure condition
-    NF = "NODE_FAIL"  # Job terminated due to failure of one or more allocated nodes
-    OOM = "OUT_OF_MEMORY"  # Job experienced out of memory error
-    PD = "PENDING"  # Job is awaiting resource allocation
-    PR = "PREEMPTED"  # Job terminated due to preemption
-    R = "RUNNING"  # Job currently has an allocation
-    RD = "RESV_DEL_HOLD"  # Job is held
-    RF = "REQUEUE_FED"  # Job is being requeued by a federation
-    RH = "REQUEUE_HOLD"  # Held job is being requeued
-    RQ = "REQUEUED"  # Completing job is being requeued
-    RS = "RESIZING"  # Job is about to change size
-    RV = "REVOKED"  # Sibling was removed from cluster due to other cluster starting the job
-    SI = "SIGNALING"  # Job is being signaled
-    SE = (
+    COMPLETING = "COMPLETING"  # Job is in the process of completing. Some processes on some nodes may still be active
+    DEADLINE = "DEADLINE"  # Job terminated on deadline
+    FAILED = (
+        "FAILED"  # Job terminated with non-zero exit code or other failure condition
+    )
+    NODE_FAIL = (
+        "NODE_FAIL"  # Job terminated due to failure of one or more allocated nodes
+    )
+    OUT_OF_MEMORY = "OUT_OF_MEMORY"  # Job experienced out of memory error
+    PENDING = "PENDING"  # Job is awaiting resource allocation
+    PREEMPTED = "PREEMPTED"  # Job terminated due to preemption
+    RUNNING = "RUNNING"  # Job currently has an allocation
+    RESV_DEL_HOLD = "RESV_DEL_HOLD"  # Job is held
+    REQUEUE_FED = "REQUEUE_FED"  # Job is being requeued by a federation
+    REQUEUE_HOLD = "REQUEUE_HOLD"  # Held job is being requeued
+    REQUEUED = "REQUEUED"  # Completing job is being requeued
+    RESIZING = "RESIZING"  # Job is about to change size
+    REVOKED = "REVOKED"  # Sibling was removed from cluster due to other cluster starting the job
+    SIGNALING = "SIGNALING"  # Job is being signaled
+    SPECIAL_EXIT = (
         "SPECIAL_EXIT"  # The job was requeued in a special state. This state can be set by users, typically in
         # EpilogSlurmctld, if the job has terminated with a particular exit value
     )
-    SO = "STAGE_OUT"  # Job is staging out files
-    ST = (
+    STAGE_OUT = "STAGE_OUT"  # Job is staging out files
+    STOPPED = (
         "STOPPED"  # Job has an allocation, but execution has been stopped with SIGSTOP signal. CPUS have been
         # retained by this job
     )
-    S = (
+    SUSPENDED = (
         "SUSPENDED"  # Job has an allocation, but execution has been suspended and CPUs have been released for
         # other jobs
     )
-    TO = "TIMEOUT"  # Job terminated upon reaching its time limit
+    TIMEOUT = "TIMEOUT"  # Job terminated upon reaching its time limit
+    NO_OUTPUT = "NO_OUTPUT"  # Custom state. No output file found
+    OLD_OUTPUT_FILE = "OLD_OUTPUT_FILE"  # Custom state. Output file has not been updated since job started.
 
 
 class STATEGROUP(set, Enum):
-    OUTOFTIME = {SLURMSTATE.TO, SLURMSTATE.DL}
-    FINISHED = {SLURMSTATE.CD, SLURMSTATE.F, SLURMSTATE.TO, SLURMSTATE.DL}
-    COMPUTEISSUE = {SLURMSTATE.BF, SLURMSTATE.NF, SLURMSTATE.OOM}
-    ENDED = {SLURMSTATE.CD, SLURMSTATE.F, SLURMSTATE.TO, SLURMSTATE.DL}
-    REQUEUEABLE = {SLURMSTATE.CF, SLURMSTATE.R, SLURMSTATE.ST, SLURMSTATE.S}
+    OUTOFTIME = {SLURMSTATE.TIMEOUT, SLURMSTATE.DEADLINE}
+    FINISHED = {
+        SLURMSTATE.COMPLETED,
+        SLURMSTATE.FAILED,
+        SLURMSTATE.TIMEOUT,
+        SLURMSTATE.DEADLINE,
+    }
+    COMPUTEISSUE = {
+        SLURMSTATE.BOOT_FAIL,
+        SLURMSTATE.NODE_FAIL,
+        SLURMSTATE.OUT_OF_MEMORY,
+    }
+    ENDED = {
+        SLURMSTATE.COMPLETED,
+        SLURMSTATE.FAILED,
+        SLURMSTATE.TIMEOUT,
+        SLURMSTATE.DEADLINE,
+    }
+    REQUEUEABLE = {
+        SLURMSTATE.CONFIGURING,
+        SLURMSTATE.RUNNING,
+        SLURMSTATE.STOPPED,
+        SLURMSTATE.SUSPENDED,
+    }
     STARTING = {
-        SLURMSTATE.PD,
-        SLURMSTATE.RQ,
-        SLURMSTATE.RS,
-        SLURMSTATE.S,
-        SLURMSTATE.CF,
+        SLURMSTATE.PENDING,
+        SLURMSTATE.REQUEUED,
+        SLURMSTATE.RESIZING,
+        SLURMSTATE.SUSPENDED,
+        SLURMSTATE.CONFIGURING,
     }
 
 
@@ -93,11 +116,11 @@ class StatusInfo:
     output_path: Path
     i: int
     start_time: int
-    current_state: str = ""
-    slots: int = 0
-    time_to_dispatch: int = 0
-    wall_time: int = 0
-    final_state: str = ""
+    current_state: Optional[SLURMSTATE] = None
+    slots: Optional[int] = None
+    time_to_dispatch: Optional[int] = None
+    wall_time: Optional[int] = None
+    final_state: Optional[SLURMSTATE] = None
 
 
 class JobScheduler:
@@ -106,6 +129,7 @@ class JobScheduler:
         url: str,
         working_directory: Optional[Union[Path, str]],
         cluster_output_dir: Optional[Union[Path, str]],
+        partition: str,
         timeout: timedelta = timedelta(hours=2),
         version: str = "v0.0.38",
         user_name: Optional[str] = None,
@@ -120,7 +144,7 @@ class JobScheduler:
         self.job_history: Dict[int, Dict[int, StatusInfo]] = {}
         self.jobscript_path: Path
         self.jobscript_command: str
-        self.job_env: Optional[Dict[str, str]] = None
+        self.job_env: Dict[str, str]
         self.jobscript_args: List
         self.output_paths: List[Path] = []
         self.start_time = datetime.now()
@@ -131,20 +155,22 @@ class JobScheduler:
             if working_directory
             else (self.cluster_output_dir if self.cluster_output_dir else Path.home())
         )
+        self.partition = partition
         self.scheduler_mode: SchedulerModeInterface
         self.memory: int
         self.cores: int
         self.job_name: str
         self._url = url
         self._version = version
+        self._slurm_endpoint_prefix = f"slurm/{self._version}"
         self._session = requests.Session()
         self._session.headers["X-SLURM-USER-NAME"] = (
-            user_name if user_name else os.environ["USER"]
+            user_name if user_name else get_user()
         )
-        self.user = user_name if user_name else os.environ["USER"]
-        self.token = user_token if user_token else os.environ["SLURM_JWT"]
+        self.user = user_name if user_name else get_user()
+        self.token = user_token if user_token else get_slurm_token()
         self._session.headers["X-SLURM-USER-TOKEN"] = (
-            user_token if user_token else os.environ["SLURM_JWT"]
+            user_token if user_token else get_slurm_token()
         )
 
     def get(
@@ -155,19 +181,6 @@ class JobScheduler:
     ) -> requests.Response:
         response = self._session.get(
             f"{self._url}/{endpoint}", params=params, timeout=timeout
-        )
-        response.raise_for_status()
-        return response
-
-    def put(
-        self,
-        endpoint: str,
-        params: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
-        timeout: float | None = None,
-    ) -> requests.Response:
-        response = self._session.put(
-            f"{self._url}/{endpoint}", params=params, json=json, timeout=timeout
         )
         response.raise_for_status()
         return response
@@ -202,79 +215,67 @@ class JobScheduler:
         return response
 
     def get_jobs(self) -> JobsResponse:
-        endpoint = f"slurm/{self._version}/jobs"
+        endpoint = f"{self._slurm_endpoint_prefix}/jobs"
         response = self.get(endpoint)
         return JobsResponse.model_validate(response.json())
 
     def get_job_response(self, job_id: int) -> JobsResponse:
-        endpoint = f"slurm/{self._version}/job/{job_id}"
+        endpoint = f"{self._slurm_endpoint_prefix}/job/{job_id}"
         response = self.get(endpoint)
-        return JobsResponse(**response.json())
+        return JobsResponse.model_validate(response.json())
 
-    def get_job_info(self, job_id: int) -> DbJobInfo:
-        endpoint = f"slurmdb/{self._version}/job/{job_id}"
-        response = self.get(endpoint)
-        return DbJobInfo(**response.json())
-
-    def get_job(self, job_id: int) -> DbJob | JobResponseProperties:
+    def get_job(self, job_id: int) -> JobResponseProperties:
         ji = self.get_job_response(job_id)
-        if len(ji.jobs) == 1:
-            return ji.jobs[0]
-        elif ji.jobs == []:
-            ji = self.get_job_info(job_id)
-            if len(ji.jobs) == 1:
+        if ji.jobs:
+            n = len(ji.jobs)
+            if n == 1:
                 return ji.jobs[0]
-            elif ji.jobs == []:
-                raise ValueError("No job info found for job id {job_id}")
-        raise ValueError("Multiple jobs returned {ji.jobs}")
-
-    def get_job_state(self, job: DbJob | JobResponseProperties) -> str:
-        if isinstance(job, JobResponseProperties):
-            return job.job_state
-        elif isinstance(job, DbJob):
-            return job.state.current
+            if n > 1:
+                raise ValueError("Multiple jobs returned {ji.jobs}")
+        raise ValueError("No job info found for job id {job_id}")
 
     def update_status_infos(
-        self, job_id: int, job_info: DbJob | JobResponseProperties, state: str
-    ):
-        if isinstance(job_info, JobResponseProperties):
-            try:
-                slots = int((job_info.tres_alloc_str.split(",")[1]).split("=")[1])
-                dispatch_time = job_info.start_time
-                time_to_dispatch = dispatch_time - job_info.submit_time
-                wall_time = job_info.end_time - dispatch_time
-            except Exception:
-                logging.error(
-                    f"Failed to get job submission time statistics for job {job_info}"
-                )
-                raise
-        else:
-            try:
-                slots = job_info.allocation_nodes
-                job_time = job_info.time
-                dispatch_time = job_time.start
-                time_to_dispatch = dispatch_time - job_time.submission
-                wall_time = job_time.end - dispatch_time
-            except Exception:
-                logging.error(
-                    f"Failed to get job submission time statistics for job {job_info}"
-                )
-                raise
+        self, job_id: int, job_info: JobResponseProperties, state: SLURMSTATE | None
+    ) -> None:
+        try:
+            tres_alloc_str = job_info.tres_alloc_str
+            slots = (
+                int((tres_alloc_str.split(",")[1]).split("=")[1])
+                if tres_alloc_str
+                else None
+            )
 
+        except Exception:
+            logging.warning(
+                f"Failed to get slots for job {job_id}; setting slots to 0. Job info: {job_info}"
+            )
+            slots = None
+
+        dispatch_time = job_info.start_time
+        submit_time = job_info.submit_time
+        end_time = job_info.end_time
+        if dispatch_time and submit_time and end_time:
+            time_to_dispatch = dispatch_time - submit_time
+            wall_time = end_time - dispatch_time
+
+        else:
+            time_to_dispatch = None
+            wall_time = None
         self.status_infos[job_id].slots = slots
         self.status_infos[job_id].time_to_dispatch = time_to_dispatch
         self.status_infos[job_id].wall_time = wall_time
         self.status_infos[job_id].current_state = state
+        logging.info(f"Updating current state of {job_id} to {state}")
 
     def submit_job(self, job_submission: JobSubmission) -> JobSubmissionResponse:
-        endpoint = f"slurm/{self._version}/job/submit"
-        response = self._post(job_submission, endpoint)
-        return JobSubmissionResponse(**response.json())
+        endpoint = f"{self._slurm_endpoint_prefix}/job/submit"
+        response = self._post(data=job_submission, endpoint=endpoint)
+        return JobSubmissionResponse.model_validate(response.json())
 
     def cancel_job(self, job_id: int) -> JobsResponse:
-        endpoint = f"slurm/{self._version}/job/{job_id}"
+        endpoint = f"{self._slurm_endpoint_prefix}/job/{job_id}"
         response = self.delete(endpoint)
-        return JobsResponse(**response.json())
+        return JobsResponse.model_validate(response.json())
 
     def get_output_paths(self) -> List[Path]:
         return self.output_paths
@@ -292,15 +293,18 @@ class JobScheduler:
         self,
         scheduler_mode: SchedulerModeInterface,
         jobscript_path: Path,
-        job_env: Optional[Dict[str, str]],
+        job_env: Optional[Dict[str, str]] = None,
         memory: int = 4000,
         cores: int = 6,
         jobscript_args: Optional[List] = None,
         job_name: str = "ParProcCo_job",
     ) -> bool:
         self.jobscript_path = check_jobscript_is_readable(jobscript_path)
-        self.job_env = job_env
         self.scheduler_mode = scheduler_mode
+        self.job_env = job_env if job_env else {"ParProcCo": "0"}
+        test_ppc_dir = get_ppc_dir()
+        if test_ppc_dir:
+            self.job_env.update(TEST_PPC_DIR=test_ppc_dir)
         self.memory = memory
         self.cores = cores
         self.job_name = job_name
@@ -328,17 +332,17 @@ class JobScheduler:
         try:
             self.status_infos = {}
             for i in job_indices:
-                template = self.make_job_submission(i)
-                resp = self.submit_job(template)
+                submission = self.make_job_submission(i)
+                resp = self.submit_job(submission)
                 if resp.job_id is None:
                     raise ValueError("Job submission failed", resp.errors)
                 self.status_infos[resp.job_id] = StatusInfo(
-                    Path(template.job.standard_output),
+                    Path(submission.job.standard_output),
                     i,
                     int(time.time()),
                 )
                 logging.debug(
-                    f"job array for jobscript {self.jobscript_path} and args {template.job.argv}"
+                    f"job array for jobscript {self.jobscript_path} and args {submission.job.argv}"
                     f" has been submitted with id {resp.job_id}"
                 )
         except Exception:
@@ -373,50 +377,51 @@ class JobScheduler:
         self.jobscript_command = " ".join(
             [f"#!/bin/bash\n{self.jobscript_path}", *args]
         )
-        logging.info(f"creating template with command: {self.jobscript_command}")
+        logging.info(f"creating submission with command: {self.jobscript_command}")
         job = JobProperties(
             name=self.job_name,
-            partition="cs05r",
+            partition=self.partition,
             cpus_per_task=self.cores,
-            environment={"ParProcCo": "0"},
+            environment=self.job_env,
             memory_per_cpu=self.memory,
             current_working_directory=str(self.working_directory),
             standard_output=stdout_fp,
             standard_error=stderr_fp,
             get_user_environment="10L",
         )
-        return JobSubmission(script=self.jobscript_command, job=job, jobs=jobs)
+
+        return JobSubmission(script=self.jobscript_command, job=job)
+
+    def fetch_and_update_state(
+        self, job_id: int
+    ) -> Tuple[JobResponseProperties, SLURMSTATE | None]:
+        ji = self.get_job(job_id)
+        state = ji.job_state
+        self.update_status_infos(job_id, ji, state)
+        return ji, state
 
     def wait_all_jobs_terminated(self, job_ids: List[int], check_time: int):
         wait_until = time.time() + check_time
         remaining_jobs = job_ids.copy()
+        terminated_jobs = []
         while len(remaining_jobs) > 0 and time.time() <= wait_until:
-            terminated_jobs = []
-            for j in remaining_jobs:
-                ji = self.get_job(j)
-                state = self.get_job_state(ji)
+            for job_id in remaining_jobs:
+                ji, state = self.fetch_and_update_state(job_id)
                 if state in STATEGROUP.ENDED:
-                    remaining_jobs.remove(j)
-                    terminated_jobs.append((j, ji, state))
+                    remaining_jobs.remove(job_id)
+                    terminated_jobs.append((job_id, ji, state))
             time.sleep(min(60, check_time))
-        for x in terminated_jobs:
-            self.update_status_infos(*x)
-        for job in remaining_jobs:
-            ji = self.get_job(job)
-            state = self.get_job_state(ji)
-            self.update_status_infos(job, ji, state)
 
     def wait_all_jobs_started(self, job_ids: List[int], check_time: int):
         wait_until = time.time() + check_time
         remaining_jobs = job_ids.copy()
         started_jobs = []
         while len(remaining_jobs) > 0 and time.time() <= wait_until:
-            for j in remaining_jobs:
-                ji = self.get_job(j)
-                state = self.get_job_state(ji)
+            for job_id in remaining_jobs:
+                _, state = self.fetch_and_update_state(job_id)
                 if state not in STATEGROUP.STARTING:
-                    started_jobs.append(j)
-                    remaining_jobs.remove(j)
+                    started_jobs.append(job_id)
+                    remaining_jobs.remove(job_id)
         return started_jobs
 
     def _wait_for_jobs(
@@ -441,19 +446,18 @@ class JobScheduler:
                 total_time += check_time
                 jobs_remaining = []
                 for job_id in job_list:
-                    ji = self.get_job(job_id)
-                    if self.get_job_state(ji) == "RUNNING":
+                    ji, state = self.fetch_and_update_state(job_id)
+                    if ji.job_state == SLURMSTATE.RUNNING:
                         jobs_remaining.append(job_id)
                         logging.debug(f"Job {job_id} still running")
                 job_list = jobs_remaining
                 logging.info(
                     f"Jobs remaining = {len(jobs_remaining)} after {total_time}s"
                 )
-
             jobs_remaining = []
             for job_id in job_list:
-                ji = self.get_job(job_id)
-                if self.get_job_state(ji) == "RUNNING":
+                ji, state = self.fetch_and_update_state(job_id)
+                if state == SLURMSTATE.RUNNING:
                     logging.warning(f"Job {job_id} timed out. Terminating job now.")
                     jobs_remaining.append(job_id)
                     self.cancel_job(job_id)
@@ -474,15 +478,15 @@ class JobScheduler:
 
             # Check job states against expected possible options:
             state = status_info.current_state
-            if state == "FAILED":
-                status_info.final_state = "FAILED"
+            if state == SLURMSTATE.FAILED:
+                status_info.final_state = SLURMSTATE.FAILED
                 logging.error(
                     f"Slurm job {job_id} failed."
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
 
             elif not status_info.output_path.is_file():
-                status_info.final_state = "NO_OUTPUT"
+                status_info.final_state = SLURMSTATE.NO_OUTPUT
                 logging.error(
                     f"Slurm job {job_id} with args {self.jobscript_args} has not created"
                     f" output file {status_info.output_path}"
@@ -491,7 +495,7 @@ class JobScheduler:
                 )
 
             elif not self.timestamp_ok(status_info.output_path):
-                status_info.final_state = "OLD_OUTPUT_FILE"
+                status_info.final_state = SLURMSTATE.OLD_OUTPUT_FILE
                 logging.error(
                     f"Slurm job {job_id} with args {self.jobscript_args} has not created"
                     f" a new output file {status_info.output_path}"
@@ -499,14 +503,18 @@ class JobScheduler:
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
 
-            elif state == "COMPLETED":
+            elif state == SLURMSTATE.COMPLETED:
                 self.job_completion_status[str(status_info.i)] = True
-                status_info.final_state = "COMPLETED"
-                slots = status_info.slots
-                cpu_time = float(status_info.wall_time * slots)
+                status_info.final_state = SLURMSTATE.COMPLETED
+                if status_info.slots and status_info.wall_time:
+                    cpu_time = timedelta(
+                        seconds=float(status_info.wall_time * status_info.slots)
+                    )
+                else:
+                    cpu_time = "n/a"
                 logging.info(
                     f"Job {job_id} with args {self.jobscript_args} completed."
-                    f" CPU time: {timedelta(seconds=cpu_time)}; Slots: {status_info.slots}"
+                    f" CPU time: {cpu_time}; Slots: {status_info.slots}"
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
             else:
@@ -526,11 +534,11 @@ class JobScheduler:
         logging.info(f"Resubmitting jobs with job_indices: {job_indices}")
         return self._run_and_monitor(job_indices)
 
-    def filter_killed_jobs(self, jobs: Dict[str, StatusInfo]) -> Dict[str, StatusInfo]:
+    def filter_killed_jobs(self, jobs: Dict[int, StatusInfo]) -> Dict[int, StatusInfo]:
         killed_jobs = {
             job_id: status_info
             for job_id, status_info in jobs.items()
-            if status_info.current_state == "CANCELLED"
+            if status_info.current_state == SLURMSTATE.CANCELLED
         }
         return killed_jobs
 
@@ -544,7 +552,7 @@ class JobScheduler:
             failed_jobs = {
                 job_id: job_info
                 for job_id, job_info in job_history[0].items()
-                if job_info.final_state != "COMPLETED"
+                if job_info.final_state != SLURMSTATE.COMPLETED
             }
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             killed_jobs_indices = [job.i for job in killed_jobs.values()]
@@ -554,5 +562,4 @@ class JobScheduler:
             if killed_jobs_indices:
                 return self.resubmit_jobs(killed_jobs_indices)
             return True
-
         raise RuntimeError(f"All jobs failed. job_history: {job_history}\n")

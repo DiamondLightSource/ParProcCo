@@ -11,9 +11,9 @@ from parameterized import parameterized
 
 from example.simple_processing_mode import SimpleProcessingMode
 from models.slurm_rest import JobProperties, JobSubmission, JobsResponse
-from ParProcCo.job_scheduler import JobScheduler, StatusInfo
+from ParProcCo.job_scheduler import JobScheduler, SLURMSTATE, StatusInfo
 from .utils import (
-    get_gh_testing,
+    get_slurm_rest_url,
     get_tmp_base_dir,
     setup_data_files,
     setup_jobscript,
@@ -21,22 +21,21 @@ from .utils import (
     TemporaryDirectory,
 )
 
-gh_testing = get_gh_testing()
+slurm_rest_url = get_slurm_rest_url()
 
 
 def create_js(work_dir, out_dir, timeout=timedelta(hours=2)):
-    url = "https://slurm-rest.diamond.ac.uk:8443"
-    return JobScheduler(url, work_dir, out_dir, timeout)
+    return JobScheduler(slurm_rest_url, work_dir, out_dir, "cs05r", timeout)
 
 
-@pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
+@pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
 class TestJobScheduler(unittest.TestCase):
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
         self.base_dir: str = get_tmp_base_dir()
 
-    def tearDown(self):
-        if gh_testing:
+    def tearDown(self) -> None:
+        if not slurm_rest_url:
             os.rmdir(self.base_dir)
 
     def test_create_job_scheduler(self) -> None:
@@ -81,6 +80,7 @@ class TestJobScheduler(unittest.TestCase):
             scheduler.cores = 5
             scheduler.job_name = "create_template_test"
             scheduler.scheduler_mode = processing_mode
+            scheduler.job_env = {"ParProcCo": "0"}
             (
                 _,
                 stdout_fp,
@@ -141,7 +141,6 @@ class TestJobScheduler(unittest.TestCase):
             scheduler.run(
                 processing_mode,
                 runner_script,
-                {},
                 jobscript_args=runner_script_args,
             )
 
@@ -246,7 +245,6 @@ class TestJobScheduler(unittest.TestCase):
                 js.run(
                     processing_mode,
                     runner_script,
-                    {},
                     jobscript_args=runner_script_args,
                 )
                 self.assertEqual(len(context.output), 8)
@@ -313,7 +311,6 @@ class TestJobScheduler(unittest.TestCase):
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
             processing_mode = SimpleProcessingMode(runner_script)
             processing_mode.set_parameters(slices)
-
             if open_rs:
                 f = open(runner_script, "x")
                 f.close()
@@ -323,7 +320,6 @@ class TestJobScheduler(unittest.TestCase):
                 js.run(
                     processing_mode,
                     runner_script,
-                    {},
                     jobscript_args=runner_script_args,
                 )
             self.assertTrue(error_msg in str(context.exception))
@@ -397,11 +393,11 @@ class TestJobScheduler(unittest.TestCase):
                         output_path=Path(f"to/somewhere_{i}"),
                         i=i,
                         start_time=0,
-                        current_state="CANCELLED",
+                        current_state=SLURMSTATE.CANCELLED,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="FAILED",
+                        final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
                 },
@@ -411,11 +407,11 @@ class TestJobScheduler(unittest.TestCase):
                         output_path=Path(f"to/somewhere_{i}"),
                         i=i,
                         start_time=0,
-                        current_state="CANCELLED",
+                        current_state=SLURMSTATE.CANCELLED,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="FAILED",
+                        final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
                 },
@@ -428,11 +424,11 @@ class TestJobScheduler(unittest.TestCase):
                         output_path=Path(f"to/somewhere_{i}"),
                         i=i,
                         start_time=0,
-                        current_state="BOOT_FAIL",
+                        current_state=SLURMSTATE.BOOT_FAIL,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="FAILED",
+                        final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
                 },
@@ -445,21 +441,21 @@ class TestJobScheduler(unittest.TestCase):
                         output_path=Path("to/somewhere_0"),
                         i=0,
                         start_time=0,
-                        current_state="CANCELLED",
+                        current_state=SLURMSTATE.CANCELLED,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="FAILED",
+                        final_state=SLURMSTATE.FAILED,
                     ),
                     100000001: StatusInfo(
                         output_path=Path("to/somewhere_1"),
                         i=1,
                         start_time=0,
-                        current_state="OUT_OF_MEMEORY",
+                        current_state=SLURMSTATE.OUT_OF_MEMORY,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="OUT_OF_MEMEORY",
+                        final_state=SLURMSTATE.OUT_OF_MEMORY,
                     ),
                 },
                 {
@@ -467,17 +463,17 @@ class TestJobScheduler(unittest.TestCase):
                         output_path=Path("to/somewhere_0"),
                         i=0,
                         start_time=0,
-                        current_state="CANCELLED",
+                        current_state=SLURMSTATE.CANCELLED,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="FAILED",
+                        final_state=SLURMSTATE.FAILED,
                     )
                 },
             ),
         ]
     )
-    def test_filter_killed_jobs(self, name, failed_jobs, result):
+    def test_filter_killed_jobs(self, name, failed_jobs, result) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
@@ -487,7 +483,7 @@ class TestJobScheduler(unittest.TestCase):
             killed_jobs = js.filter_killed_jobs(failed_jobs)
             self.assertEqual(killed_jobs, result)
 
-    def test_resubmit_jobs(self):
+    def test_resubmit_jobs(self) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
@@ -511,47 +507,48 @@ class TestJobScheduler(unittest.TestCase):
             js.job_name = "test_resubmit_jobs"
             js.scheduler_mode = processing_mode
             js.output_paths = output_paths
+            js.job_env = {"ParProcCo": "0"}
             js.job_history = {
                 0: {
                     0: StatusInfo(
                         output_path=Path("to/somewhere_0"),
                         i=0,
                         start_time=0,
-                        current_state="CANCELLED",
+                        current_state=SLURMSTATE.CANCELLED,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="FAILED",
+                        final_state=SLURMSTATE.FAILED,
                     ),
                     1: StatusInfo(
                         output_path=Path("to/somewhere_1"),
                         i=1,
                         start_time=0,
-                        current_state="COMPLETED",
+                        current_state=SLURMSTATE.COMPLETED,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="COMPLETED",
+                        final_state=SLURMSTATE.COMPLETED,
                     ),
                     2: StatusInfo(
                         output_path=Path("to/somewhere_2"),
                         i=2,
                         start_time=0,
-                        current_state="CANCELLED",
+                        current_state=SLURMSTATE.CANCELLED,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="FAILED",
+                        final_state=SLURMSTATE.FAILED,
                     ),
                     3: StatusInfo(
                         output_path=Path("to/somewhere_3"),
                         i=3,
                         start_time=0,
-                        current_state="COMPLETED",
+                        current_state=SLURMSTATE.COMPLETED,
                         slots=0,
                         time_to_dispatch=0,
                         wall_time=0,
-                        final_state="COMPLETED",
+                        final_state=SLURMSTATE.COMPLETED,
                     ),
                 }
             }
@@ -580,11 +577,11 @@ class TestJobScheduler(unittest.TestCase):
                             output_path=Path(f"to/somewhere_{i}"),
                             i=i,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="COMPLETED",
+                            final_state=SLURMSTATE.COMPLETED,
                         )
                         for i in range(4)
                     }
@@ -604,11 +601,11 @@ class TestJobScheduler(unittest.TestCase):
                             output_path=Path(f"to/somewhere_{i}"),
                             i=i,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="FAILED",
+                            final_state=SLURMSTATE.FAILED,
                         )
                         for i in range(4)
                     }
@@ -628,11 +625,11 @@ class TestJobScheduler(unittest.TestCase):
                             output_path=Path(f"to/somewhere_{i}"),
                             i=i,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="FAILED",
+                            final_state=SLURMSTATE.FAILED,
                         )
                         for i in range(4)
                     }
@@ -652,41 +649,41 @@ class TestJobScheduler(unittest.TestCase):
                             output_path=Path("to/somewhere_0"),
                             i=0,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="FAILED",
+                            final_state=SLURMSTATE.FAILED,
                         ),
                         1: StatusInfo(
                             output_path=Path("to/somewhere_1"),
                             i=1,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="COMPLETED",
+                            final_state=SLURMSTATE.COMPLETED,
                         ),
                         2: StatusInfo(
                             output_path=Path("to/somewhere_2"),
                             i=2,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="FAILED",
+                            final_state=SLURMSTATE.FAILED,
                         ),
                         3: StatusInfo(
                             output_path=Path("to/somewhere_3"),
                             i=3,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="COMPLETED",
+                            final_state=SLURMSTATE.COMPLETED,
                         ),
                     }
                 },
@@ -705,41 +702,41 @@ class TestJobScheduler(unittest.TestCase):
                             output_path=Path("to/somewhere_0"),
                             i=0,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="FAILED",
+                            final_state=SLURMSTATE.FAILED,
                         ),
                         1: StatusInfo(
                             output_path=Path("to/somewhere_1"),
                             i=1,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="COMPLETED",
+                            final_state=SLURMSTATE.COMPLETED,
                         ),
                         2: StatusInfo(
                             output_path=Path("to/somewhere_2"),
                             i=2,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="FAILED",
+                            final_state=SLURMSTATE.FAILED,
                         ),
                         3: StatusInfo(
                             output_path=Path("to/somewhere_3"),
                             i=3,
                             start_time=0,
-                            current_state="CANCELLED",
+                            current_state=SLURMSTATE.CANCELLED,
                             slots=0,
                             time_to_dispatch=0,
                             wall_time=0,
-                            final_state="COMPLETED",
+                            final_state=SLURMSTATE.COMPLETED,
                         ),
                     }
                 },
@@ -785,6 +782,7 @@ class TestJobScheduler(unittest.TestCase):
             js.scheduler_mode = processing_mode
             for output_path, status_info in zip(output_paths, job_history[0].values()):
                 status_info.output = output_path
+            js.job_env = {"ParProcCo": "0"}
             js.job_history = job_history
             js.job_completion_status = job_completion_status
             js.output_paths = output_paths

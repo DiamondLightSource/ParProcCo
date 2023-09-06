@@ -10,7 +10,7 @@ from pathlib import Path
 from example.simple_wrapper import SimpleWrapper
 from ParProcCo.job_controller import JobController
 from .utils import (
-    get_gh_testing,
+    get_slurm_rest_url,
     get_tmp_base_dir,
     setup_aggregation_script,
     setup_data_file,
@@ -19,24 +19,24 @@ from .utils import (
     TemporaryDirectory,
 )
 
-gh_testing = get_gh_testing()
+slurm_rest_url = get_slurm_rest_url()
 
 
-@pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
+@pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
 class TestJobController(unittest.TestCase):
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
         self.base_dir: str = get_tmp_base_dir()
         self.current_dir: str = os.getcwd()
         self.starting_path = os.environ["PATH"]
-        self.url = "https://slurm-rest.diamond.ac.uk:8443"
+        self.url = slurm_rest_url
 
     def tearDown(self):
         os.environ["PATH"] = self.starting_path
         final_path = os.environ["PATH"]
         self.assertTrue(final_path == self.starting_path)
         os.chdir(self.current_dir)
-        if gh_testing:
+        if not slurm_rest_url:
             os.rmdir(self.base_dir)
 
     def test_all_jobs_fail(self) -> None:
@@ -65,6 +65,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
+                "cs05r",
                 timeout=timedelta(seconds=1),
             )
             with self.assertRaises(RuntimeError) as context:
@@ -95,6 +96,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
+                "cs05r",
             )
             jc.run(4, jobscript_args=runner_script_args)
 
@@ -136,6 +138,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
+                "cs05r",
             )
             jc.run(1, jobscript_args=runner_script_args)
 

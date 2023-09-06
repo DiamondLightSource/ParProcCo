@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
+from yaml import YAMLObject, SafeLoader
 
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
@@ -50,6 +52,14 @@ def get_slurm_token() -> str:
     return os.environ["SLURM_JWT"]
 
 
+def get_user() -> str:
+    return os.environ["USER"]
+
+
+def get_ppc_dir() -> str | None:
+    return os.getenv("TEST_PPC_DIR")
+
+
 def check_location(location: Union[Path, str]) -> Path:
     location_path = Path(location).resolve()
     top = location_path.parts[1]
@@ -89,10 +99,6 @@ def slice_to_string(s: Optional[slice]) -> str:
     stop = "" if s.stop is None else s.stop
     step = s.step
     return f"{start}:{stop}:{step}"
-
-
-from yaml import YAMLObject, SafeLoader
-from dataclasses import dataclass
 
 
 @dataclass
