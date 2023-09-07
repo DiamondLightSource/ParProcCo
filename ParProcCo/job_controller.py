@@ -76,7 +76,7 @@ class JobController:
         logging.debug("Cluster environment is %s", self.cluster_env)
         slice_params = self.program_wrapper.create_slices(number_jobs)
 
-        sliced_jobs_success = self._run_sliced_jobs(
+        sliced_jobs_success = self._submit_sliced_jobs(
             slice_params, jobscript_args, memory, job_name
         )
 
@@ -87,7 +87,7 @@ class JobController:
                     self.sliced_results[0] if len(self.sliced_results) > 0 else None
                 )
             else:
-                self._run_aggregation_job(memory)
+                self._submit_aggregation_job(memory)
                 out_file = self.aggregated_result
 
             if (
@@ -103,7 +103,7 @@ class JobController:
             )
             raise RuntimeError("Sliced jobs failed\n")
 
-    def _run_sliced_jobs(
+    def _submit_sliced_jobs(
         self,
         slice_params: List[Optional[slice]],
         jobscript_args: Optional[List],
@@ -137,14 +137,14 @@ class JobController:
         )
 
         if not sliced_jobs_success:
-            sliced_jobs_success = job_scheduler.rerun_killed_jobs()
+            sliced_jobs_success = job_scheduler.resubmit_killed_jobs()
 
         self.sliced_results = (
             job_scheduler.get_output_paths() if sliced_jobs_success else None
         )
         return sliced_jobs_success
 
-    def _run_aggregation_job(self, memory: int) -> None:
+    def _submit_aggregation_job(self, memory: int) -> None:
         aggregator_path = self.program_wrapper.get_aggregate_script()
         aggregating_mode = self.program_wrapper.aggregating_mode
         if aggregating_mode is None or self.sliced_results is None:
@@ -177,7 +177,7 @@ class JobController:
             aggregating_mode.__class__.__name__,
         )
         if not aggregation_success:
-            aggregation_scheduler.rerun_killed_jobs(allow_all_failed=True)
+            aggregation_scheduler.resubmit_killed_jobs(allow_all_failed=True)
 
         if aggregation_success:
             self.aggregated_result = aggregation_scheduler.get_output_paths()[0]

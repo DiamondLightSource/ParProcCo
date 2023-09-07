@@ -33,7 +33,7 @@ class TestJobController(unittest.TestCase):
         self.starting_path = os.environ["PATH"]
         self.url = slurm_rest_url
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         os.environ["PATH"] = self.starting_path
         final_path = os.environ["PATH"]
         self.assertTrue(final_path == self.starting_path)
