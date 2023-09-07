@@ -19,16 +19,18 @@ from .utils import (
     setup_jobscript,
     setup_runner_script,
     TemporaryDirectory,
+    PARTITION,
 )
 
 slurm_rest_url = get_slurm_rest_url()
+gh_testing = slurm_rest_url is None
 
 
 def create_js(work_dir, out_dir, timeout=timedelta(hours=2)):
-    return JobScheduler(slurm_rest_url, work_dir, out_dir, "cs05r", timeout)
+    return JobScheduler(slurm_rest_url, work_dir, out_dir, PARTITION, timeout)
 
 
-@pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
+@pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
 class TestJobScheduler(unittest.TestCase):
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
@@ -98,7 +100,7 @@ class TestJobScheduler(unittest.TestCase):
             script=expected_command,
             job=JobProperties(
                 name="create_template_test",
-                partition="cs05r",
+                partition=PARTITION,
                 cpus_per_task=5,
                 environment={"ParProcCo": "0"},
                 memory_per_cpu=4000,
@@ -264,7 +266,7 @@ class TestJobScheduler(unittest.TestCase):
             returned_jobs = jh[0]
             self.assertEqual(len(returned_jobs), 4)
             for job_id in returned_jobs:
-                self.assertEqual(returned_jobs[job_id].final_state, "NO_OUTPUT")
+                self.assertEqual(returned_jobs[job_id].final_state, SLURMSTATE.CANCELLED)
 
     @parameterized.expand(
         [
@@ -370,13 +372,13 @@ class TestJobScheduler(unittest.TestCase):
                 js = create_js(working_directory, cluster_output_dir)
             self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
 
-    def test_get_jobs(self) -> None:
+    def test_get_jobs_response(self) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
             js = create_js(working_directory, cluster_output_dir)
-            jobs = js.get_jobs()
+            jobs = js.get_jobs_response()
         self.assertTrue(
             isinstance(jobs, JobsResponse),
             msg="jobs is not instance of JobsResponse\n",
@@ -401,20 +403,7 @@ class TestJobScheduler(unittest.TestCase):
                     )
                     for i in range(2)
                 },
-                {
-                    100000000
-                    + i: StatusInfo(
-                        output_path=Path(f"to/somewhere_{i}"),
-                        i=i,
-                        start_time=0,
-                        current_state=SLURMSTATE.CANCELLED,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
-                        final_state=SLURMSTATE.FAILED,
-                    )
-                    for i in range(2)
-                },
+                [0, 1],
             ),
             (
                 "none_killed",
@@ -432,7 +421,7 @@ class TestJobScheduler(unittest.TestCase):
                     )
                     for i in range(2)
                 },
-                {},
+                [],
             ),
             (
                 "one_killed",
@@ -458,18 +447,7 @@ class TestJobScheduler(unittest.TestCase):
                         final_state=SLURMSTATE.OUT_OF_MEMORY,
                     ),
                 },
-                {
-                    100000000: StatusInfo(
-                        output_path=Path("to/somewhere_0"),
-                        i=0,
-                        start_time=0,
-                        current_state=SLURMSTATE.CANCELLED,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
-                        final_state=SLURMSTATE.FAILED,
-                    )
-                },
+                [0],
             ),
         ]
     )
@@ -480,8 +458,8 @@ class TestJobScheduler(unittest.TestCase):
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
             js = create_js(working_directory, cluster_output_dir)
-            killed_jobs = js.filter_killed_jobs(failed_jobs)
-            self.assertEqual(killed_jobs, result)
+            killed_jobs_indices = js.filter_killed_jobs(failed_jobs)
+            self.assertEqual(killed_jobs_indices, result)
 
     def test_resubmit_jobs(self) -> None:
         with TemporaryDirectory(

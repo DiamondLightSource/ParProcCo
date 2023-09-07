@@ -22,12 +22,11 @@ else:
     CLUSTER_RESOURCES = {"cpu_model": "intel-xeon"}
 
 
+PARTITION = "cs05r"
+
+
 def get_slurm_rest_url() -> str | None:
-    try:
-        url = os.environ["SLURM_REST_URL"]
-        return url
-    except Exception:
-        return None
+    return os.getenv("SLURM_REST_URL")
 
 
 def get_tmp_base_dir() -> str:

@@ -14,6 +14,7 @@ from ParProcCo.utils import decode_to_string
 from .utils import get_slurm_rest_url, TemporaryDirectory
 
 slurm_rest_url = get_slurm_rest_url()
+gh_testing = slurm_rest_url is None
 
 
 class TestNXdataAggregator(unittest.TestCase):
@@ -44,7 +45,7 @@ class TestNXdataAggregator(unittest.TestCase):
         name = decode_to_string(name)
         self.assertEqual(name, "name")
 
-    @pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_renormalise(self) -> None:
         output_file_paths = [
             Path(
@@ -72,7 +73,7 @@ class TestNXdataAggregator(unittest.TestCase):
             aggregator.accumulator_weights, weights_array, rtol=2.1e-14
         )
 
-    @pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_initialise_arrays_applied_data(self) -> None:
         aggregator = NXdataAggregator()
         aggregator.data_dimensions = 3
@@ -260,7 +261,7 @@ class TestNXdataAggregator(unittest.TestCase):
             else:
                 self.assertEqual(aggregator.accumulator_aux_signals, [])
 
-    @pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_get_nxdata_applied_data(self) -> None:
         output_data_files = [
             Path(
@@ -969,7 +970,7 @@ class TestNXdataAggregator(unittest.TestCase):
                     aux_signal, np.array(signal).reshape(3, 3, 5), rtol=1e-14
                 )
 
-    @pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_accumulate_volumes_applied_data(self) -> None:
         aggregator = NXdataAggregator()
         aggregator.data_files = [
@@ -1024,7 +1025,7 @@ class TestNXdataAggregator(unittest.TestCase):
             aggregator.accumulator_weights, weights_array, rtol=2.1e-14
         )
 
-    @pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
+    @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
     def test_write_aggregation_file(self) -> None:
         sliced_data_files = [
             Path(

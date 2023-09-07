@@ -17,12 +17,14 @@ from .utils import (
     setup_runner_script,
     setup_jobscript,
     TemporaryDirectory,
+    PARTITION,
 )
 
 slurm_rest_url = get_slurm_rest_url()
+gh_testing = slurm_rest_url is None
 
 
-@pytest.mark.skipif(slurm_rest_url is None, reason="running GitHub workflow")
+@pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
 class TestJobController(unittest.TestCase):
     def setUp(self) -> None:
         logging.getLogger().setLevel(logging.INFO)
@@ -36,7 +38,7 @@ class TestJobController(unittest.TestCase):
         final_path = os.environ["PATH"]
         self.assertTrue(final_path == self.starting_path)
         os.chdir(self.current_dir)
-        if not slurm_rest_url:
+        if gh_testing:
             os.rmdir(self.base_dir)
 
     def test_all_jobs_fail(self) -> None:
@@ -65,7 +67,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                "cs05r",
+                PARTITION,
                 timeout=timedelta(seconds=1),
             )
             with self.assertRaises(RuntimeError) as context:
@@ -96,7 +98,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                "cs05r",
+                PARTITION,
             )
             jc.run(4, jobscript_args=runner_script_args)
 
@@ -138,7 +140,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                "cs05r",
+                PARTITION,
             )
             jc.run(1, jobscript_args=runner_script_args)
 
