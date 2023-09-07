@@ -5,7 +5,7 @@ import requests
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel
@@ -25,62 +25,62 @@ from models.slurm_rest import (
 
 class SLURMSTATE(Enum):
     # The following are states from https://slurm.schedmd.com/squeue.html#SECTION_JOB-STATE-CODES
-    BOOT_FAIL = 1
+    BOOT_FAIL = auto()
     """Job terminated due to launch failure, typically due to a hardware failure
     (e.g. unable to boot the node or block and the job can not be requeued)."""
-    CANCELLED = 2
+    CANCELLED = auto()
     """Job was explicitly cancelled by the user or system administrator.
     The job may or may not have been initiated"""
-    COMPLETED = 3
+    COMPLETED = auto()
     "Job has terminated all processes on all nodes with an exit code of zero"
-    CONFIGURING = 4
+    CONFIGURING = auto()
     """Job has been allocated resources, but are waiting for them to become
     ready for use (e.g. booting)"""
-    COMPLETING = 5
+    COMPLETING = auto()
     "Job is in the process of completing. Some processes on some nodes may still be active"
-    DEADLINE = 6
+    DEADLINE = auto()
     "Job terminated on deadline"
-    FAILED = 7
+    FAILED = auto()
     "Job terminated with non-zero exit code or other failure condition"
-    NODE_FAIL = 8
+    NODE_FAIL = auto()
     "Job terminated due to failure of one or more allocated nodes"
-    OUT_OF_MEMORY = 9
+    OUT_OF_MEMORY = auto()
     "Job experienced out of memory error"
-    PENDING = 10
+    PENDING = auto()
     "Job is awaiting resource allocation"
-    PREEMPTED = 11
+    PREEMPTED = auto()
     "Job terminated due to preemption"
-    RUNNING = 12
+    RUNNING = auto()
     "Job currently has an allocation"
-    RESV_DEL_HOLD = 13
+    RESV_DEL_HOLD = auto()
     "Job is held"
-    REQUEUE_FED = 14
+    REQUEUE_FED = auto()
     "Job is being requeued by a federation"
-    REQUEUE_HOLD = 15
+    REQUEUE_HOLD = auto()
     "Held job is being requeued"
-    REQUEUED = 16
+    REQUEUED = auto()
     "Completing job is being requeued"
-    RESIZING = 17
+    RESIZING = auto()
     "Job is about to change size"
-    REVOKED = 18
+    REVOKED = auto()
     "Sibling was removed from cluster due to other cluster starting the job"
-    SIGNALING = 19
+    SIGNALING = auto()
     "Job is being signaled"
-    SPECIAL_EXIT = 20
+    SPECIAL_EXIT = auto()
     """The job was requeued in a special state. This state can be set by users, typically in
         EpilogSlurmctld, if the job has terminated with a particular exit value"""
-    STAGE_OUT = 21
+    STAGE_OUT = auto()
     "Job is staging out files"
-    STOPPED = 22
+    STOPPED = auto()
     """Job has an allocation, but execution has been stopped with SIGSTOP signal.
     CPUS have been retained by this job"""
-    SUSPENDED = 23
+    SUSPENDED = auto()
     "Job has an allocation, but execution has been suspended and CPUs have been released for other jobs"
-    TIMEOUT = 24
+    TIMEOUT = auto()
     "Job terminated upon reaching its time limit"
-    NO_OUTPUT = 25
+    NO_OUTPUT = auto()
     "Custom state. No output file found"
-    OLD_OUTPUT_FILE = 26
+    OLD_OUTPUT_FILE = auto()
     "Custom state. Output file has not been updated since job started."
 
 
@@ -173,14 +173,11 @@ class JobScheduler:
         self._version = version
         self._slurm_endpoint_prefix = f"slurm/{self._version}"
         self._session = requests.Session()
-        self._session.headers["X-SLURM-USER-NAME"] = (
-            user_name if user_name else get_user()
-        )
+
         self.user = user_name if user_name else get_user()
         self.token = user_token if user_token else get_slurm_token()
-        self._session.headers["X-SLURM-USER-TOKEN"] = (
-            user_token if user_token else get_slurm_token()
-        )
+        self._session.headers["X-SLURM-USER-NAME"] = self.user
+        self._session.headers["X-SLURM-USER-TOKEN"] = self.token
 
     def get(
         self,
@@ -206,9 +203,14 @@ class JobScheduler:
         }
 
     def _post(self, data: BaseModel, endpoint) -> requests.Response:
-        url = self._url + "/" + endpoint
-        jdata, headers = self._prepare_request(data)
-        resp = requests.post(url, data=jdata, headers=headers)
+        url = f"{self._url}/{endpoint}"
+        resp = self._session.post(
+            url=url,
+            data=data.model_dump_json(exclude_defaults=True),
+            headers={
+                "Content-Type": "application/json",
+            },
+        )
         return resp
 
     def delete(
@@ -312,7 +314,9 @@ class JobScheduler:
     ) -> bool:
         self.jobscript_path = check_jobscript_is_readable(jobscript_path)
         self.scheduler_mode = scheduler_mode
-        self.job_env = job_env if job_env else {"ParProcCo": "0"}
+        self.job_env = (
+            job_env if job_env else {"ParProcCo": "0"}
+        )  # job_env cannot be empty dict
         test_ppc_dir = get_ppc_dir()
         if test_ppc_dir:
             self.job_env.update(TEST_PPC_DIR=test_ppc_dir)
@@ -328,17 +332,17 @@ class JobScheduler:
             str(i): False for i in range(scheduler_mode.number_jobs)
         }
         self.output_paths.clear()
-        return self._run_and_monitor(job_indices)
+        return self._submit_and_monitor(job_indices)
 
-    def _run_and_monitor(self, job_indices: List[int]) -> bool:
-        self._run_jobs(job_indices)
+    def _submit_and_monitor(self, job_indices: List[int]) -> bool:
+        self._submit_jobs(job_indices)
         self._wait_for_jobs()
         self._report_job_info()
         return self.get_success()
 
-    def _run_jobs(self, job_indices: List[int]) -> None:
+    def _submit_jobs(self, job_indices: List[int]) -> None:
         logging.debug(
-            f"Running jobs on cluster for jobscript {self.jobscript_path} and args {self.jobscript_args}"
+            f"Submitting jobs on cluster for jobscript {self.jobscript_path} and args {self.jobscript_args}"
         )
         try:
             self.status_infos = {}
@@ -355,11 +359,11 @@ class JobScheduler:
                     int(time.time()),
                 )
                 logging.debug(
-                    f"job array for jobscript {self.jobscript_path} and args {submission.job.argv}"
+                    f"job for jobscript {self.jobscript_path} and args {submission.job.argv}"
                     f" has been submitted with id {resp.job_id}"
                 )
         except Exception:
-            logging.error("Unknown error occurred running job", exc_info=True)
+            logging.error("Unknown error occurred during job submission", exc_info=True)
             raise
 
     def make_job_submission(self, i: int, job=None, jobs=None) -> JobSubmission:
@@ -449,7 +453,7 @@ class JobScheduler:
                 if len(remaining_jobs) > 0:
                     logging.info(f"Jobs left to start: {remaining_jobs}")
             total_time = 0
-            begin_time = datetime.now()
+            begin_time = time.time()
             running_jobs = [
                 job_id
                 for job_id, status_info in self.status_infos.items()
@@ -464,7 +468,7 @@ class JobScheduler:
                     if self.status_infos[job_id].current_state in STATEGROUP.ENDED:
                         running_jobs.remove(job_id)
                 logging.info(
-                    f"Jobs remaining = {running_jobs} after {datetime.now() - begin_time}s"
+                    f"Jobs remaining = {running_jobs} after {time.time() - begin_time}s"
                 )
             for job_id in list(running_jobs):
                 # Check state of remaining jobs immediately before cancelling
@@ -479,7 +483,7 @@ class JobScheduler:
                 self.wait_all_jobs_terminated(running_jobs, 120)
                 total_time += 120
                 logging.info(
-                    f"Jobs terminated = {len(running_jobs)} after {datetime.now() - begin_time}s"
+                    f"Jobs terminated = {len(running_jobs)} after {time.time() - begin_time}s"
                 )
         except Exception:
             logging.error("Unknown error occurred running slurm job", exc_info=True)
@@ -545,7 +549,7 @@ class JobScheduler:
         self.job_history[self.batch_number] = {}
         self.job_completion_status = {str(i): False for i in job_indices}
         logging.info(f"Resubmitting jobs with job_indices: {job_indices}")
-        return self._run_and_monitor(job_indices)
+        return self._submit_and_monitor(job_indices)
 
     def filter_killed_jobs(self, jobs: Dict[int, StatusInfo]) -> List[int]:
         killed_jobs = {
@@ -556,11 +560,11 @@ class JobScheduler:
         killed_jobs_indices = [job.i for job in killed_jobs.values()]
         return killed_jobs_indices
 
-    def rerun_killed_jobs(self, allow_all_failed: bool = False):
-        logging.info("Rerunning killed jobs")
+    def resubmit_killed_jobs(self, allow_all_failed: bool = False) -> bool:
+        logging.info("Resubmitting killed jobs")
         job_history = self.job_history
         if all(self.job_completion_status.values()):
-            logging.warning("No failed jobs to rerun")
+            logging.warning("No failed jobs to resubmit")
             return True
         elif allow_all_failed or any(self.job_completion_status.values()):
             failed_jobs = {

@@ -26,7 +26,7 @@ slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
 
 
-def create_js(work_dir, out_dir, timeout=timedelta(hours=2)):
+def create_js(work_dir, out_dir, timeout=timedelta(hours=2)) -> JobScheduler:
     return JobScheduler(slurm_rest_url, work_dir, out_dir, PARTITION, timeout)
 
 
@@ -37,7 +37,7 @@ class TestJobScheduler(unittest.TestCase):
         self.base_dir: str = get_tmp_base_dir()
 
     def tearDown(self) -> None:
-        if not slurm_rest_url:
+        if gh_testing:
             os.rmdir(self.base_dir)
 
     def test_create_job_scheduler(self) -> None:
@@ -138,7 +138,7 @@ class TestJobScheduler(unittest.TestCase):
             processing_mode = SimpleProcessingMode(runner_script)
             processing_mode.set_parameters(slices)
 
-            # run jobs
+            # submit jobs
             scheduler = create_js(working_directory, cluster_output_dir)
             scheduler.run(
                 processing_mode,
@@ -177,7 +177,7 @@ class TestJobScheduler(unittest.TestCase):
 
             js = create_js(working_directory, cluster_output_dir)
 
-            # run jobs
+            # submit jobs
             js.jobscript_path = runner_script
             js.job_env = {}
             job_indices = list(range(processing_mode.number_jobs))
@@ -189,8 +189,8 @@ class TestJobScheduler(unittest.TestCase):
             js.job_name = "old_output_test"
             js.scheduler_mode = processing_mode
 
-            # _run_and_monitor
-            js._run_jobs(job_indices)
+            # _submit_and_monitor
+            js._submit_jobs(job_indices)
             js._wait_for_jobs()
             t = datetime.now()
             js.start_time = t
@@ -238,7 +238,7 @@ class TestJobScheduler(unittest.TestCase):
             processing_mode = SimpleProcessingMode(runner_script)
             processing_mode.set_parameters(slices)
 
-            # run jobs
+            # submit jobs
             js = create_js(
                 working_directory, cluster_output_dir, timeout=timedelta(seconds=1)
             )
@@ -726,7 +726,7 @@ class TestJobScheduler(unittest.TestCase):
             ),
         ]
     )
-    def test_rerun_killed_jobs(
+    def test_resubmit_killed_jobs(
         self,
         name,
         allow_all_failed,
@@ -736,7 +736,7 @@ class TestJobScheduler(unittest.TestCase):
         indices,
         expected_success,
         raises_error,
-    ):
+    ) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
@@ -767,14 +767,14 @@ class TestJobScheduler(unittest.TestCase):
 
             if raises_error:
                 with self.assertRaises(RuntimeError) as context:
-                    js.rerun_killed_jobs(allow_all_failed)
+                    js.resubmit_killed_jobs(allow_all_failed)
                 self.assertTrue(
                     "All jobs failed. job_history: " in str(context.exception)
                 )
                 self.assertEqual(js.batch_number, 0)
                 return
 
-            success = js.rerun_killed_jobs(allow_all_failed)
+            success = js.resubmit_killed_jobs(allow_all_failed)
             self.assertEqual(success, expected_success)
             self.assertEqual(js.output_paths, output_paths)
             if runs:
