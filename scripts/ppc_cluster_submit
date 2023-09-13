@@ -5,73 +5,109 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import re
 import logging
-import os
+from getpass import getuser
 from typing import List
 
 from ParProcCo.job_controller import JobController
 from ParProcCo.passthru_wrapper import PassThruWrapper
-from ParProcCo.utils import set_up_wrapper
+from ParProcCo.utils import (
+    get_beamline,
+    map_beamline_to_partition,
+    get_token,
+    set_up_wrapper,
+)
 
-def create_parser():
-    '''
-     $ ppc_cluster_submit program [--output cluster_output_dir] [--timeout 1h30m] [--jobs 4] --cores 6 --memory 4G -s 0.01 ... [input files]
-     '''
-    parser = argparse.ArgumentParser(description='ParProcCo run script')
-    parser.add_argument('-o', '--output', help='str: cluster output file or directory')
-    parser.add_argument('--jobs', help='int: number of cluster jobs to split processing into', type=int, default=1)
-    parser.add_argument('--timeout', help='str: timeout for cluster jobs to finish - xxh[yym] (default: %(default)s)', default='2h')
-    parser.add_argument('--memory', help='str: memory to use per cluster job', required=True)
-    parser.add_argument('--cores', help='int: number of cores to use per cluster job', type=int, required=True)
-    parser.add_argument('-D', '--debug', help='show debugging information', action='store_true')
+
+SLURM_VERSION = "0.0.38"
+
+
+def create_parser() -> argparse.ArgumentParser:
+    """
+    $ ppc_cluster_submit program [--beamline b24] [--token path/to/token/file] [--output cluster_output_dir] [--jobs 4] [--timeout 1h30m] --memory 4000 --cores 6 -s 0.01 ... [input files]
+    """
+    parser = argparse.ArgumentParser(description="ParProcCo run script")
+    parser.add_argument(
+        "--url",
+        help="str: slurm url",
+        type=str,
+        required=True,  # config
+    )
+    parser.add_argument(
+        "--beamline",
+        help="str: beamline to map to partition",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--token",
+        help="str: slurm token filepath",
+        type=str,
+        required=True,
+    )
+    parser.add_argument("-o", "--output", help="str: cluster output file or directory")
+    parser.add_argument(
+        "--jobs",
+        help="int: number of cluster jobs to split processing into",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "--timeout",
+        help="str: timeout for cluster jobs to finish - xxh[yym] (default: %(default)s)",
+        default="2h",
+    )
+    parser.add_argument(
+        "--memory", help="str: memory to use per cluster job", required=True
+    )
+    parser.add_argument(
+        "--cores",
+        help="int: number of cores to use per cluster job",
+        type=int,
+        required=True,
+    )
+    parser.add_argument(
+        "-D", "--debug", help="show debugging information", action="store_true"
+    )
     return parser
 
-import re
-TIMEOUT_PATTERN = re.compile(r'^((?P<hours>\d+)h)?((?P<minutes>\d+)m)?$', re.I) # @UndefinedVariable
+
+TIMEOUT_PATTERN = re.compile(
+    r"^((?P<hours>\d+)h)?((?P<minutes>\d+)m)?$", re.I
+)  # @UndefinedVariable
+
 
 def parse_timeout(timeout: str) -> datetime.timedelta:
     mo = TIMEOUT_PATTERN.match(timeout.strip())
     if not mo:
-        raise ValueError(f'Could not parse {timeout} as time interval')
-    to_dict = { k:int(v) for k,v in mo.groupdict().items() if v is not None} # filter out None-valued items
-    logging.debug('Parsed time as %s', to_dict)
+        raise ValueError(f"Could not parse {timeout} as time interval")
+    to_dict = {
+        k: int(v) for k, v in mo.groupdict().items() if v is not None
+    }  # filter out None-valued items
+    logging.debug("Parsed time as %s", to_dict)
     return datetime.timedelta(**to_dict)
 
-def run_ppc(args: argparse.Namespace, script_args: List) -> None:
-    '''
-    Run JobController
-    '''
-    from ParProcCo.utils import load_cfg
-    cfg = load_cfg()
 
-    project = os.getenv(cfg.project_env_var)
-    if not project:
-        raise ValueError(f'{cfg.project_env_var} environment variable not defined')
-    cluster_name = os.getenv('SGE_CELL')
-    if not cluster_name: # Module load global/cluster or hamilton
-        raise ValueError(f'SGE_CELL environment variable not defined. {cfg.cluster_help_msg}')
-    if cluster_name not in cfg.clusters:
-        raise ValueError(f'SGE_CELL value not known {cfg.clusters.keys()})')
-        
-    cluster = cfg.clusters[cluster_name]
-    cluster_resources = cluster.resources
-    cluster_queue = cluster.default_queue
-    if cluster.user_queues:
-        from getpass import getuser
-        user = getuser()
-        if cluster.user_queues:
-            for q,us in cluster.user_queues.items():
-                if user in us:
-                    cluster_queue = q
-                    logging.debug('User is %s so using cluster queue %s', user, cluster_queue)
-                    break
+def run_ppc(args: argparse.Namespace, script_args: List) -> None:
+    """
+    Run JobController
+    """
+    from ParProcCo.utils import load_cfg
+
+    cfg = load_cfg()
+    url = cfg.url
+    token = get_token(args.token)
+    partition = args.partition
+    user = getuser()
+    beamline = get_beamline(args.beamline)
+    partition = map_beamline_to_partition(beamline)
 
     timeout = parse_timeout(args.timeout)
-
-    logging.info('Running for project %s on cluster %s in queue %s with resources %s and timeout %s', project, cluster, cluster_queue, cluster_resources, timeout)
+    logging.info("Running for with timeout %s", timeout)
 
     if not script_args:
-        raise ValueError(f'No script and any of its arguments given')
+        raise ValueError("No script and any of its arguments given")
 
     program = script_args[0]
     if args.jobs >= 1:
@@ -79,16 +115,25 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
         if args.jobs == 1:
             wrapper = PassThruWrapper(wrapper)
     else:
-        raise ValueError(f'Number of jobs must be one or more, given {args.jobs}')
-    wrapper.set_module(cluster.module)
+        raise ValueError(f"Number of jobs must be one or more, given {args.jobs}")
     wrapper.set_cores(args.cores)
     output = wrapper.get_output(args.output, script_args[1:])
     wrapper_args = wrapper.get_args(script_args, args.debug)
-    jc = JobController(wrapper, output, project, cluster_queue, cluster_resources, timeout)
+    jc = JobController(
+        url,
+        wrapper,
+        output,
+        partition,
+        SLURM_VERSION,
+        user,
+        token,
+        timeout,
+    )
     jc.run(args.jobs, wrapper_args, args.memory, "PPC-" + program)
     print("complete")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args, script_args = create_parser().parse_known_args()
     logging.getLogger().setLevel(logging.DEBUG if args.debug else logging.INFO)
     run_ppc(args, script_args)
