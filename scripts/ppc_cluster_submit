@@ -12,12 +12,7 @@ from typing import List
 
 from ParProcCo.job_controller import JobController
 from ParProcCo.passthru_wrapper import PassThruWrapper
-from ParProcCo.utils import (
-    get_beamline,
-    map_beamline_to_partition,
-    get_token,
-    set_up_wrapper,
-)
+from ParProcCo.utils import get_token, set_up_wrapper
 
 
 SLURM_VERSION = "0.0.38"
@@ -25,18 +20,13 @@ SLURM_VERSION = "0.0.38"
 
 def create_parser() -> argparse.ArgumentParser:
     """
-    $ ppc_cluster_submit program [--beamline b24] [--token path/to/token/file] [--output cluster_output_dir] [--jobs 4] [--timeout 1h30m] --memory 4000 --cores 6 -s 0.01 ... [input files]
+    $ ppc_cluster_submit program [--partition cs05r] [--token path/to/token/file] [--output cluster_output_dir]
+     [--jobs 4] [--timeout 1h30m] --memory 4000 --cores 6 -s 0.01 ... [input files]
     """
     parser = argparse.ArgumentParser(description="ParProcCo run script")
     parser.add_argument(
-        "--url",
-        help="str: slurm url",
-        type=str,
-        required=True,  # config
-    )
-    parser.add_argument(
-        "--beamline",
-        help="str: beamline to map to partition",
+        "--partition",
+        help="str: partition on which to run jobs",
         type=str,
         required=True,
     )
@@ -100,8 +90,7 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     token = get_token(args.token)
     partition = args.partition
     user = getuser()
-    beamline = get_beamline(args.beamline)
-    partition = map_beamline_to_partition(beamline)
+    partition = args.partition
 
     timeout = parse_timeout(args.timeout)
     logging.info("Running for with timeout %s", timeout)

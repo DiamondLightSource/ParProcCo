@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Literal
 from pydantic import BaseModel
 
 from .scheduler_mode_interface import SchedulerModeInterface
@@ -417,11 +417,11 @@ class JobScheduler:
     def wait_all_jobs(
         self,
         job_ids: List[int],
-        required_state: STATEGROUP,
+        required_state: Literal["ENDED"] | Literal["STARTING"],
         timeout: Optional[int],
         sleep_time: Optional[int],
     ) -> list[int]:
-        ended = required_state == STATEGROUP.ENDED
+        ended = required_state == "ENDED"
         if timeout is None:
             timeout = 60 if ended else 15
         if sleep_time is None:
@@ -432,7 +432,7 @@ class JobScheduler:
             for job_id in list(remaining_jobs):
                 self.fetch_and_update_state(job_id)
                 # check if current_state is in STATEGROUP.ENDED or not in STATEGROUP.STARTING
-                if (self.status_infos[job_id].current_state in required_state) is ended:
+                if (self.status_infos[job_id].current_state in STATEGROUP[required_state]) == ended:
                     remaining_jobs.remove(job_id)
             if len(remaining_jobs) > 0:
                 time.sleep(sleep_time)
@@ -443,13 +443,13 @@ class JobScheduler:
     ) -> None:
         now = time.time()
         max_time = int(round(self.timeout.total_seconds()))
-        check_time = int(round(max_time / 2))  # half of max_time
+        check_time = min(int(round(max_time / 2)), 60)  # half of max_time or one minute
         try:
             remaining_jobs = list(self.status_infos)
             # Wait for jobs to start (timeout shouldn't include queue time)
             while len(remaining_jobs) > 0:
                 remaining_jobs = self.wait_all_jobs(
-                    remaining_jobs, STATEGROUP.STARTING, 60, 5
+                    remaining_jobs, STATEGROUP.STARTING.name, 60, 5
                 )
                 if len(remaining_jobs) > 0:
                     logging.info(f"Jobs left to start: {remaining_jobs}")
@@ -462,7 +462,7 @@ class JobScheduler:
             while time.time() < now + max_time and len(running_jobs) > 0:
                 # Wait for jobs to complete
                 running_jobs = self.wait_all_jobs(
-                    running_jobs, STATEGROUP.ENDED, max_time, check_time
+                    running_jobs, STATEGROUP.ENDED.name, max_time, check_time
                 )
                 for job_id in list(running_jobs):
                     self.fetch_and_update_state(job_id)
@@ -481,7 +481,7 @@ class JobScheduler:
                     self.cancel_job(job_id)
             if len(running_jobs) > 0:
                 # Termination takes some time, wait a max of 2 mins
-                self.wait_all_jobs(running_jobs, STATEGROUP.ENDED, 120, 60)
+                self.wait_all_jobs(running_jobs, STATEGROUP.ENDED.name, 120, 60)
                 logging.info(
                     f"Jobs terminated = {len(running_jobs)} after {time.time() - begin_time}s"
                 )

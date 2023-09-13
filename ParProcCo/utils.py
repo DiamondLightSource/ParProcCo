@@ -11,42 +11,6 @@ from typing import Dict, List, Literal, Optional, Set, Union
 from yaml import YAMLObject, SafeLoader
 
 
-GPFS02 = [
-    "b01",
-    "b16",
-    "b23",
-    "b24",
-    "i02",
-    "i03",
-    "i04",
-    "i06",
-    "i11",
-    "i15",
-    "i16",
-    "i18",
-    "i22",
-    "i23",
-    "i24",
-]
-GPFS03 = [
-    "b07",
-    "b18",
-    "b21",
-    "b22",
-    "i05",
-    "i07",
-    "i08",
-    "i09",
-    "i10",
-    "i12",
-    "i13",
-    "i14",
-    "i19",
-    "i20",
-    "i21",
-]
-
-
 def check_jobscript_is_readable(jobscript: Path) -> Path:
     if not jobscript.is_file():
         raise FileNotFoundError(f"{jobscript} does not exist")
@@ -193,24 +157,6 @@ def load_cfg() -> PPCConfig:
 
 
 PPC_ENTRY_POINT = "ParProcCo.allowed_programs"
-
-
-def get_beamline(bl: str | None) -> str:
-    beamline = os.getenv("BEAMLINE")
-    if beamline:
-        return beamline
-    if bl:
-        return bl
-    raise ValueError("No beamline arg provided or found in env var 'BEAMLINE'")
-
-
-def map_beamline_to_partition(beamline: str) -> Literal["cs04r", "cs05r"]:
-    beamline = beamline.lower()
-    if beamline in GPFS02:
-        return "cs04r"
-    if beamline in GPFS03:
-        return "cs05r"
-    raise ValueError(f"beamline {beamline} not found in beamline to partition map")
 
 
 def get_token(filepath: str | None) -> str:
