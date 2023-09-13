@@ -10,7 +10,7 @@ from tempfile import mkdtemp
 from typing import List, Tuple
 import weakref as _weakref
 
-PARTITION = "cs05r"
+PARTITION = os.getenv("DEFAULT_SLURM_PARTITION")
 
 
 def get_slurm_rest_url() -> str | None:
