@@ -2,11 +2,49 @@ from __future__ import annotations
 
 import logging
 import os
+import yaml
+
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Literal, Optional, Set, Union
 from yaml import YAMLObject, SafeLoader
+
+
+GPFS02 = [
+    "b01",
+    "b16",
+    "b23",
+    "b24",
+    "i02",
+    "i03",
+    "i04",
+    "i06",
+    "i11",
+    "i15",
+    "i16",
+    "i18",
+    "i22",
+    "i23",
+    "i24",
+]
+GPFS03 = [
+    "b07",
+    "b18",
+    "b21",
+    "b22",
+    "i05",
+    "i07",
+    "i08",
+    "i09",
+    "i10",
+    "i12",
+    "i13",
+    "i14",
+    "i19",
+    "i20",
+    "i21",
+]
 
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
@@ -121,8 +159,7 @@ class PPCConfig(YAMLObject):
 
     allowed_programs: Dict[str, str]  # program name, python package with wrapper module
     project_env_var: str  # name of environment variable holding project passed to qsub
-    cluster_help_msg: str  # Message to display if cluster commands are not available
-    clusters: Dict[str, PPCCluster]  # per cluster configuration, key is UGE_CELL
+    url: str  # slurm rest url
 
 
 PPC_YAML = "par_proc_co.yaml"
@@ -135,24 +172,9 @@ def load_cfg() -> PPCConfig:
     allowed_programs:
         blah1: whatever_package1 # program name: python package (module expected to be called blah1_wrapper and contain a Wrapper class)
         blah2: whatever_package2
-    project_env_var: CLUSTER_PROJECT # name of environment variable holding project passed to qsub
-    cluster_help_msg: Please module load blah # Message to display if cluster commands are not available
-    clusters:
-        cluster_one: !PPCCluster # cluster name
-            module: foo_cluster_one
-            default_queue: basic.q # default cluster queue
-            user_queues: # dictionary of queues and list of users
-                better.q: middle_user1
-                best.q: power_user1, power_user2
-        cluster_two: !PPCCluster
-            module: bar_cluster_two
-            default_queue: only.q
-            resources:
-                cpu_model: arm64
+    url: slurm rest url
     """
     cfg = find_cfg_file(PPC_YAML)
-    import yaml
-
     with open(cfg, "r") as cff:
         ppc_config = yaml.safe_load(cff)
 
@@ -171,6 +193,43 @@ def load_cfg() -> PPCConfig:
 
 
 PPC_ENTRY_POINT = "ParProcCo.allowed_programs"
+
+
+def get_beamline(bl: str | None) -> str:
+    beamline = os.getenv("BEAMLINE")
+    if beamline:
+        return beamline
+    if bl:
+        return bl
+    raise ValueError("No beamline arg provided or found in env var 'BEAMLINE'")
+
+
+def map_beamline_to_partition(beamline: str) -> Literal["cs04r", "cs05r"]:
+    beamline = beamline.lower()
+    if beamline in GPFS02:
+        return "cs04r"
+    if beamline in GPFS03:
+        return "cs05r"
+    raise ValueError(f"beamline {beamline} not found in beamline to partition map")
+
+
+def get_token(filepath: str | None) -> str:
+    token = ""
+    if filepath is None:
+        try:
+            token = get_slurm_token()
+        except KeyError:
+            raise ValueError(
+                "No slurm token found. No slurm token filepath provided and no environment variable 'SLURM_JWT'"
+            )
+    else:
+        if os.path.isfile(filepath):
+            with open(filepath) as f:
+                token = f.read()
+
+    if token != "":
+        return token
+    raise FileNotFoundError(f"Slurm token file f{filepath} not found")
 
 
 def set_up_wrapper(cfg: PPCConfig, program: str):

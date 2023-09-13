@@ -22,10 +22,6 @@ class ProgramWrapper:
         self.processing_mode = processing_mode
         self.slicer = slicer
         self.aggregating_mode = aggregating_mode
-        self.cluster_module: Optional[str] = None
-
-    def set_module(self, module: str):
-        self.cluster_module = module
 
     def set_cores(self, cores: int):
         self.processing_mode.cores = cores
@@ -76,7 +72,7 @@ class ProgramWrapper:
                     ppc_modules.append(m)
         else:
             for m in reversed(loaded_modules):
-                if m and m != self.cluster_module:
+                if m:
                     ppc_modules.append(m)
                     break
 

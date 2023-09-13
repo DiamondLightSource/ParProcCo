@@ -255,7 +255,7 @@ class TestJobScheduler(unittest.TestCase):
                         warn_msg.endswith(" timed out. Terminating job now.")
                     )
                 for err_msg in context.output[4:]:
-                    self.assertTrue("has not created output file" in err_msg)
+                    self.assertTrue("ended with job state" in err_msg)
 
             jh = js.job_history
             self.assertEqual(
@@ -266,7 +266,9 @@ class TestJobScheduler(unittest.TestCase):
             returned_jobs = jh[0]
             self.assertEqual(len(returned_jobs), 4)
             for job_id in returned_jobs:
-                self.assertEqual(returned_jobs[job_id].final_state, SLURMSTATE.CANCELLED)
+                self.assertEqual(
+                    returned_jobs[job_id].final_state, SLURMSTATE.CANCELLED
+                )
 
     @parameterized.expand(
         [
@@ -383,15 +385,13 @@ class TestJobScheduler(unittest.TestCase):
             isinstance(jobs, JobsResponse),
             msg="jobs is not instance of JobsResponse\n",
         )
-        print(f"JobResponse state is {jobs.jobs[0]}")
 
     @parameterized.expand(
         [
             (
                 "all_killed",
-                {
-                    100000000
-                    + i: StatusInfo(
+                [
+                    StatusInfo(
                         output_path=Path(f"to/somewhere_{i}"),
                         i=i,
                         start_time=0,
@@ -402,14 +402,13 @@ class TestJobScheduler(unittest.TestCase):
                         final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
-                },
+                ],
                 [0, 1],
             ),
             (
                 "none_killed",
-                {
-                    100000000
-                    + i: StatusInfo(
+                [
+                    StatusInfo(
                         output_path=Path(f"to/somewhere_{i}"),
                         i=i,
                         start_time=0,
@@ -420,13 +419,13 @@ class TestJobScheduler(unittest.TestCase):
                         final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
-                },
+                ],
                 [],
             ),
             (
                 "one_killed",
-                {
-                    100000000: StatusInfo(
+                [
+                    StatusInfo(
                         output_path=Path("to/somewhere_0"),
                         i=0,
                         start_time=0,
@@ -436,7 +435,7 @@ class TestJobScheduler(unittest.TestCase):
                         wall_time=0,
                         final_state=SLURMSTATE.FAILED,
                     ),
-                    100000001: StatusInfo(
+                    StatusInfo(
                         output_path=Path("to/somewhere_1"),
                         i=1,
                         start_time=0,
@@ -446,7 +445,7 @@ class TestJobScheduler(unittest.TestCase):
                         wall_time=0,
                         final_state=SLURMSTATE.OUT_OF_MEMORY,
                     ),
-                },
+                ],
                 [0],
             ),
         ]

@@ -10,18 +10,6 @@ from tempfile import mkdtemp
 from typing import List, Tuple
 import weakref as _weakref
 
-
-_sge_cell = os.getenv("SGE_CELL")
-if _sge_cell == "HAMILTON":
-    CLUSTER_PROJ = "p99"
-    CLUSTER_QUEUE = "all.q"
-    CLUSTER_RESOURCES = None
-else:
-    CLUSTER_PROJ = "b24"
-    CLUSTER_QUEUE = "medium.q"
-    CLUSTER_RESOURCES = {"cpu_model": "intel-xeon"}
-
-
 PARTITION = "cs05r"
 
 

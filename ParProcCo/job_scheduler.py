@@ -228,7 +228,7 @@ class JobScheduler:
     def get_jobs_response(self, job_id: int | None = None) -> JobsResponse:
         endpoint = (
             f"{self._slurm_endpoint_prefix}/job/{job_id}"
-            if job_id
+            if job_id is not None
             else f"{self._slurm_endpoint_prefix}/jobs"
         )
         response = self.get(endpoint)
@@ -414,55 +414,56 @@ class JobScheduler:
         self.update_status_infos(ji)
         return ji
 
-    def wait_all_jobs_terminated(
-        self, job_ids: List[int], check_time: int
+    def wait_all_jobs(
+        self,
+        job_ids: List[int],
+        required_state: STATEGROUP,
+        timeout: Optional[int],
+        sleep_time: Optional[int],
     ) -> list[int]:
-        wait_until = time.time() + check_time
+        ended = required_state == STATEGROUP.ENDED
+        if timeout is None:
+            timeout = 60 if ended else 15
+        if sleep_time is None:
+            sleep_time = 60 if ended else 5
+        wait_until = time.time() + timeout
         remaining_jobs = job_ids.copy()
-        sleep_time = min(60, check_time)
         while len(remaining_jobs) > 0 and time.time() <= wait_until:
             for job_id in list(remaining_jobs):
                 self.fetch_and_update_state(job_id)
-                if self.status_infos[job_id].current_state in STATEGROUP.ENDED:
+                # check if current_state is in STATEGROUP.ENDED or not in STATEGROUP.STARTING
+                if (self.status_infos[job_id].current_state in required_state) is ended:
                     remaining_jobs.remove(job_id)
             if len(remaining_jobs) > 0:
                 time.sleep(sleep_time)
         return remaining_jobs
 
-    def wait_all_jobs_started(self, job_ids: List[int], check_time: int) -> list[int]:
-        wait_until = time.time() + check_time
-        remaining_jobs = job_ids.copy()
-        while len(remaining_jobs) > 0 and time.time() <= wait_until:
-            for job_id in list(remaining_jobs):
-                self.fetch_and_update_state(job_id)
-                if self.status_infos[job_id].current_state not in STATEGROUP.STARTING:
-                    remaining_jobs.remove(job_id)
-        return remaining_jobs
-
     def _wait_for_jobs(
         self,
     ) -> None:
+        now = time.time()
         max_time = int(round(self.timeout.total_seconds()))
-        check_time = min(120, max_time)  # 2 minutes or less
-        start_wait = max(check_time, 60)  # wait at least 1 minute
+        check_time = int(round(max_time / 2))  # half of max_time
         try:
             remaining_jobs = list(self.status_infos)
             # Wait for jobs to start (timeout shouldn't include queue time)
             while len(remaining_jobs) > 0:
-                remaining_jobs = self.wait_all_jobs_started(remaining_jobs, start_wait)
+                remaining_jobs = self.wait_all_jobs(
+                    remaining_jobs, STATEGROUP.STARTING, 60, 5
+                )
                 if len(remaining_jobs) > 0:
                     logging.info(f"Jobs left to start: {remaining_jobs}")
-            total_time = 0
             begin_time = time.time()
             running_jobs = [
                 job_id
                 for job_id, status_info in self.status_infos.items()
                 if status_info.current_state not in STATEGROUP.ENDED
             ]
-            while total_time < max_time and len(running_jobs) > 0:
+            while time.time() < now + max_time and len(running_jobs) > 0:
                 # Wait for jobs to complete
-                running_jobs = self.wait_all_jobs_terminated(running_jobs, check_time)
-                total_time += check_time
+                running_jobs = self.wait_all_jobs(
+                    running_jobs, STATEGROUP.ENDED, max_time, check_time
+                )
                 for job_id in list(running_jobs):
                     self.fetch_and_update_state(job_id)
                     if self.status_infos[job_id].current_state in STATEGROUP.ENDED:
@@ -480,8 +481,7 @@ class JobScheduler:
                     self.cancel_job(job_id)
             if len(running_jobs) > 0:
                 # Termination takes some time, wait a max of 2 mins
-                self.wait_all_jobs_terminated(running_jobs, 120)
-                total_time += 120
+                self.wait_all_jobs(running_jobs, STATEGROUP.ENDED, 120, 60)
                 logging.info(
                     f"Jobs terminated = {len(running_jobs)} after {time.time() - begin_time}s"
                 )
@@ -551,14 +551,12 @@ class JobScheduler:
         logging.info(f"Resubmitting jobs with job_indices: {job_indices}")
         return self._submit_and_monitor(job_indices)
 
-    def filter_killed_jobs(self, jobs: Dict[int, StatusInfo]) -> List[int]:
-        killed_jobs = {
-            job_id: status_info
-            for job_id, status_info in jobs.items()
+    def filter_killed_jobs(self, jobs: List[StatusInfo]) -> List[int]:
+        return [
+            status_info.i
+            for status_info in jobs
             if status_info.current_state == SLURMSTATE.CANCELLED
-        }
-        killed_jobs_indices = [job.i for job in killed_jobs.values()]
-        return killed_jobs_indices
+        ]
 
     def resubmit_killed_jobs(self, allow_all_failed: bool = False) -> bool:
         logging.info("Resubmitting killed jobs")
@@ -567,11 +565,11 @@ class JobScheduler:
             logging.warning("No failed jobs to resubmit")
             return True
         elif allow_all_failed or any(self.job_completion_status.values()):
-            failed_jobs = {
-                job_id: job_info
-                for job_id, job_info in job_history[0].items()
-                if job_info.final_state != SLURMSTATE.COMPLETED
-            }
+            failed_jobs = [
+                status_info
+                for status_info in job_history[self.batch_number].values()
+                if status_info.final_state != SLURMSTATE.COMPLETED
+            ]
             killed_jobs_indices = self.filter_killed_jobs(failed_jobs)
             logging.info(
                 f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs_indices)}"
