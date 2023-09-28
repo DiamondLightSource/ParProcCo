@@ -1,6 +1,7 @@
 h5py
 numpy
 parameterized
-pydantic
 PyYAML
+pydantic
+datamodel-code-generator
 requests

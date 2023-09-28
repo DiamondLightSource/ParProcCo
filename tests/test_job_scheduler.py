@@ -10,7 +10,7 @@ from pathlib import Path
 from parameterized import parameterized
 
 from example.simple_processing_mode import SimpleProcessingMode
-from models.slurm_rest import JobProperties, JobSubmission, JobsResponse
+from ParProcCo.models.slurm_rest import JobProperties, JobSubmission, JobsResponse
 from ParProcCo.job_scheduler import JobScheduler, SLURMSTATE, StatusInfo
 from .utils import (
     get_slurm_rest_url,

@@ -1,5 +1,5 @@
 {% set name = "parprocco" %}
-{% set version = "1.0" %}
+{% set version = "1.1" %}
 
 package:
   name: {{ name|lower }}
@@ -21,7 +21,7 @@ requirements:
     - numpy
     - h5py
     - pyyaml
-    - uge-drmaa2
+    - pydantic
 
 test:
   imports:
