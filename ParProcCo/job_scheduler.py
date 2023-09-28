@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from .scheduler_mode_interface import SchedulerModeInterface
 from .utils import check_jobscript_is_readable, get_slurm_token, get_user, get_ppc_dir
-from models.slurm_rest import (
+from .models.slurm_rest import (
     JobProperties,
     JobsResponse,
     JobResponseProperties,
