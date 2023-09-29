@@ -12,13 +12,13 @@ from parameterized import parameterized
 from example.simple_processing_mode import SimpleProcessingMode
 from ParProcCo.models.slurm_rest import JobProperties, JobSubmission, JobsResponse
 from ParProcCo.job_scheduler import JobScheduler, SLURMSTATE, StatusInfo
+from ParProcCo.test import TemporaryDirectory
 from .utils import (
     get_slurm_rest_url,
     get_tmp_base_dir,
     setup_data_files,
     setup_jobscript,
     setup_runner_script,
-    TemporaryDirectory,
     PARTITION,
 )
 

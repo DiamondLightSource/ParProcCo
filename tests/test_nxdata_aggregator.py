@@ -10,8 +10,9 @@ import numpy as np
 from parameterized import parameterized
 
 from ParProcCo.nxdata_aggregator import NXdataAggregator
+from ParProcCo.test import TemporaryDirectory
 from ParProcCo.utils import decode_to_string
-from .utils import get_slurm_rest_url, TemporaryDirectory
+from .utils import get_slurm_rest_url
 
 slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None

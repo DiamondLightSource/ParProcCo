@@ -4,8 +4,9 @@ import logging
 import unittest
 from pathlib import Path
 
+from ParProcCo.test import TemporaryDirectory
 from example.simple_data_aggregator import SimpleDataAggregator
-from .utils import setup_aggregator_data_files, TemporaryDirectory
+from .utils import setup_aggregator_data_files
 
 
 class TestDataAggregator(unittest.TestCase):
