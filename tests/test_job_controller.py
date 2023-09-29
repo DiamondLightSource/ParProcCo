@@ -9,6 +9,7 @@ from pathlib import Path
 
 from example.simple_wrapper import SimpleWrapper
 from ParProcCo.job_controller import JobController
+from ParProcCo.test import TemporaryDirectory
 from .utils import (
     get_slurm_rest_url,
     get_tmp_base_dir,
@@ -16,7 +17,6 @@ from .utils import (
     setup_data_file,
     setup_runner_script,
     setup_jobscript,
-    TemporaryDirectory,
     PARTITION,
 )
 
