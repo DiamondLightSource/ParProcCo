@@ -5,15 +5,14 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import re
 import logging
+import re
 from getpass import getuser
 from typing import List
 
 from ParProcCo.job_controller import JobController
 from ParProcCo.passthru_wrapper import PassThruWrapper
 from ParProcCo.utils import get_token, set_up_wrapper
-
 
 SLURM_VERSION = "0.0.38"
 
@@ -23,7 +22,10 @@ def create_parser() -> argparse.ArgumentParser:
     $ ppc_cluster_submit program [--partition cs05r] [--token path/to/token/file] [--output cluster_output_dir]
      [--jobs 4] [--timeout 1h30m] --memory 4000 --cores 6 -s 0.01 ... [input files]
     """
-    parser = argparse.ArgumentParser(description="ParProcCo run script")
+    parser = argparse.ArgumentParser(
+        description="ParProcCo run script",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument(
         "--partition",
         help="str: partition on which to run jobs",
@@ -31,10 +33,7 @@ def create_parser() -> argparse.ArgumentParser:
         required=True,
     )
     parser.add_argument(
-        "--token",
-        help="str: slurm token filepath",
-        type=str,
-        required=True,
+        "--token", help="str: slurm token filepath", type=str, required=True
     )
     parser.add_argument("-o", "--output", help="str: cluster output file or directory")
     parser.add_argument(
@@ -45,7 +44,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--timeout",
-        help="str: timeout for cluster jobs to finish - xxh[yym] (default: %(default)s)",
+        help="str: timeout for cluster jobs to finish - xxh[yym]",
         default="2h",
     )
     parser.add_argument(
