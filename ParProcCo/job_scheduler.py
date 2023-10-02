@@ -139,6 +139,7 @@ class JobScheduler:
         working_directory: Optional[Union[Path, str]],
         cluster_output_dir: Optional[Union[Path, str]],
         partition: str,
+        extra_properties: Optional[dict[str,str]] = None,
         timeout: timedelta = timedelta(hours=2),
         version: str = "v0.0.38",
         user_name: Optional[str] = None,
@@ -165,6 +166,7 @@ class JobScheduler:
             else (self.cluster_output_dir if self.cluster_output_dir else Path.home())
         )
         self.partition = partition
+        self.extra_properties = extra_properties
         self.scheduler_mode: SchedulerModeInterface
         self.memory: int
         self.cores: int
@@ -178,6 +180,7 @@ class JobScheduler:
         self.token = user_token if user_token else get_slurm_token()
         self._session.headers["X-SLURM-USER-NAME"] = self.user
         self._session.headers["X-SLURM-USER-TOKEN"] = self.token
+        self._session.headers["Content-Type"] = "application/json"
 
     def get(
         self,
@@ -191,25 +194,11 @@ class JobScheduler:
         response.raise_for_status()
         return response
 
-    def _prepare_request(
-        self, data: BaseModel
-    ) -> tuple[str, dict[str, str]] | tuple[None, None]:
-        if data is None:
-            return None, None
-        return data.model_dump_json(exclude_defaults=True), {
-            "X-SLURM-USER-NAME": self.user,
-            "X-SLURM-USER-TOKEN": self.token,
-            "Content-Type": "application/json",
-        }
-
     def _post(self, data: BaseModel, endpoint) -> requests.Response:
         url = f"{self._url}/{endpoint}"
         resp = self._session.post(
             url=url,
             data=data.model_dump_json(exclude_defaults=True),
-            headers={
-                "Content-Type": "application/json",
-            },
         )
         return resp
 
@@ -406,6 +395,9 @@ class JobScheduler:
             standard_error=stderr_fp,
             get_user_environment="10L",
         )
+        if self.extra_properties:
+            for k,v in self.extra_properties.items():
+                setattr(job, k, v)
 
         return JobSubmission(script=self.jobscript_command, job=job)
 
@@ -444,6 +436,7 @@ class JobScheduler:
         now = time.time()
         max_time = int(round(self.timeout.total_seconds()))
         check_time = min(int(round(max_time / 2)), 60)  # half of max_time or one minute
+        logging.info("Jobs have check_time=%d and max_time=%d", check_time, max_time)
         try:
             remaining_jobs = list(self.status_infos)
             # Wait for jobs to start (timeout shouldn't include queue time)

@@ -19,6 +19,7 @@ class JobController:
         program_wrapper: ProgramWrapper,
         output_dir_or_file: Path,
         partition: str,
+        extra_properties: Optional[dict[str,str]] = None,
         version: str = "v0.0.38",
         user_name: Optional[str] = None,
         user_token: Optional[str] = None,
@@ -28,6 +29,7 @@ class JobController:
         self.url = url
         self.program_wrapper = program_wrapper
         self.partition = partition
+        self.extra_properties = extra_properties
         self.output_file: Optional[Path] = None
         self.cluster_output_dir: Optional[Path] = None
 
@@ -121,6 +123,7 @@ class JobController:
             self.working_directory,
             self.cluster_output_dir,
             self.partition,
+            self.extra_properties,
             self.timeout,
             self.version,
             self.user_name,
@@ -162,6 +165,7 @@ class JobController:
             self.working_directory,
             self.cluster_output_dir,
             self.partition,
+            self.extra_properties,
             self.timeout,
             self.version,
             self.user_name,

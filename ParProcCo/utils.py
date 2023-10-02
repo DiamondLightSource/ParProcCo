@@ -7,7 +7,7 @@ import yaml
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Set, Union
+from typing import Dict, Optional, Union
 from yaml import YAMLObject, SafeLoader
 
 
@@ -104,26 +104,13 @@ def slice_to_string(s: Optional[slice]) -> str:
 
 
 @dataclass
-class PPCCluster(YAMLObject):
-    yaml_tag = "!PPCCluster"
-    yaml_loader = SafeLoader
-
-    module: str  # module loaded to submit jobs
-    default_queue: str  # default cluster queue
-    user_queues: Optional[
-        Dict[str, List[str]]
-    ] = None  # specific queues with allowed users
-    resources: Optional[Dict[str, str]] = None  # job resources
-
-
-@dataclass
 class PPCConfig(YAMLObject):
     yaml_tag = "!PPCConfig"
     yaml_loader = SafeLoader
 
     allowed_programs: Dict[str, str]  # program name, python package with wrapper module
-    project_env_var: str  # name of environment variable holding project passed to qsub
     url: str  # slurm rest url
+    extra_property_envs: Optional[Dict[str, str]] = None # mapping of extra properties to environment variables to pass to slurm's JobProperties
 
 
 PPC_YAML = "par_proc_co.yaml"
@@ -142,17 +129,6 @@ def load_cfg() -> PPCConfig:
     with open(cfg, "r") as cff:
         ppc_config = yaml.safe_load(cff)
 
-    for ccfg in ppc_config.clusters.values():
-        if ccfg.user_queues:
-            users: Set[str] = set()  # check for overlaps
-            for us in ccfg.user_queues.values():
-                common = users.intersection(set(us))
-                if common:
-                    raise ValueError(
-                        "Users %s cannot be assigned to more than one queue",
-                        ", ".join(common),
-                    )
-                users.update(us)
     return ppc_config
 
 
@@ -188,8 +164,8 @@ def set_up_wrapper(cfg: PPCConfig, program: str):
 
         if sys.version_info < (3, 10):
             from backports.entry_points_selectable import (
-                entry_points,
-            )  # @UnresolvedImport
+                entry_points,  # @UnresolvedImport
+            )
         else:
             from importlib.metadata import entry_points  # @UnresolvedImport
 
@@ -220,9 +196,9 @@ def set_up_wrapper(cfg: PPCConfig, program: str):
 
 def find_cfg_file(name: str) -> Path:
     """ """
-    cp = os.getenv("PPC_CONFIG")
-    if cp:
-        return Path(cp)
+    c = os.getenv("PPC_CONFIG")
+    if c:
+        return Path(c)
 
     cp = Path.home() / ("." + name)
     if cp.is_file():
