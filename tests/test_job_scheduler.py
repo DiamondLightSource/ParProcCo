@@ -27,7 +27,7 @@ gh_testing = slurm_rest_url is None
 
 
 def create_js(work_dir, out_dir, timeout=timedelta(hours=2)) -> JobScheduler:
-    return JobScheduler(slurm_rest_url, work_dir, out_dir, PARTITION, timeout)
+    return JobScheduler(slurm_rest_url, work_dir, out_dir, PARTITION, timeout=timeout)
 
 
 @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
@@ -229,7 +229,7 @@ class TestJobScheduler(unittest.TestCase):
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
             with open(jobscript, "a+") as f:
-                f.write("    import time\n    time.sleep(60)\n")
+                f.write("    import time\n    time.sleep(120)\n")
 
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
@@ -240,7 +240,7 @@ class TestJobScheduler(unittest.TestCase):
 
             # submit jobs
             js = create_js(
-                working_directory, cluster_output_dir, timeout=timedelta(seconds=1)
+                working_directory, cluster_output_dir, timeout=timedelta(seconds=10)
             )
 
             with self.assertLogs(level="WARNING") as context:
@@ -299,7 +299,7 @@ class TestJobScheduler(unittest.TestCase):
         ]
     )
     def test_script(
-        self, name, rs_name, open_rs, permissions, error_name, error_msg
+        self, _name, rs_name, open_rs, permissions, error_name, error_msg
     ) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
@@ -349,7 +349,7 @@ class TestJobScheduler(unittest.TestCase):
             ("true_false", True, False, False),
         ]
     )
-    def test_get_success(self, name, stat_0, stat_1, success) -> None:
+    def test_get_success(self, _name, stat_0, stat_1, success) -> None:
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             js = create_js(working_directory, cluster_output_dir)
@@ -357,7 +357,7 @@ class TestJobScheduler(unittest.TestCase):
             self.assertEqual(js.get_success(), success)
 
     @parameterized.expand([("true", True), ("false", False)])
-    def test_timestamp_ok_true(self, name, run_scheduler_last) -> None:
+    def test_timestamp_ok_true(self, _name, run_scheduler_last) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
@@ -450,7 +450,7 @@ class TestJobScheduler(unittest.TestCase):
             ),
         ]
     )
-    def test_filter_killed_jobs(self, name, failed_jobs, result) -> None:
+    def test_filter_killed_jobs(self, _name, failed_jobs, result) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
@@ -727,7 +727,7 @@ class TestJobScheduler(unittest.TestCase):
     )
     def test_resubmit_killed_jobs(
         self,
-        name,
+        _name,
         allow_all_failed,
         job_history,
         job_completion_status,

@@ -48,7 +48,10 @@ def create_parser() -> argparse.ArgumentParser:
         default="2h",
     )
     parser.add_argument(
-        "--memory", help="str: memory to use per cluster job", required=True
+        "--memory",
+        help="int: memory to use per cluster job (MB)",
+        type=int,
+        required=True
     )
     parser.add_argument(
         "--cores",
@@ -87,9 +90,17 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
     cfg = load_cfg()
     url = cfg.url
     token = get_token(args.token)
-    partition = args.partition
     user = getuser()
-    partition = args.partition
+
+    extra_properties = None
+    if cfg.extra_property_envs:
+        extra_properties = {}
+        logging.debug("Extra job properties:")
+        for k,e in cfg.extra_property_envs:
+            v = os.getenv(e)
+            logging.debug("\t%s: %s", k, v)
+            if v:
+                extra_properties[k] = v
 
     timeout = parse_timeout(args.timeout)
     logging.info("Running for with timeout %s", timeout)
@@ -111,7 +122,8 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
         url,
         wrapper,
         output,
-        partition,
+        args.partition,
+        extra_properties,
         SLURM_VERSION,
         user,
         token,
