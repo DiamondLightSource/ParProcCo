@@ -2,13 +2,21 @@ from __future__ import annotations
 
 import logging
 import os
-import yaml
-
-from dataclasses import dataclass
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Union
-from yaml import YAMLObject, SafeLoader
+
+import yaml
+from dataclasses import dataclass
+from yaml import SafeLoader, YAMLObject
+
+if sys.version_info < (3, 10):
+    from backports.entry_points_selectable import (
+        entry_points,  # @UnresolvedImport @UnusedImport
+    )
+else:
+    from importlib.metadata import entry_points  # @UnresolvedImport @Reimport
 
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
@@ -51,7 +59,7 @@ def get_filepath_on_path(filename: Optional[str]) -> Optional[Path]:
 
 
 def get_slurm_token() -> str:
-    return os.environ["SLURM_JWT"]
+    return os.environ["SLURM_JWT"].strip()
 
 
 def get_user() -> str:
@@ -110,7 +118,9 @@ class PPCConfig(YAMLObject):
 
     allowed_programs: Dict[str, str]  # program name, python package with wrapper module
     url: str  # slurm rest url
-    extra_property_envs: Optional[Dict[str, str]] = None # mapping of extra properties to environment variables to pass to slurm's JobProperties
+    extra_property_envs: Optional[
+        Dict[str, str]
+    ] = None  # mapping of extra properties to environment variables to pass to slurm's JobProperties
 
 
 PPC_YAML = "par_proc_co.yaml"
@@ -136,22 +146,22 @@ PPC_ENTRY_POINT = "ParProcCo.allowed_programs"
 
 
 def get_token(filepath: str | None) -> str:
-    token = ""
     if filepath is None:
         try:
-            token = get_slurm_token()
+            return get_slurm_token()
         except KeyError:
             raise ValueError(
                 "No slurm token found. No slurm token filepath provided and no environment variable 'SLURM_JWT'"
             )
-    else:
-        if os.path.isfile(filepath):
-            with open(filepath) as f:
-                token = f.read()
+
+    token = ""
+    if os.path.isfile(filepath):
+        with open(filepath) as f:
+            token = f.read().strip()
 
     if token != "":
         return token
-    raise FileNotFoundError(f"Slurm token file f{filepath} not found")
+    raise FileNotFoundError(f"Slurm token file f{filepath} not found or is empty")
 
 
 def set_up_wrapper(cfg: PPCConfig, program: str):
@@ -160,15 +170,6 @@ def set_up_wrapper(cfg: PPCConfig, program: str):
         logging.info(f"{program} on allowed list in {cfg}")
         package = allowed[program]
     else:
-        import sys
-
-        if sys.version_info < (3, 10):
-            from backports.entry_points_selectable import (
-                entry_points,  # @UnresolvedImport
-            )
-        else:
-            from importlib.metadata import entry_points  # @UnresolvedImport
-
         logging.info(f"Checking entry points for {program}")
         eps = entry_points(group=PPC_ENTRY_POINT)
         try:
