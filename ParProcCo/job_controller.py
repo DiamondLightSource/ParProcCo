@@ -20,7 +20,6 @@ class JobController:
         output_dir_or_file: Path,
         partition: str,
         extra_properties: Optional[dict[str,str]] = None,
-        version: str = "v0.0.38",
         user_name: Optional[str] = None,
         user_token: Optional[str] = None,
         timeout: timedelta = timedelta(hours=2),
@@ -57,7 +56,6 @@ class JobController:
             self.working_directory = self.cluster_output_dir
         logging.debug("JC working dir: %s", self.working_directory)
         self.data_slicer: SlicerInterface
-        self.version = version
         self.user_name = user_name if user_name else get_user()
         self.user_token = user_token if user_token else get_slurm_token()
         self.timeout = timeout
@@ -125,7 +123,6 @@ class JobController:
             self.partition,
             self.extra_properties,
             self.timeout,
-            self.version,
             self.user_name,
             self.user_token,
         )
@@ -167,7 +164,6 @@ class JobController:
             self.partition,
             self.extra_properties,
             self.timeout,
-            self.version,
             self.user_name,
             self.user_token,
         )

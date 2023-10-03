@@ -20,7 +20,8 @@ from .models.slurm_rest import (
     JobSubmissionResponse,
 )
 
-# Migrating from drmaa2 to slurm as in https://github.com/DiamondLightSource/python-zocalo
+
+_SLURM_VERSION = "v0.0.38"
 
 
 class SLURMSTATE(Enum):
@@ -139,9 +140,8 @@ class JobScheduler:
         working_directory: Optional[Union[Path, str]],
         cluster_output_dir: Optional[Union[Path, str]],
         partition: str,
-        extra_properties: Optional[dict[str,str]] = None,
+        extra_properties: Optional[dict[str, str]] = None,
         timeout: timedelta = timedelta(hours=2),
-        version: str = "v0.0.38",
         user_name: Optional[str] = None,
         user_token: Optional[str] = None,
     ):
@@ -171,9 +171,7 @@ class JobScheduler:
         self.memory: int
         self.cores: int
         self.job_name: str
-        self._url = url
-        self._version = version
-        self._slurm_endpoint_prefix = f"slurm/{self._version}"
+        self._slurm_endpoint_url = f"{url}/slurm/{_SLURM_VERSION}"
         self._session = requests.Session()
 
         self.user = user_name if user_name else get_user()
@@ -182,46 +180,44 @@ class JobScheduler:
         self._session.headers["X-SLURM-USER-TOKEN"] = self.token
         self._session.headers["Content-Type"] = "application/json"
 
-    def get(
+    def _get(
         self,
         endpoint: str,
         params: dict[str, Any] | None = None,
         timeout: float | None = None,
     ) -> requests.Response:
-        response = self._session.get(
-            f"{self._url}/{endpoint}", params=params, timeout=timeout
+        return self._session.get(
+            f"{self._slurm_endpoint_url}/{endpoint}", params=params, timeout=timeout
         )
-        response.raise_for_status()
-        return response
 
-    def _post(self, data: BaseModel, endpoint) -> requests.Response:
-        url = f"{self._url}/{endpoint}"
-        resp = self._session.post(
-            url=url,
-            data=data.model_dump_json(exclude_defaults=True),
+    def _post(self, endpoint: str, data: BaseModel) -> requests.Response:
+        return self._session.post(
+            f"{self._slurm_endpoint_url}/{endpoint}",
+            data.model_dump_json(exclude_defaults=True),
         )
-        return resp
 
-    def delete(
+    def _delete(
         self,
         endpoint: str,
         params: dict[str, Any] | None = None,
         timeout: float | None = None,
     ) -> requests.Response:
-        response = self._session.delete(
-            f"{self._url}/{endpoint}", params=params, timeout=timeout
+        return self._session.delete(
+            f"{self._slurm_endpoint_url}/{endpoint}", params=params, timeout=timeout
         )
+
+    def _get_response_json(self, response: requests.Response) -> dict:
         response.raise_for_status()
-        return response
+        try:
+            return response.json()
+        except:
+            logging.error("Response not json: %s", response.content, exc_info=True)
+            raise
 
     def get_jobs_response(self, job_id: int | None = None) -> JobsResponse:
-        endpoint = (
-            f"{self._slurm_endpoint_prefix}/job/{job_id}"
-            if job_id is not None
-            else f"{self._slurm_endpoint_prefix}/jobs"
-        )
-        response = self.get(endpoint)
-        return JobsResponse.model_validate(response.json())
+        endpoint = f"job/{job_id}" if job_id is not None else "jobs"
+        response = self._get(endpoint)
+        return JobsResponse.model_validate(self._get_response_json(response))
 
     def get_job(self, job_id: int) -> JobResponseProperties:
         ji = self.get_jobs_response(job_id)
@@ -270,14 +266,12 @@ class JobScheduler:
         logging.info(f"Updating current state of {job_id} to {state}")
 
     def submit_job(self, job_submission: JobSubmission) -> JobSubmissionResponse:
-        endpoint = f"{self._slurm_endpoint_prefix}/job/submit"
-        response = self._post(data=job_submission, endpoint=endpoint)
-        return JobSubmissionResponse.model_validate(response.json())
+        response = self._post("job/submit", job_submission)
+        return JobSubmissionResponse.model_validate(self._get_response_json(response))
 
     def cancel_job(self, job_id: int) -> JobsResponse:
-        endpoint = f"{self._slurm_endpoint_prefix}/job/{job_id}"
-        response = self.delete(endpoint)
-        return JobsResponse.model_validate(response.json())
+        response = self._delete(f"job/{job_id}")
+        return JobsResponse.model_validate(self._get_response_json(response))
 
     def get_output_paths(self) -> List[Path]:
         return self.output_paths
@@ -396,7 +390,7 @@ class JobScheduler:
             get_user_environment="10L",
         )
         if self.extra_properties:
-            for k,v in self.extra_properties.items():
+            for k, v in self.extra_properties.items():
                 setattr(job, k, v)
 
         return JobSubmission(script=self.jobscript_command, job=job)
@@ -424,7 +418,10 @@ class JobScheduler:
             for job_id in list(remaining_jobs):
                 self.fetch_and_update_state(job_id)
                 # check if current_state is in STATEGROUP.ENDED or not in STATEGROUP.STARTING
-                if (self.status_infos[job_id].current_state in STATEGROUP[required_state]) == ended:
+                if (
+                    self.status_infos[job_id].current_state
+                    in STATEGROUP[required_state]
+                ) == ended:
                     remaining_jobs.remove(job_id)
             if len(remaining_jobs) > 0:
                 time.sleep(sleep_time)

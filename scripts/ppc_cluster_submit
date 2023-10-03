@@ -14,8 +14,6 @@ from ParProcCo.job_controller import JobController
 from ParProcCo.passthru_wrapper import PassThruWrapper
 from ParProcCo.utils import get_token, set_up_wrapper
 
-SLURM_VERSION = "0.0.38"
-
 
 def create_parser() -> argparse.ArgumentParser:
     """
@@ -124,7 +122,6 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
         output,
         args.partition,
         extra_properties,
-        SLURM_VERSION,
         user,
         token,
         timeout,
