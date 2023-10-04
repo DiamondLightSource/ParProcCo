@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import datetime
 import logging
+import os
 import re
+from datetime import timedelta
 from getpass import getuser
-from typing import List
 
 from ParProcCo.job_controller import JobController
 from ParProcCo.passthru_wrapper import PassThruWrapper
@@ -18,7 +18,7 @@ from ParProcCo.utils import get_token, set_up_wrapper
 def create_parser() -> argparse.ArgumentParser:
     """
     $ ppc_cluster_submit program [--partition cs05r] [--token path/to/token/file] [--output cluster_output_dir]
-     [--jobs 4] [--timeout 1h30m] --memory 4000 --cores 6 -s 0.01 ... [input files]
+     [--jobs 4] [--timeout 1h30m] --memory 4000M --cores 6 -s 0.01 ... [input files]
     """
     parser = argparse.ArgumentParser(
         description="ParProcCo run script",
@@ -46,9 +46,8 @@ def create_parser() -> argparse.ArgumentParser:
         default="2h",
     )
     parser.add_argument(
-        "--memory",
-        help="int: memory to use per cluster job (MB)",
-        type=int,
+        '--memory',
+        help='maximum memory to use (e.g. 1024M, 4G, etc)',
         required=True
     )
     parser.add_argument(
@@ -68,7 +67,7 @@ TIMEOUT_PATTERN = re.compile(
 )  # @UndefinedVariable
 
 
-def parse_timeout(timeout: str) -> datetime.timedelta:
+def parse_timeout(timeout: str) -> timedelta:
     mo = TIMEOUT_PATTERN.match(timeout.strip())
     if not mo:
         raise ValueError(f"Could not parse {timeout} as time interval")
@@ -76,10 +75,28 @@ def parse_timeout(timeout: str) -> datetime.timedelta:
         k: int(v) for k, v in mo.groupdict().items() if v is not None
     }  # filter out None-valued items
     logging.debug("Parsed time as %s", to_dict)
-    return datetime.timedelta(**to_dict)
+    return timedelta(**to_dict)
 
 
-def run_ppc(args: argparse.Namespace, script_args: List) -> None:
+def parse_memory(memory: str) -> int:
+    l = memory[-1]
+    if l not in ('M', 'G'):
+        raise ValueError('Memory specified must end with M or G')
+    try:
+        m = int(memory[:-1])
+        if m <= 0:
+            raise ValueError('Memory specified must be greater than 0')
+        if l == 'M' and m < 512:
+            logging.warning('Memory specified is recommended to be over 512M')
+        if l == 'G'and m > 64:
+            m = m*1024
+            logging.warning('Memory specified (>64G) seems to be excessive')
+        return m
+    except:
+        raise ValueError('Memory specified must start with a number')
+
+
+def run_ppc(args: argparse.Namespace, script_args: list[str]) -> None:
     """
     Run JobController
     """
@@ -101,7 +118,8 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
                 extra_properties[k] = v
 
     timeout = parse_timeout(args.timeout)
-    logging.info("Running for with timeout %s", timeout)
+    memory = parse_memory(args.memory)
+    logging.info("Running with timeout %s and memory limit %dM", timeout, memory)
 
     if not script_args:
         raise ValueError("No script and any of its arguments given")
@@ -126,7 +144,7 @@ def run_ppc(args: argparse.Namespace, script_args: List) -> None:
         token,
         timeout,
     )
-    jc.run(args.jobs, wrapper_args, args.memory, "PPC-" + program)
+    jc.run(args.jobs, wrapper_args, memory, "PPC-" + program)
     print("complete")
 
 

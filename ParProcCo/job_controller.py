@@ -11,6 +11,8 @@ from .slicer_interface import SlicerInterface
 from .utils import check_location, get_absolute_path
 from .program_wrapper import ProgramWrapper
 
+AGGREGATION_TIME = 60  # timeout per single file, in seconds
+
 
 class JobController:
     def __init__(
@@ -19,7 +21,7 @@ class JobController:
         program_wrapper: ProgramWrapper,
         output_dir_or_file: Path,
         partition: str,
-        extra_properties: Optional[dict[str,str]] = None,
+        extra_properties: Optional[dict[str, str]] = None,
         user_name: Optional[str] = None,
         user_token: Optional[str] = None,
         timeout: timedelta = timedelta(hours=2),
@@ -95,7 +97,10 @@ class JobController:
                 and out_file.is_file()
                 and self.output_file is not None
             ):
-                out_file.rename(self.output_file)
+                renamed_file = out_file.rename(self.output_file)
+                logging.debug(
+                    "Rename %s to %s: %s", out_file, renamed_file, renamed_file.exists()
+                )
         else:
             logging.error(
                 f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args},"
@@ -163,7 +168,7 @@ class JobController:
             self.cluster_output_dir,
             self.partition,
             self.extra_properties,
-            self.timeout,
+            timedelta(seconds=AGGREGATION_TIME * len(self.sliced_results)),
             self.user_name,
             self.user_token,
         )
