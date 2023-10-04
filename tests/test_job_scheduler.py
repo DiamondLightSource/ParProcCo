@@ -10,7 +10,7 @@ from pathlib import Path
 from parameterized import parameterized
 
 from example.simple_processing_mode import SimpleProcessingMode
-from ParProcCo.models.slurm_rest import JobProperties, JobSubmission, JobsResponse
+from ParProcCo.slurm.slurm_rest import JobProperties, JobSubmission, JobsResponse
 from ParProcCo.job_scheduler import JobScheduler, SLURMSTATE, StatusInfo
 from ParProcCo.test import TemporaryDirectory
 from .utils import (
@@ -26,7 +26,7 @@ slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
 
 
-def create_js(work_dir, out_dir, timeout=timedelta(hours=2)) -> JobScheduler:
+def create_js(work_dir, out_dir, timeout=timedelta(seconds=20)) -> JobScheduler:
     return JobScheduler(slurm_rest_url, work_dir, out_dir, PARTITION, timeout=timeout)
 
 
@@ -47,7 +47,7 @@ class TestJobScheduler(unittest.TestCase):
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
             js = create_js(working_directory, cluster_output_dir)
         self.assertTrue(
-            js._session.headers["X-SLURM-USER-NAME"] == os.environ["USER"],
+            js.client._session.headers["X-SLURM-USER-NAME"] == os.environ["USER"],
             msg="User name not set correctly\n",
         )
 
@@ -139,8 +139,8 @@ class TestJobScheduler(unittest.TestCase):
             processing_mode.set_parameters(slices)
 
             # submit jobs
-            scheduler = create_js(working_directory, cluster_output_dir)
-            scheduler.run(
+            js = create_js(working_directory, cluster_output_dir)
+            js.run(
                 processing_mode,
                 runner_script,
                 jobscript_args=runner_script_args,
@@ -380,7 +380,7 @@ class TestJobScheduler(unittest.TestCase):
         ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
             js = create_js(working_directory, cluster_output_dir)
-            jobs = js.get_jobs_response()
+            jobs = js.client.get_jobs_response()
         self.assertTrue(
             isinstance(jobs, JobsResponse),
             msg="jobs is not instance of JobsResponse\n",

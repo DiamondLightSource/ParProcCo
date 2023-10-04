@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from .job_scheduler import JobScheduler
 from .slicer_interface import SlicerInterface
-from .utils import check_location, get_absolute_path, get_slurm_token, get_user
+from .utils import check_location, get_absolute_path
 from .program_wrapper import ProgramWrapper
 
 
@@ -56,8 +56,8 @@ class JobController:
             self.working_directory = self.cluster_output_dir
         logging.debug("JC working dir: %s", self.working_directory)
         self.data_slicer: SlicerInterface
-        self.user_name = user_name if user_name else get_user()
-        self.user_token = user_token if user_token else get_slurm_token()
+        self.user_name = user_name
+        self.user_token = user_token
         self.timeout = timeout
         self.sliced_results: Optional[List[Path]] = None
         self.aggregated_result: Optional[Path] = None

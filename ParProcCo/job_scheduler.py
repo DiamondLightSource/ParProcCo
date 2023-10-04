@@ -1,27 +1,20 @@
 from __future__ import annotations
 
 import logging
-import requests
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Literal
-from pydantic import BaseModel
+from typing import Dict, List, Optional, Union
 
 from .scheduler_mode_interface import SchedulerModeInterface
-from .utils import check_jobscript_is_readable, get_slurm_token, get_user, get_ppc_dir
-from .models.slurm_rest import (
+from .utils import check_jobscript_is_readable, get_ppc_dir
+from .slurm.slurm_rest import (
     JobProperties,
-    JobsResponse,
-    JobResponseProperties,
     JobSubmission,
-    JobSubmissionResponse,
 )
-
-
-_SLURM_VERSION = "v0.0.38"
+from .slurm.slurm_client import SlurmClient
 
 
 class SLURMSTATE(Enum):
@@ -165,71 +158,16 @@ class JobScheduler:
             if working_directory
             else (self.cluster_output_dir if self.cluster_output_dir else Path.home())
         )
+        self.client = SlurmClient(url, user_name, user_token)
         self.partition = partition
         self.extra_properties = extra_properties
         self.scheduler_mode: SchedulerModeInterface
         self.memory: int
         self.cores: int
         self.job_name: str
-        self._slurm_endpoint_url = f"{url}/slurm/{_SLURM_VERSION}"
-        self._session = requests.Session()
 
-        self.user = user_name if user_name else get_user()
-        self.token = user_token if user_token else get_slurm_token()
-        self._session.headers["X-SLURM-USER-NAME"] = self.user
-        self._session.headers["X-SLURM-USER-TOKEN"] = self.token
-        self._session.headers["Content-Type"] = "application/json"
-
-    def _get(
-        self,
-        endpoint: str,
-        params: dict[str, Any] | None = None,
-        timeout: float | None = None,
-    ) -> requests.Response:
-        return self._session.get(
-            f"{self._slurm_endpoint_url}/{endpoint}", params=params, timeout=timeout
-        )
-
-    def _post(self, endpoint: str, data: BaseModel) -> requests.Response:
-        return self._session.post(
-            f"{self._slurm_endpoint_url}/{endpoint}",
-            data.model_dump_json(exclude_defaults=True),
-        )
-
-    def _delete(
-        self,
-        endpoint: str,
-        params: dict[str, Any] | None = None,
-        timeout: float | None = None,
-    ) -> requests.Response:
-        return self._session.delete(
-            f"{self._slurm_endpoint_url}/{endpoint}", params=params, timeout=timeout
-        )
-
-    def _get_response_json(self, response: requests.Response) -> dict:
-        response.raise_for_status()
-        try:
-            return response.json()
-        except:
-            logging.error("Response not json: %s", response.content, exc_info=True)
-            raise
-
-    def get_jobs_response(self, job_id: int | None = None) -> JobsResponse:
-        endpoint = f"job/{job_id}" if job_id is not None else "jobs"
-        response = self._get(endpoint)
-        return JobsResponse.model_validate(self._get_response_json(response))
-
-    def get_job(self, job_id: int) -> JobResponseProperties:
-        ji = self.get_jobs_response(job_id)
-        if ji.jobs:
-            n = len(ji.jobs)
-            if n == 1:
-                return ji.jobs[0]
-            if n > 1:
-                raise ValueError("Multiple jobs returned {ji.jobs}")
-        raise ValueError("No job info found for job id {job_id}")
-
-    def update_status_infos(self, job_info: JobResponseProperties) -> None:
+    def fetch_and_update_state(self, job_id: int) -> Optional[SLURMSTATE]:
+        job_info = self.client.get_job(job_id)
         job_id = job_info.job_id
         if job_id is None:
             raise ValueError(f"Job info has no job id: {job_info}")
@@ -258,19 +196,13 @@ class JobScheduler:
         else:
             time_to_dispatch = None
             wall_time = None
-        self.status_infos[job_id].slots = slots
-        self.status_infos[job_id].time_to_dispatch = time_to_dispatch
-        self.status_infos[job_id].wall_time = wall_time
-        self.status_infos[job_id].current_state = slurm_state
-        logging.info(f"Updating current state of {job_id} to {state}")
-
-    def submit_job(self, job_submission: JobSubmission) -> JobSubmissionResponse:
-        response = self._post("job/submit", job_submission)
-        return JobSubmissionResponse.model_validate(self._get_response_json(response))
-
-    def cancel_job(self, job_id: int) -> JobsResponse:
-        response = self._delete(f"job/{job_id}")
-        return JobsResponse.model_validate(self._get_response_json(response))
+        status_info = self.status_infos[job_id]
+        status_info.slots = slots
+        status_info.time_to_dispatch = time_to_dispatch
+        status_info.wall_time = wall_time
+        status_info.current_state = slurm_state
+        logging.debug(f"Updating current state of {job_id} to {state}")
+        return slurm_state
 
     def get_output_paths(self) -> List[Path]:
         return self.output_paths
@@ -330,9 +262,9 @@ class JobScheduler:
             self.status_infos = {}
             for i in job_indices:
                 submission = self.make_job_submission(i)
-                resp = self.submit_job(submission)
+                resp = self.client.submit_job(submission)
                 if resp.job_id is None:
-                    resp = self.submit_job(submission)
+                    resp = self.client.submit_job(submission)
                     if resp.job_id is None:
                         raise ValueError("Job submission failed", resp.errors)
                 self.status_infos[resp.job_id] = StatusInfo(
@@ -341,14 +273,14 @@ class JobScheduler:
                     int(time.time()),
                 )
                 logging.debug(
-                    f"job for jobscript {self.jobscript_path} and args {submission.job.argv}"
+                    f"Job for jobscript {self.jobscript_path} and args {submission.job.argv}"
                     f" has been submitted with id {resp.job_id}"
                 )
         except Exception:
             logging.error("Unknown error occurred during job submission", exc_info=True)
             raise
 
-    def make_job_submission(self, i: int, job=None, jobs=None) -> JobSubmission:
+    def make_job_submission(self, i: int) -> JobSubmission:
         if self.cluster_output_dir:
             if not self.cluster_output_dir.is_dir():
                 logging.debug(f"Making directory {self.cluster_output_dir}")
@@ -394,25 +326,19 @@ class JobScheduler:
 
         return JobSubmission(script=self.jobscript_command, job=job)
 
-    def fetch_and_update_state(self, job_id: int) -> JobResponseProperties:
-        ji = self.get_job(job_id)
-        self.update_status_infos(ji)
-        return ji
-
     def wait_all_jobs(
         self,
         job_ids: List[int],
-        required_state: Literal["ENDED"] | Literal["STARTING"],
+        state_group: STATEGROUP,
         timeout: int,
         sleep_time: int,
     ) -> list[int]:
         deadline = time.time() + timeout
         remaining_jobs = job_ids.copy()
-        state_group = STATEGROUP[required_state]
         while len(remaining_jobs) > 0 and time.time() <= deadline:
             for job_id in list(remaining_jobs):
-                self.fetch_and_update_state(job_id)
-                if self.status_infos[job_id].current_state in state_group:
+                current_state = self.fetch_and_update_state(job_id)
+                if current_state in state_group:
                     remaining_jobs.remove(job_id)
             if len(remaining_jobs) > 0:
                 time.sleep(sleep_time)
@@ -423,14 +349,16 @@ class JobScheduler:
     ) -> None:
         wait_begin_time = time.time()
         max_time = int(round(self.timeout.total_seconds()))
-        check_time = min(int(round(max_time / 2)), 60)  # smaller of half of max_time or one minute
+        check_time = min(
+            int(round(max_time / 2)), 60
+        )  # smaller of half of max_time or one minute
         logging.info("Jobs have check_time=%d and max_time=%d", check_time, max_time)
         try:
             remaining_jobs = list(self.status_infos)
             # Wait for jobs to start (timeout shouldn't include queue time)
             while len(remaining_jobs) > 0:
                 remaining_jobs = self.wait_all_jobs(
-                    remaining_jobs, STATEGROUP.STARTING.name, 60, 5
+                    remaining_jobs, STATEGROUP.STARTING, 60, 5
                 )
                 if len(remaining_jobs) > 0:
                     logging.info("Jobs left to start: %d", len(remaining_jobs))
@@ -447,7 +375,7 @@ class JobScheduler:
             while time.time() < deadline and len(running_jobs) > 0:
                 # Wait for jobs to complete
                 running_jobs = self.wait_all_jobs(
-                    running_jobs, STATEGROUP.ENDED.name, max_time, check_time
+                    running_jobs, STATEGROUP.ENDED, max_time, check_time
                 )
                 for job_id in list(running_jobs):
                     self.fetch_and_update_state(job_id)
@@ -455,7 +383,9 @@ class JobScheduler:
                         logging.debug("Removing(1) ended %d", job_id)
                         running_jobs.remove(job_id)
                 logging.info(
-                    "Jobs remaining = %d after %.3fs", len(running_jobs), time.time() - jobs_started_time
+                    "Jobs remaining = %d after %.3fs",
+                    len(running_jobs),
+                    time.time() - jobs_started_time,
                 )
             for job_id in list(running_jobs):
                 # Check state of remaining jobs immediately before cancelling
@@ -465,34 +395,36 @@ class JobScheduler:
                     running_jobs.remove(job_id)
                 else:
                     logging.warning("Job %d timed out. Terminating job now.", job_id)
-                    self.cancel_job(job_id)
+                    self.client.cancel_job(job_id)
             if len(running_jobs) > 0:
                 # Termination takes some time, wait a max of 2 mins
-                self.wait_all_jobs(running_jobs, STATEGROUP.ENDED.name, 120, 60)
+                self.wait_all_jobs(running_jobs, STATEGROUP.ENDED, 120, 60)
                 logging.info(
-                    "Jobs terminated = %d after %.3fs", len(running_jobs), time.time() - jobs_started_time
+                    "Jobs terminated = %d after %.3fs",
+                    len(running_jobs),
+                    time.time() - jobs_started_time,
                 )
         except Exception:
-            logging.error("Unknown error occurred running Slurm job", exc_info=True)
+            logging.error("Unknown error occurred running job", exc_info=True)
 
     def _report_job_info(self) -> None:
         # Iterate through jobs with logging to check individual job outcomes
         for job_id, status_info in self.status_infos.items():
-            logging.debug(f"Retrieving info for slurm job {job_id}")
+            logging.debug(f"Retrieving info for job {job_id}")
 
             # Check job states against expected possible options:
             state = status_info.current_state
             if state == SLURMSTATE.FAILED:
                 status_info.final_state = SLURMSTATE.FAILED
                 logging.error(
-                    f"Slurm job {job_id} failed."
+                    f"Job {job_id} failed."
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
 
             elif not status_info.output_path.is_file():
                 status_info.final_state = SLURMSTATE.NO_OUTPUT
                 logging.error(
-                    f"Slurm job {job_id} with args {self.jobscript_args} has not created"
+                    f"Job {job_id} with args {self.jobscript_args} has not created"
                     f" output file {status_info.output_path}"
                     f" State: {state}."
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
@@ -501,7 +433,7 @@ class JobScheduler:
             elif not self.timestamp_ok(status_info.output_path):
                 status_info.final_state = SLURMSTATE.OLD_OUTPUT_FILE
                 logging.error(
-                    f"Slurm job {job_id} with args {self.jobscript_args} has not created"
+                    f"Job {job_id} with args {self.jobscript_args} has not created"
                     f" a new output file {status_info.output_path}"
                     f" State: {state}."
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."

@@ -18,6 +18,8 @@ if sys.version_info < (3, 10):
 else:
     from importlib.metadata import entry_points  # @UnresolvedImport @Reimport
 
+from .slurm.slurm_client import get_slurm_token
+
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
     if not jobscript.is_file():
@@ -56,14 +58,6 @@ def get_filepath_on_path(filename: Optional[str]) -> Optional[Path]:
         return Path(filepath)
     except StopIteration:
         raise FileNotFoundError(f"{filename} not found on PATH {paths}")
-
-
-def get_slurm_token() -> str:
-    return os.environ["SLURM_JWT"].strip()
-
-
-def get_user() -> str:
-    return os.environ["USER"]
 
 
 def get_ppc_dir() -> str | None:

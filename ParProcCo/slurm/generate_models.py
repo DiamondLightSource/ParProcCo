@@ -3,8 +3,8 @@ import json
 import yaml
 
 
-def replace_refs(input: dict, version_prefix: str, db_version_prefix: str):
-    for k, v in input.items():
+def replace_refs(in_dict: dict, version_prefix: str, db_version_prefix: str):
+    for k, v in in_dict.items():
         if isinstance(v, dict):
             replace_refs(v, version_prefix, db_version_prefix)
         elif isinstance(v, list):
@@ -14,7 +14,7 @@ def replace_refs(input: dict, version_prefix: str, db_version_prefix: str):
         if k == "$ref":  # and isinstance(v, str):
             assert isinstance(v, str)
             nv = v.replace(db_version_prefix, "db").replace(version_prefix, "")
-            input[k] = nv
+            in_dict[k] = nv
 
 
 def filter_paths(paths: dict, version: str, slurm_only: bool):
