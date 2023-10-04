@@ -249,7 +249,7 @@ class TestJobScheduler(unittest.TestCase):
                     runner_script,
                     jobscript_args=runner_script_args,
                 )
-                self.assertEqual(len(context.output), 8)
+                self.assertEqual(len(context.output), 8, msg=f"{context.output}")
                 for warn_msg in context.output[:4]:
                     self.assertTrue(
                         warn_msg.endswith(" timed out. Terminating job now.")
