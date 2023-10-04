@@ -255,7 +255,6 @@ class JobScheduler:
         if dispatch_time and submit_time and end_time:
             time_to_dispatch = dispatch_time - submit_time
             wall_time = end_time - dispatch_time
-
         else:
             time_to_dispatch = None
             wall_time = None
@@ -404,24 +403,16 @@ class JobScheduler:
         self,
         job_ids: List[int],
         required_state: Literal["ENDED"] | Literal["STARTING"],
-        timeout: Optional[int],
-        sleep_time: Optional[int],
+        timeout: int,
+        sleep_time: int,
     ) -> list[int]:
-        ended = required_state == "ENDED"
-        if timeout is None:
-            timeout = 60 if ended else 15
-        if sleep_time is None:
-            sleep_time = 60 if ended else 5
-        wait_until = time.time() + timeout
+        deadline = time.time() + timeout
         remaining_jobs = job_ids.copy()
-        while len(remaining_jobs) > 0 and time.time() <= wait_until:
+        state_group = STATEGROUP[required_state]
+        while len(remaining_jobs) > 0 and time.time() <= deadline:
             for job_id in list(remaining_jobs):
                 self.fetch_and_update_state(job_id)
-                # check if current_state is in STATEGROUP.ENDED or not in STATEGROUP.STARTING
-                if (
-                    self.status_infos[job_id].current_state
-                    in STATEGROUP[required_state]
-                ) == ended:
+                if self.status_infos[job_id].current_state in state_group:
                     remaining_jobs.remove(job_id)
             if len(remaining_jobs) > 0:
                 time.sleep(sleep_time)
@@ -430,9 +421,9 @@ class JobScheduler:
     def _wait_for_jobs(
         self,
     ) -> None:
-        now = time.time()
+        wait_begin_time = time.time()
         max_time = int(round(self.timeout.total_seconds()))
-        check_time = min(int(round(max_time / 2)), 60)  # half of max_time or one minute
+        check_time = min(int(round(max_time / 2)), 60)  # smaller of half of max_time or one minute
         logging.info("Jobs have check_time=%d and max_time=%d", check_time, max_time)
         try:
             remaining_jobs = list(self.status_infos)
@@ -442,14 +433,18 @@ class JobScheduler:
                     remaining_jobs, STATEGROUP.STARTING.name, 60, 5
                 )
                 if len(remaining_jobs) > 0:
-                    logging.info(f"Jobs left to start: {remaining_jobs}")
-            begin_time = time.time()
+                    logging.info("Jobs left to start: %d", len(remaining_jobs))
+
+            jobs_started_time = time.time()
             running_jobs = [
                 job_id
                 for job_id, status_info in self.status_infos.items()
                 if status_info.current_state not in STATEGROUP.ENDED
             ]
-            while time.time() < now + max_time and len(running_jobs) > 0:
+            logging.info("All jobs started: %d still running", len(running_jobs))
+
+            deadline = wait_begin_time + max_time
+            while time.time() < deadline and len(running_jobs) > 0:
                 # Wait for jobs to complete
                 running_jobs = self.wait_all_jobs(
                     running_jobs, STATEGROUP.ENDED.name, max_time, check_time
@@ -457,26 +452,28 @@ class JobScheduler:
                 for job_id in list(running_jobs):
                     self.fetch_and_update_state(job_id)
                     if self.status_infos[job_id].current_state in STATEGROUP.ENDED:
+                        logging.debug("Removing(1) ended %d", job_id)
                         running_jobs.remove(job_id)
                 logging.info(
-                    f"Jobs remaining = {running_jobs} after {time.time() - begin_time}s"
+                    "Jobs remaining = %d after %.3fs", len(running_jobs), time.time() - jobs_started_time
                 )
             for job_id in list(running_jobs):
                 # Check state of remaining jobs immediately before cancelling
                 self.fetch_and_update_state(job_id)
                 if self.status_infos[job_id].current_state in STATEGROUP.ENDED:
+                    logging.debug("Removing(2) ended %d", job_id)
                     running_jobs.remove(job_id)
                 else:
-                    logging.warning(f"Job {job_id} timed out. Terminating job now.")
+                    logging.warning("Job %d timed out. Terminating job now.", job_id)
                     self.cancel_job(job_id)
             if len(running_jobs) > 0:
                 # Termination takes some time, wait a max of 2 mins
                 self.wait_all_jobs(running_jobs, STATEGROUP.ENDED.name, 120, 60)
                 logging.info(
-                    f"Jobs terminated = {len(running_jobs)} after {time.time() - begin_time}s"
+                    "Jobs terminated = %d after %.3fs", len(running_jobs), time.time() - jobs_started_time
                 )
         except Exception:
-            logging.error("Unknown error occurred running slurm job", exc_info=True)
+            logging.error("Unknown error occurred running Slurm job", exc_info=True)
 
     def _report_job_info(self) -> None:
         # Iterate through jobs with logging to check individual job outcomes
