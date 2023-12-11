@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 from copy import deepcopy
 
-from .job_schedling_information import JobSchedulingInformation
+from .job_scheduling_information import JobSchedulingInformation
 from .scheduler_mode_interface import SchedulerModeInterface
 from .utils import check_jobscript_is_readable, get_ppc_dir
 from .slurm.slurm_rest import (
@@ -407,7 +407,7 @@ class JobScheduler:
             elif not status_info.output_path.is_file():
                 status_info.final_state = SLURMSTATE.NO_OUTPUT
                 logging.error(
-                    f"Job {job_id} with args {self.jobscript_args} has not created"
+                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments} has not created"
                     f" output file {status_info.output_path}"
                     f" State: {state}."
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
@@ -416,7 +416,7 @@ class JobScheduler:
             elif not self.timestamp_ok(status_info.output_path):
                 status_info.final_state = SLURMSTATE.OLD_OUTPUT_FILE
                 logging.error(
-                    f"Job {job_id} with args {self.jobscript_args} has not created"
+                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments} has not created"
                     f" a new output file {status_info.output_path}"
                     f" State: {state}."
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
@@ -432,7 +432,7 @@ class JobScheduler:
                 else:
                     cpu_time = "n/a"
                 logging.info(
-                    f"Job {job_id} with args {self.jobscript_args} completed."
+                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments} completed."
                     f" CPU time: {cpu_time}; Slots: {status_info.slots}"
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
@@ -440,7 +440,7 @@ class JobScheduler:
                 status_info.final_state = state
                 logging.error(
                     f"Job {job_id} ended with job state {status_info.final_state}"
-                    f" Args {self.jobscript_args};"
+                    f" Args {job_scheduling_info.job_script_arguments};"
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
 

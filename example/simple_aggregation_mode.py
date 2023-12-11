@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
-from typing import List, Optional, Tuple
+from copy import deepcopy
+from typing import TYPE_CHECKING
 
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
 from ParProcCo.utils import (
@@ -12,37 +12,52 @@ from ParProcCo.utils import (
     get_absolute_path,
 )
 
+if TYPE_CHECKING:
+    from typing import Any
+    from ParProcCo.job_scheduling_information import JobSchedulingInformation
+
 
 class SimpleAggregationMode(SchedulerModeInterface):
-    def __init__(self, program: Path) -> None:
-        self.program_name = program.name
-        self.cores = 1
+    def create_slice_jobs(
+        self,
+        slice_params: list[Any] | None,
+        job_scheduling_information: JobSchedulingInformation,
+        t: datetime,
+    ) -> list[JobSchedulingInformation]:
+        """A basic implementation of create_slice_jobs"""
+        if slice_params is None:
+            return []
+        return [
+            self.create_slice_job(
+                slice_params=slice_params,
+                job_scheduling_information=deepcopy(job_scheduling_information),
+                t=t,
+            )
+        ]
 
-    def set_parameters(self, sliced_results: List) -> None:
-        """Overrides SchedulerModeInterface.set_parameters"""
-        self.sliced_results = [str(res) for res in sliced_results]
-        self.number_jobs: int = 1
-
-    def generate_output_paths(
-        self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime
-    ) -> Tuple[str, str, str]:
-        """Overrides SchedulerModeInterface.generate_output_paths"""
+    def create_slice_job(
+        self,
+        slice_params: list[Any],
+        job_scheduling_information: JobSchedulingInformation,
+        t: datetime,
+    ) -> JobSchedulingInformation:
         timestamp = format_timestamp(t)
-        output_file = f"aggregated_results_{timestamp}.txt"
-        output_fp = str(output_dir / output_file) if output_dir else output_file
-        stdout_fp = str(error_dir / f"out_{timestamp}_aggregated")
-        stderr_fp = str(error_dir / f"err_{timestamp}_aggregated")
-        return output_fp, stdout_fp, stderr_fp
-
-    def generate_args(
-        self, i: int, memory: str, cores: int, jobscript_args: List[str], output_fp: str
-    ) -> Tuple[str, ...]:
-        """Overrides SchedulerModeInterface.generate_args"""
-        assert i == 0
-        jobscript = str(
+        job_scheduling_information.output_filename = (
+            f"aggregated_results_{timestamp}.nxs"
+        )
+        job_scheduling_information.stdout_filename = f"out_{timestamp}_aggregated"
+        job_scheduling_information.stderr_filename = f"err_{timestamp}_aggregated"
+        job_script = str(
             check_jobscript_is_readable(
-                check_location(get_absolute_path(jobscript_args[0]))
+                check_location(
+                    get_absolute_path(
+                        job_scheduling_information.job_script_arguments[0]
+                    )
+                )
             )
         )
-        args = tuple([jobscript, "--output", output_fp] + self.sliced_results)
-        return args
+        job_scheduling_information.job_script_arguments = tuple(
+            [job_script, "--output", job_scheduling_information.get_output_path()]
+            + [str(x) for x in slice_params]
+        )
+        return job_scheduling_information

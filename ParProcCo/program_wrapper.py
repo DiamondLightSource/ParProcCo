@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from .job_schedling_information import JobSchedulingInformation
+from .job_scheduling_information import JobSchedulingInformation
 from .slicer_interface import SlicerInterface
 from .scheduler_mode_interface import SchedulerModeInterface
 
 from typing import TYPE_CHECKING
 
-if TypeError:
+if TYPE_CHECKING:
     from datetime import datetime
+    from pathlib import Path
 
 
 class ProgramWrapper:
@@ -21,9 +22,6 @@ class ProgramWrapper:
         self.slicer = slicer
         self.aggregating_mode = aggregating_mode
 
-    def set_cores(self, cores: int):
-        self.processing_mode.cores = cores
-
     def create_slices(
         self, number_jobs: int, stop: int | None = None
     ) -> list[slice] | None:
@@ -35,16 +33,13 @@ class ProgramWrapper:
         self,
         job_scheduling_information: JobSchedulingInformation,
         t: datetime,
-        number_of_jobs: int,
-        stop: int | None = None,
+        slice_params: list[slice] | None,
     ) -> list[JobSchedulingInformation]:
-        if self.processing_mode is None or self.slicer is None:
+        if self.processing_mode is None or slice_params is None:
             return [job_scheduling_information]
 
-        slice_params = self.slicer.slice(number_of_jobs, stop=stop)
-
         return self.processing_mode.create_slice_jobs(
-            sliced_results=slice_params,
+            slice_params=slice_params,
             job_scheduling_information=job_scheduling_information,
             t=t,
         )
@@ -53,16 +48,13 @@ class ProgramWrapper:
         self,
         job_scheduling_information: JobSchedulingInformation,
         t: datetime,
-        number_of_jobs: int,
-        stop: int | None = None,
+        slice_params: list[Path] | None,
     ) -> list[JobSchedulingInformation] | None:
-        if self.aggregating_mode is None or self.slicer is None:
+        if self.aggregating_mode is None or slice_params is None:
             return None
 
-        slice_params = self.slicer.slice(number_of_jobs, stop=stop)
-
         return self.aggregating_mode.create_slice_jobs(
-            sliced_results=slice_params,
+            slice_params=slice_params,
             job_scheduling_information=job_scheduling_information,
             t=t,
         )

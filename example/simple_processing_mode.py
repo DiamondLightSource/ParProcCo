@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
-from typing import List, Optional, Tuple
+from copy import deepcopy
 
 from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
 from ParProcCo.utils import (
@@ -13,52 +12,74 @@ from ParProcCo.utils import (
     get_absolute_path,
 )
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
+    from ParProcCo.job_scheduling_information import JobSchedulingInformation
+
 
 class SimpleProcessingMode(SchedulerModeInterface):
-    def __init__(self, program: Optional[Path] = None) -> None:
-        self.program_name: Optional[str] = None if program is None else program.name
-        self.cores = 1
+    def __init__(self) -> None:
         self.allowed_modules = ("python",)
 
-    def set_parameters(self, slice_params: List[slice]) -> None:
-        """Overrides SchedulerModeInterface.set_parameters"""
-        self.slice_params = slice_params
-        self.number_jobs = len(slice_params)
+    def create_slice_jobs(
+        self,
+        slice_params: list[Any] | None,
+        job_scheduling_information: JobSchedulingInformation,
+        t: datetime,
+    ) -> list[JobSchedulingInformation]:
+        """A basic implementation of create_slice_jobs"""
+        if slice_params is None:
+            return [deepcopy(job_scheduling_information)]
+        number_of_jobs = len(slice_params)
+        return [
+            self.create_slice_job(
+                i=i,
+                slice_params=slice_params,
+                job_scheduling_information=deepcopy(job_scheduling_information),
+                t=t,
+            )
+            for i in range(number_of_jobs)
+        ]
 
-    def generate_output_paths(
-        self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime
-    ) -> Tuple[str, str, str]:
-        """Overrides SchedulerModeInterface.generate_output_paths"""
+    def create_slice_job(
+        self,
+        i: int,
+        slice_params: list[slice],
+        job_scheduling_information: JobSchedulingInformation,
+        t: datetime,
+    ) -> JobSchedulingInformation:
+        # Output paths:
         timestamp = format_timestamp(t)
         output_file = f"out_{i}"
-        output_fp = str(output_dir / output_file) if output_dir else output_file
-        stdout_fp = str(error_dir / f"out_{timestamp}_{i}")
-        stderr_fp = str(error_dir / f"err_{timestamp}_{i}")
-        return output_fp, stdout_fp, stderr_fp
+        job_scheduling_information.output_path = (
+            str(job_scheduling_information.output_path / output_file)
+            if job_scheduling_information.output_path
+            else output_file
+        )
+        job_scheduling_information.stdout_filename = f"out_{timestamp}_{i}"
+        job_scheduling_information.sterr_filename = f"err_{timestamp}_{i}"
 
-    def generate_args(
-        self, i: int, memory: int, cores: int, jobscript_args: List[str], output_fp: str
-    ) -> Tuple[str, ...]:
-        """Overrides SchedulerModeInterface.generate_args"""
-        assert i < self.number_jobs
-        slice_param = slice_to_string(self.slice_params[i])
-        jobscript = str(
-            check_jobscript_is_readable(
-                check_location(get_absolute_path(jobscript_args[0]))
+        # Arguments:
+        slice_param = slice_to_string(slice_params[i])
+        job_script = check_jobscript_is_readable(
+            check_location(
+                get_absolute_path(job_scheduling_information.job_script_arguments[0])
             )
         )
-        args = tuple(
+        job_scheduling_information.job_script_arguments = tuple(
             [
-                jobscript,
+                job_script,
                 "--memory",
-                str(memory),
+                str(job_scheduling_information.job_resources.memory),
                 "--cores",
-                str(cores),
+                str(job_scheduling_information.job_resources.cores),
                 "--output",
-                output_fp,
+                job_scheduling_information.output_path,
                 "--images",
                 slice_param,
             ]
-            + jobscript_args[1:]
+            + job_scheduling_information.job_script_arguments[1:]
         )
-        return args
+        return job_scheduling_information

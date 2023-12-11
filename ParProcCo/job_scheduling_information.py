@@ -5,9 +5,6 @@ from pathlib import Path
 from datetime import timedelta, datetime
 from dataclasses import dataclass, field
 
-from .program_wrapper import ProgramWrapper
-from .slicer_interface import SlicerInterface
-from .scheduler_mode_interface import SchedulerModeInterface
 from .utils import check_jobscript_is_readable, get_ppc_dir, format_timestamp
 
 
@@ -15,8 +12,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .job_scheduler import StatusInfo
-
-# TODO: Perhaps JobSchedulingInformation should be passed to a ProgramWrapper, with a default one that just reads from the values given, and complex ones that do slicing etc?
 
 
 @dataclass
@@ -28,7 +23,7 @@ class JobResources:
 
 
 @dataclass
-class JobSchedulingInformation(BaseModel):
+class JobSchedulingInformation:
     job_name: str
     job_script_path: Path | None
     job_resources: JobResources
@@ -39,22 +34,28 @@ class JobSchedulingInformation(BaseModel):
     stderr_filename: str | None = None
     stdout_filename: str | None = None
     working_directory: Path | None = None
-    output_path: Path | None = None
+    output_dir: Path | None = None
+    output_filename: str | None = None
 
     def __post_init__(self):
-        self.job_script_path = check_jobscript_is_readable(self.job_script_path)
-        self.job_env = (
-            self.job_env if self.job_env else {"ParProcCo": "0"}
-        )  # job_env cannot be empty dict
-        test_ppc_dir = get_ppc_dir()
-        if test_ppc_dir:
-            self.job_env.update(TEST_PPC_DIR=test_ppc_dir)
-
+        self.set_job_script_path(self.job_script_path)  # For validation
+        self.set_job_env(self.job_env)  # For validation
         # To be updated when submitted, not on creation
         self.start_time: datetime | None = None
         self.job_id: int | None = None
         self.status_info: StatusInfo | None = None
         self.completion_status: bool = False
+
+    def set_job_script_path(self, path: Path) -> None:
+        self.job_script_path = check_jobscript_is_readable(path)
+
+    def set_job_env(self, job_env: dict[str, str] | None) -> None:
+        self.job_env = (
+            job_env if job_env else {"ParProcCo": "0"}
+        )  # job_env cannot be empty dict
+        test_ppc_dir = get_ppc_dir()
+        if test_ppc_dir:
+            self.job_env.update(TEST_PPC_DIR=test_ppc_dir)
 
     def update_start_time(self, start_time: datetime | None = None) -> None:
         if start_time is None:
@@ -69,6 +70,13 @@ class JobSchedulingInformation(BaseModel):
 
     def set_completion_status(self, completion_status: bool) -> None:
         self.completion_status = completion_status
+
+    def get_output_path(self) -> Path | None:
+        if self.output_filename is None:
+            return None
+        if self.output_dir is None:
+            return Path(self.output_filename)
+        return self.output_dir / self.output_filename
 
     # TODO: make this a part of a wrapper that can be set on a per-job basis?
     def get_stdout_path(self) -> str:
