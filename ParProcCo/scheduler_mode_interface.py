@@ -1,34 +1,41 @@
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-from typing import List, Optional, Tuple
+from copy import deepcopy
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
+    from .job_schedling_information import JobSchedulingInformation
 
 
 class SchedulerModeInterface:
     def __init__(self) -> None:
-        self.number_jobs: int
-        self.cores: int
-        self.program_name: Optional[str]
-        self.allowed_modules: Optional[Tuple[str, ...]] = None
+        self.allowed_modules: tuple[str, ...] | None = None
 
-    def set_parameters(self, sliced_results: List) -> None:
-        """Sets parameters for generating jobscript args for use within JobScheduler"""
-        raise NotImplementedError
-
-    def generate_output_paths(
-        self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime
-    ) -> Tuple[str, str, str]:
-        """Generates output, stdout and stderr file paths for job template within JobScheduler"""
-        raise NotImplementedError
-
-    def generate_args(
+    def create_slice_jobs(
         self,
-        job_number: int,
-        memory: int,
-        cores: int,
-        jobscript_args: List[str],
-        output_fp: str,
-    ) -> Tuple[str, ...]:
-        """Generates jobscript args for use within JobScheduler"""
+        sliced_results: list[slice] | None,
+        job_scheduling_information: JobSchedulingInformation,
+        t: datetime,
+    ) -> list[JobSchedulingInformation]:
+        if sliced_results is None:
+            return [deepcopy(job_scheduling_information)]
+        return [
+            self.create_slice_job(
+                i=i,
+                slice_result=res,
+                job_scheduling_information=deepcopy(job_scheduling_information),
+                t=t,
+            )
+            for i, res in enumerate(sliced_results)
+        ]
+
+    def create_slice_job(
+        self,
+        i: int,
+        slice_result: slice,
+        job_scheduling_information: JobSchedulingInformation,
+        t: datetime,
+    ) -> JobSchedulingInformation:
         raise NotImplementedError

@@ -1,23 +1,21 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
-from pathlib import Path
-
+from .job_schedling_information import JobSchedulingInformation
 from .slicer_interface import SlicerInterface
 from .scheduler_mode_interface import SchedulerModeInterface
-from .utils import get_filepath_on_path
 
-import logging
-import os
+from typing import TYPE_CHECKING
+
+if TypeError:
+    from datetime import datetime
 
 
 class ProgramWrapper:
     def __init__(
         self,
-        processing_mode: SchedulerModeInterface,
-        slicer: Optional[SlicerInterface] = None,
-        aggregating_mode: Optional[SchedulerModeInterface] = None,
+        processing_mode: SchedulerModeInterface | None = None,
+        slicer: SlicerInterface | None = None,
+        aggregating_mode: SchedulerModeInterface | None = None,
     ):
         self.processing_mode = processing_mode
         self.slicer = slicer
@@ -26,58 +24,45 @@ class ProgramWrapper:
     def set_cores(self, cores: int):
         self.processing_mode.cores = cores
 
-    def get_args(self, args: List[str], debug: bool = False):
-        """
-        Get arguments given passed-in arguments
-        args  -- given arguments
-        debug -- if True, add debug option to arguments if available for wrapped program
-        """
-        return args
-
     def create_slices(
-        self, number_jobs: int, stop: Optional[int] = None
-    ) -> List[Optional[slice]]:
+        self, number_jobs: int, stop: int | None = None
+    ) -> list[slice] | None:
         if number_jobs == 1 or self.slicer is None:
-            return [None]
+            return None
         return self.slicer.slice(number_jobs, stop)
 
-    def get_output(
-        self, output: Optional[str], _program_args: Optional[List[str]]
-    ) -> Optional[Path]:
-        return Path(output) if output else None
+    def create_sliced_processing_jobs(
+        self,
+        job_scheduling_information: JobSchedulingInformation,
+        t: datetime,
+        number_of_jobs: int,
+        stop: int | None = None,
+    ) -> list[JobSchedulingInformation]:
+        if self.processing_mode is None or self.slicer is None:
+            return [job_scheduling_information]
 
-    def get_aggregate_script(self) -> Optional[Path]:
-        return (
-            get_filepath_on_path(self.aggregating_mode.program_name)
-            if self.aggregating_mode
-            else None
+        slice_params = self.slicer.slice(number_of_jobs, stop=stop)
+
+        return self.processing_mode.create_slice_jobs(
+            sliced_results=slice_params,
+            job_scheduling_information=job_scheduling_information,
+            t=t,
         )
 
-    def get_cluster_runner_script(self) -> Optional[Path]:
-        return get_filepath_on_path(self.processing_mode.program_name)
+    def create_sliced_aggregating_jobs(
+        self,
+        job_scheduling_information: JobSchedulingInformation,
+        t: datetime,
+        number_of_jobs: int,
+        stop: int | None = None,
+    ) -> list[JobSchedulingInformation] | None:
+        if self.aggregating_mode is None or self.slicer is None:
+            return None
 
-    def get_environment(self) -> Optional[Dict[str, str]]:
-        test_modules = os.getenv("TEST_PPC_MODULES")
-        if test_modules:
-            return {"PPC_MODULES": test_modules}
+        slice_params = self.slicer.slice(number_of_jobs, stop=stop)
 
-        loaded_modules = os.getenv("LOADEDMODULES", "").split(":")
-        logging.debug("Modules are %s", loaded_modules)
-        allowed = self.processing_mode.allowed_modules
-        logging.debug("Allowed include %s from %s", allowed, type(self.processing_mode))
-        ppc_modules = []
-        if allowed:
-            for m in loaded_modules:
-                if m and m.split("/")[0] in allowed:
-                    ppc_modules.append(m)
-        else:
-            for m in reversed(loaded_modules):
-                if m:
-                    ppc_modules.append(m)
-                    break
-
-        logging.debug("Passing through %s", ppc_modules)
-        if ppc_modules:
-            return {"PPC_MODULES": ":".join(ppc_modules)}
-
-        return None
+        return self.aggregating_mode.create_slice_jobs(
+            sliced_results=slice_params,
+            job_scheduling_information=job_scheduling_information,
+            t=t,
+        )

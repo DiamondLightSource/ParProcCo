@@ -7,7 +7,9 @@ from datetime import datetime, timedelta
 from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, List, Optional, Union
+from copy import deepcopy
 
+from .job_schedling_information import JobSchedulingInformation
 from .scheduler_mode_interface import SchedulerModeInterface
 from .utils import check_jobscript_is_readable, get_ppc_dir
 from .slurm.slurm_rest import (
@@ -130,44 +132,23 @@ class JobScheduler:
     def __init__(
         self,
         url: str,
-        working_directory: Optional[Union[Path, str]],
-        cluster_output_dir: Optional[Union[Path, str]],
         partition: str,
-        extra_properties: Optional[dict[str, str]] = None,
-        timeout: timedelta = timedelta(hours=2),
+        cluster_output_dir: Optional[Union[Path, str]],
         user_name: Optional[str] = None,
         user_token: Optional[str] = None,
     ):
         """JobScheduler can be used for cluster job submissions"""
-        self.batch_number = 0
+        self.job_history: list[dict[int, JobSchedulingInformation]] = []
+        self.client = SlurmClient(url, user_name, user_token)
+        self.partition = partition
         self.cluster_output_dir: Optional[Path] = (
             Path(cluster_output_dir) if cluster_output_dir else None
         )
-        self.job_completion_status: Dict[str, bool] = {}
-        self.job_history: Dict[int, Dict[int, StatusInfo]] = {}
-        self.jobscript_path: Path
-        self.jobscript_command: str
-        self.job_env: Dict[str, str]
-        self.jobscript_args: List
-        self.output_paths: List[Path] = []
-        self.start_time = datetime.now()
-        self.status_infos: Dict[int, StatusInfo]
-        self.timeout = timeout
-        self.working_directory = (
-            Path(working_directory)
-            if working_directory
-            else (self.cluster_output_dir if self.cluster_output_dir else Path.home())
-        )
-        self.client = SlurmClient(url, user_name, user_token)
-        self.partition = partition
-        self.extra_properties = extra_properties
-        self.scheduler_mode: SchedulerModeInterface
-        self.memory: int
-        self.cores: int
-        self.job_name: str
 
-    def fetch_and_update_state(self, job_id: int) -> Optional[SLURMSTATE]:
-        job_info = self.client.get_job(job_id)
+    def fetch_and_update_state(
+        self, job_scheduling_info: JobSchedulingInformation
+    ) -> Optional[SLURMSTATE]:
+        job_info = self.client.get_job(job_scheduling_info.job_id)
         job_id = job_info.job_id
         if job_id is None:
             raise ValueError(f"Job info has no job id: {job_info}")
@@ -196,7 +177,7 @@ class JobScheduler:
         else:
             time_to_dispatch = None
             wall_time = None
-        status_info = self.status_infos[job_id]
+        status_info = job_scheduling_info.status_info
         status_info.slots = slots
         status_info.time_to_dispatch = time_to_dispatch
         status_info.wall_time = wall_time
@@ -204,11 +185,19 @@ class JobScheduler:
         logging.debug(f"Updating current state of {job_id} to {state}")
         return slurm_state
 
-    def get_output_paths(self) -> List[Path]:
-        return self.output_paths
+    def get_output_paths(
+        self, job_scheduling_info_list: list[JobSchedulingInformation]
+    ) -> tuple[Path]:
+        return tuple(
+            info.output_path
+            for info in job_scheduling_info_list
+            if info.output_path is not None
+        )
 
-    def get_success(self) -> bool:
-        return all(self.job_completion_status.values())
+    def get_success(
+        self, job_scheduling_info_list: list[JobSchedulingInformation]
+    ) -> bool:
+        return all((info.completion_status for info in job_scheduling_info_list))
 
     def timestamp_ok(self, output: Path) -> bool:
         mod_time = datetime.fromtimestamp(output.stat().st_mtime)
@@ -218,134 +207,116 @@ class JobScheduler:
 
     def run(
         self,
-        scheduler_mode: SchedulerModeInterface,
-        jobscript_path: Path,
-        job_env: Optional[Dict[str, str]] = None,
-        memory: int = 4000,
-        cores: int = 6,
-        jobscript_args: Optional[List] = None,
-        job_name: str = "ParProcCo_job",
+        job_scheduling_info_list: list[JobSchedulingInformation],
     ) -> bool:
-        self.jobscript_path = check_jobscript_is_readable(jobscript_path)
-        self.scheduler_mode = scheduler_mode
-        self.job_env = (
-            job_env if job_env else {"ParProcCo": "0"}
-        )  # job_env cannot be empty dict
-        test_ppc_dir = get_ppc_dir()
-        if test_ppc_dir:
-            self.job_env.update(TEST_PPC_DIR=test_ppc_dir)
-        self.memory = memory
-        self.cores = cores
-        self.job_name = job_name
-        job_indices = list(range(scheduler_mode.number_jobs))
-        if jobscript_args is None:
-            jobscript_args = []
-        self.jobscript_args = jobscript_args
-        self.job_history[self.batch_number] = {}
-        self.job_completion_status = {
-            str(i): False for i in range(scheduler_mode.number_jobs)
-        }
-        self.output_paths.clear()
-        return self._submit_and_monitor(job_indices)
+        return self._submit_and_monitor(job_scheduling_info_list)
 
-    def _submit_and_monitor(self, job_indices: List[int]) -> bool:
-        self._submit_jobs(job_indices)
-        self._wait_for_jobs()
-        self._report_job_info()
-        return self.get_success()
+    def _submit_and_monitor(
+        self, job_scheduling_info_list: list[JobSchedulingInformation]
+    ) -> bool:
+        self._submit_jobs(job_scheduling_info_list)
+        self._wait_for_jobs(job_scheduling_info_list)
+        self._report_job_info(job_scheduling_info_list)
+        return self.get_success(job_scheduling_info_list)
 
-    def _submit_jobs(self, job_indices: List[int]) -> None:
+    def _submit_jobs(
+        self, job_scheduling_info_list: list[JobSchedulingInformation]
+    ) -> None:
         logging.debug(
-            f"Submitting jobs on cluster for jobscript {self.jobscript_path} and args {self.jobscript_args}"
+            f"Submitting jobs on cluster for job script {job_scheduling_info_list.job_script_path} and args {job_scheduling_info_list.job_script_arguments}"
         )
+        start_time = datetime.now()
         try:
-            self.status_infos = {}
-            for i in job_indices:
-                submission = self.make_job_submission(i)
+            for job_scheduling_info in job_scheduling_info_list:
+                job_scheduling_info.start_time = start_time
+                submission = self.make_job_submission(job_scheduling_info)
                 resp = self.client.submit_job(submission)
                 if resp.job_id is None:
                     resp = self.client.submit_job(submission)
                     if resp.job_id is None:
                         raise ValueError("Job submission failed", resp.errors)
-                self.status_infos[resp.job_id] = StatusInfo(
-                    Path(submission.job.standard_output),
-                    i,
-                    int(time.time()),
+                job_scheduling_info.set_job_id(resp.job_id)
+                job_scheduling_info.update_status_info(
+                    StatusInfo(
+                        Path(submission.job.standard_output),
+                        int(time.time()),
+                    )
                 )
                 logging.debug(
-                    f"Job for jobscript {self.jobscript_path} and args {submission.job.argv}"
+                    f"Job for job script {job_scheduling_info_list.job_script_path} and args {submission.job.argv}"
                     f" has been submitted with id {resp.job_id}"
                 )
         except Exception:
             logging.error("Unknown error occurred during job submission", exc_info=True)
             raise
 
-    def make_job_submission(self, i: int) -> JobSubmission:
-        if self.cluster_output_dir:
-            if not self.cluster_output_dir.is_dir():
-                logging.debug(f"Making directory {self.cluster_output_dir}")
-                self.cluster_output_dir.mkdir(exist_ok=True, parents=True)
+    def make_job_submission(
+        self, job_scheduling_info: JobSchedulingInformation
+    ) -> JobSubmission:
+        if job_scheduling_info.log_directory is None:
+            if self.cluster_output_dir:
+                if not self.cluster_output_dir.is_dir():
+                    logging.debug(f"Making directory {self.cluster_output_dir}")
+                    self.cluster_output_dir.mkdir(exist_ok=True, parents=True)
+                else:
+                    logging.debug(f"Directory {self.cluster_output_dir} already exists")
+
+                error_dir = self.cluster_output_dir / "cluster_logs"
             else:
-                logging.debug(f"Directory {self.cluster_output_dir} already exists")
+                error_dir = self.working_directory / "cluster_logs"
+            if not error_dir.is_dir():
+                logging.debug(f"Making directory {error_dir}")
+                error_dir.mkdir(exist_ok=True, parents=True)
+            else:
+                logging.debug(f"Directory {error_dir} already exists")
+            job_scheduling_info.log_directory = error_dir
 
-            error_dir = self.cluster_output_dir / "cluster_logs"
-        else:
-            error_dir = self.working_directory / "cluster_logs"
-        if not error_dir.is_dir():
-            logging.debug(f"Making directory {error_dir}")
-            error_dir.mkdir(exist_ok=True, parents=True)
-        else:
-            logging.debug(f"Directory {error_dir} already exists")
-
-        output_fp, stdout_fp, stderr_fp = self.scheduler_mode.generate_output_paths(
-            self.cluster_output_dir, error_dir, i, self.start_time
+        job_script_command = " ".join(
+            [
+                f"#!/bin/bash\n{job_scheduling_info.job_script_path}",
+                *job_scheduling_info.job_script_arguments,
+            ]
         )
-        if output_fp and output_fp not in self.output_paths:
-            self.output_paths.append(Path(output_fp))
-        args = self.scheduler_mode.generate_args(
-            i, self.memory, self.cores, self.jobscript_args, output_fp
-        )
-        self.jobscript_command = " ".join(
-            [f"#!/bin/bash\n{self.jobscript_path}", *args]
-        )
-        logging.info(f"creating submission with command: {self.jobscript_command}")
+        logging.info(f"creating submission with command: {job_script_command}")
+        job_scheduling_info.update_start_time()
         job = JobProperties(
-            name=self.job_name,
+            name=job_scheduling_info.job_name,
             partition=self.partition,
-            cpus_per_task=self.cores,
-            environment=self.job_env,
-            memory_per_cpu=self.memory,
+            cpus_per_task=job_scheduling_info.job_resources.cores,
+            gpus_per_task=job_scheduling_info.job_resources.gpus,
+            environment=job_scheduling_info.job_env,
+            memory_per_cpu=job_scheduling_info.job_resources.memory,
             current_working_directory=str(self.working_directory),
-            standard_output=stdout_fp,
-            standard_error=stderr_fp,
+            standard_output=job_scheduling_info.get_stdout_path(),
+            standard_error=job_scheduling_info.get_stderr_path(),
             get_user_environment="10L",
         )
-        if self.extra_properties:
-            for k, v in self.extra_properties.items():
+        if job_scheduling_info.extra_properties:
+            for k, v in job_scheduling_info.extra_properties.items():
                 setattr(job, k, v)
 
-        return JobSubmission(script=self.jobscript_command, job=job)
+        return JobSubmission(script=job_script_command, job=job)
 
     def wait_all_jobs(
         self,
-        job_ids: List[int],
+        job_scheduling_info_list: list[JobSchedulingInformation],
         state_group: STATEGROUP,
         timeout: int,
         sleep_time: int,
     ) -> list[int]:
         deadline = time.time() + timeout
-        remaining_jobs = job_ids.copy()
+        remaining_jobs = job_scheduling_info_list.copy()
         while len(remaining_jobs) > 0 and time.time() <= deadline:
-            for job_id in list(remaining_jobs):
-                current_state = self.fetch_and_update_state(job_id)
+            for job_info in list(remaining_jobs):
+                current_state = self.fetch_and_update_state(job_info)
                 if current_state in state_group:
-                    remaining_jobs.remove(job_id)
+                    remaining_jobs.remove(job_info)
             if len(remaining_jobs) > 0:
                 time.sleep(sleep_time)
         return remaining_jobs
 
     def _wait_for_jobs(
-        self,
+        self, job_scheduling_info_list: list[JobSchedulingInformation]
     ) -> None:
         wait_begin_time = time.time()
         max_time = int(round(self.timeout.total_seconds()))
@@ -353,8 +324,8 @@ class JobScheduler:
             int(round(max_time / 2)), 60
         )  # smaller of half of max_time or one minute
         logging.info("Jobs have check_time=%d and max_time=%d", check_time, max_time)
+        remaining_jobs = job_scheduling_info_list.copy()
         try:
-            remaining_jobs = list(self.status_infos)
             # Wait for jobs to start (timeout shouldn't include queue time)
             while len(remaining_jobs) > 0:
                 remaining_jobs = self.wait_all_jobs(
@@ -365,9 +336,9 @@ class JobScheduler:
 
             jobs_started_time = time.time()
             running_jobs = [
-                job_id
-                for job_id, status_info in self.status_infos.items()
-                if status_info.current_state not in STATEGROUP.ENDED
+                job_scheduling_info
+                for job_scheduling_info in job_scheduling_info_list
+                if job_scheduling_info.status_info.current_state not in STATEGROUP.ENDED
             ]
             logging.info("All jobs started: %d still running", len(running_jobs))
 
@@ -377,25 +348,33 @@ class JobScheduler:
                 running_jobs = self.wait_all_jobs(
                     running_jobs, STATEGROUP.ENDED, max_time, check_time
                 )
-                for job_id in list(running_jobs):
-                    self.fetch_and_update_state(job_id)
-                    if self.status_infos[job_id].current_state in STATEGROUP.ENDED:
-                        logging.debug("Removing(1) ended %d", job_id)
-                        running_jobs.remove(job_id)
+                for job_scheduling_info in list(running_jobs):
+                    self.fetch_and_update_state(job_scheduling_info)
+                    if (
+                        job_scheduling_info.status_info.current_state
+                        in STATEGROUP.ENDED
+                    ):
+                        logging.debug(
+                            "Removing(1) ended %d", job_scheduling_info.job_id
+                        )
+                        running_jobs.remove(job_scheduling_info)
                 logging.info(
                     "Jobs remaining = %d after %.3fs",
                     len(running_jobs),
                     time.time() - jobs_started_time,
                 )
-            for job_id in list(running_jobs):
+            for job_scheduling_info in list(running_jobs):
                 # Check state of remaining jobs immediately before cancelling
-                self.fetch_and_update_state(job_id)
-                if self.status_infos[job_id].current_state in STATEGROUP.ENDED:
-                    logging.debug("Removing(2) ended %d", job_id)
-                    running_jobs.remove(job_id)
+                self.fetch_and_update_state(job_scheduling_info)
+                if job_scheduling_info.status_info.current_state in STATEGROUP.ENDED:
+                    logging.debug("Removing(2) ended %d", job_scheduling_info.job_id)
+                    running_jobs.remove(job_scheduling_info)
                 else:
-                    logging.warning("Job %d timed out. Terminating job now.", job_id)
-                    self.client.cancel_job(job_id)
+                    logging.warning(
+                        "Job %d timed out. Terminating job now.",
+                        job_scheduling_info.job_id,
+                    )
+                    self.client.cancel_job(job_scheduling_info.job_id)
             if len(running_jobs) > 0:
                 # Termination takes some time, wait a max of 2 mins
                 self.wait_all_jobs(running_jobs, STATEGROUP.ENDED, 120, 60)
@@ -407,9 +386,13 @@ class JobScheduler:
         except Exception:
             logging.error("Unknown error occurred running job", exc_info=True)
 
-    def _report_job_info(self) -> None:
+    def _report_job_info(
+        self, job_scheduling_info_list: list[JobSchedulingInformation]
+    ) -> None:
         # Iterate through jobs with logging to check individual job outcomes
-        for job_id, status_info in self.status_infos.items():
+        for job_scheduling_info in job_scheduling_info_list:
+            job_id = job_scheduling_info.job_id
+            status_info = job_scheduling_info.status_info
             logging.debug(f"Retrieving info for job {job_id}")
 
             # Check job states against expected possible options:
@@ -461,39 +444,75 @@ class JobScheduler:
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
 
-            self.job_history[self.batch_number][job_id] = status_info
+        self.job_history.append({jsi.job_id: jsi for jsi in job_scheduling_info_list})
 
-    def resubmit_jobs(self, job_indices: List[int]) -> bool:
-        self.batch_number += 1
-        self.job_history[self.batch_number] = {}
-        self.job_completion_status = {str(i): False for i in job_indices}
-        logging.info(f"Resubmitting jobs with job_indices: {job_indices}")
-        return self._submit_and_monitor(job_indices)
+    def resubmit_jobs(self, job_indices: List[int], batch: int | None = None) -> bool:
+        if batch is None:
+            batch = len(self.job_history) - 1
+        old_job_scheduling_info_list = self.get_batch_from_job_history(
+            batch_number=batch
+        )
+        new_job_scheduling_info_list = []
+        for old_job_scheduling_info in old_job_scheduling_info_list:
+            new_job_scheduling_info = deepcopy(old_job_scheduling_info)
+            new_job_scheduling_info.set_completion_status(False)
+            new_job_scheduling_info_list.append(new_job_scheduling_info)
+        logging.info(
+            f"Resubmitting jobs from batch {batch} with job_indices: {job_indices}"
+        )
+        return self._submit_and_monitor(new_job_scheduling_info_list)
 
-    def filter_killed_jobs(self, jobs: List[StatusInfo]) -> List[int]:
+    def filter_killed_jobs(
+        self, job_scheduling_information_list: List[JobSchedulingInformation]
+    ) -> List[int]:
         return [
-            status_info.i
-            for status_info in jobs
-            if status_info.current_state == SLURMSTATE.CANCELLED
+            jsi
+            for jsi in job_scheduling_information_list
+            if jsi.status_info.current_state == SLURMSTATE.CANCELLED
         ]
 
-    def resubmit_killed_jobs(self, allow_all_failed: bool = False) -> bool:
+    def resubmit_killed_jobs(
+        self, batch_number: int | None = None, allow_all_failed: bool = False
+    ) -> bool:
         logging.info("Resubmitting killed jobs")
-        job_history = self.job_history
-        if all(self.job_completion_status.values()):
+        job_scheduling_info_list = self.get_batch_from_job_history(
+            batch_number=batch_number
+        )
+        batch_completion_status = tuple(
+            jsi.completion_status for jsi in job_scheduling_info_list
+        )
+        if all(batch_completion_status):
             logging.warning("No failed jobs to resubmit")
             return True
-        elif allow_all_failed or any(self.job_completion_status.values()):
+        elif allow_all_failed or any(batch_completion_status):
             failed_jobs = [
-                status_info
-                for status_info in job_history[self.batch_number].values()
-                if status_info.final_state != SLURMSTATE.COMPLETED
+                jsi.status_info
+                for jsi in job_scheduling_info_list
+                if jsi.status_info.final_state != SLURMSTATE.COMPLETED
             ]
-            killed_jobs_indices = self.filter_killed_jobs(failed_jobs)
+            killed_jobs = self.filter_killed_jobs(failed_jobs)
             logging.info(
-                f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs_indices)}"
+                f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}"
             )
-            if killed_jobs_indices:
-                return self.resubmit_jobs(killed_jobs_indices)
+            if killed_jobs:
+                return self.resubmit_jobs(killed_jobs)
             return True
-        raise RuntimeError(f"All jobs failed. job_history: {job_history}\n")
+        pretty_format_job_history = "\n".join(
+            [
+                f"Batch {i} - {', '.join(f'{jsi.job_id}: {jsi.status_info}' for jsi in batch.values())}"
+                for i, batch in enumerate(self.job_history, 1)
+            ]
+        )
+        raise RuntimeError(
+            f"All jobs failed. job_history: {pretty_format_job_history}\n"
+        )
+
+    def clear_job_history(self) -> None:
+        self.job_history.clear()
+
+    def get_batch_from_job_history(
+        self, batch_number: int
+    ) -> list[JobSchedulingInformation]:
+        if batch_number >= len(self.job_history):
+            raise IndexError("Batch %i does not exist in the job history")
+        return self.job_history[batch_number]
