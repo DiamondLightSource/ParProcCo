@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import timedelta
+from datetime import timedelta, datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -10,6 +10,7 @@ from .job_scheduler import JobScheduler
 from .slicer_interface import SlicerInterface
 from .utils import check_location, get_absolute_path
 from .program_wrapper import ProgramWrapper
+from .job_scheduling_information import JobSchedulingInformation, JobResources
 
 AGGREGATION_TIME = 60  # timeout per single file, in seconds
 
@@ -76,10 +77,10 @@ class JobController:
         )
         self.cluster_env = self.program_wrapper.get_environment()
         logging.debug("Cluster environment is %s", self.cluster_env)
-        slice_params = self.program_wrapper.create_slices(number_jobs)
 
+        timestamp = datetime.now()
         sliced_jobs_success = self._submit_sliced_jobs(
-            slice_params, jobscript_args, memory, job_name
+            number_jobs, jobscript_args, memory, job_name, timestamp=timestamp
         )
 
         if sliced_jobs_success and self.sliced_results:
@@ -89,7 +90,7 @@ class JobController:
                     self.sliced_results[0] if len(self.sliced_results) > 0 else None
                 )
             else:
-                self._submit_aggregation_job(memory)
+                self._submit_aggregation_job(memory, timestamp=timestamp)
                 out_file = self.aggregated_result
 
             if (
@@ -102,6 +103,7 @@ class JobController:
                     "Rename %s to %s: %s", out_file, renamed_file, renamed_file.exists()
                 )
         else:
+            slice_params = self.program_wrapper.create_slices(number_jobs=number_jobs)
             logging.error(
                 f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args},"
                 f" memory: {memory}, job_name: {job_name}"
@@ -110,36 +112,54 @@ class JobController:
 
     def _submit_sliced_jobs(
         self,
-        slice_params: List[Optional[slice]],
+        number_of_jobs: int,
         jobscript_args: Optional[List],
         memory: int,
         job_name: str,
+        timestamp: datetime,
     ) -> bool:
         if jobscript_args is None:
             jobscript_args = []
 
         processing_mode = self.program_wrapper.processing_mode
-        processing_mode.set_parameters(slice_params)
+
+        job_resources = JobResources(
+            memory=memory,
+            cpu_cores=processing_mode.cores,
+            gpus=0,
+            extra_properties=self.extra_properties,
+        )
+
+        jsi = JobSchedulingInformation(
+            job_name=job_name,
+            job_script_path=self.cluster_runner,
+            job_resources=job_resources,
+            timeout=self.timeout,
+            job_script_arguments=jobscript_args,
+            job_env=self.cluster_env,
+            working_directory=self.working_directory,
+            output_dir=self.output_file.parent if self.output_file else None,
+            output_filename=self.output_file.name if self.output_file else None,
+            log_directory=self.cluster_output_dir,
+            timestamp=timestamp,
+        )
 
         job_scheduler = JobScheduler(
-            self.url,
-            self.working_directory,
-            self.cluster_output_dir,
-            self.partition,
-            self.extra_properties,
-            self.timeout,
-            self.user_name,
-            self.user_token,
+            url=self.url,
+            partition=self.partition,
+            user_name=self.user_name,
+            user_token=self.user_token,
+            cluster_output_dir=self.cluster_output_dir,
         )
-        sliced_jobs_success = job_scheduler.run(
-            processing_mode,
-            self.cluster_runner,
-            self.cluster_env,
-            memory,
-            processing_mode.cores,
-            jobscript_args,
-            job_name,
+
+        start_time = datetime.now()
+        processing_jobs = self.program_wrapper.create_sliced_processing_jobs(
+            job_scheduling_information=jsi,
+            t=start_time,
+            slice_params=self.program_wrapper.create_slices(number_jobs=number_of_jobs),
         )
+
+        sliced_jobs_success = job_scheduler.run(processing_jobs, start_time=start_time)
 
         if not sliced_jobs_success:
             sliced_jobs_success = job_scheduler.resubmit_killed_jobs()
@@ -149,7 +169,7 @@ class JobController:
         )
         return sliced_jobs_success
 
-    def _submit_aggregation_job(self, memory: int) -> None:
+    def _submit_aggregation_job(self, memory: int, timestamp: datetime) -> None:
         aggregator_path = self.program_wrapper.get_aggregate_script()
         aggregating_mode = self.program_wrapper.aggregating_mode
         if aggregating_mode is None or self.sliced_results is None:
@@ -162,25 +182,43 @@ class JobController:
             aggregator_path = check_location(get_absolute_path(aggregator_path))
             aggregation_args.append(aggregator_path)
 
+        job_resources = JobResources(
+            memory=memory,
+            cpu_cores=aggregating_mode.cores,
+            gpus=0,
+            extra_properties=self.extra_properties,
+        )
+
+        jsi = JobSchedulingInformation(
+            job_name=aggregating_mode.__class__.__name__,
+            job_script_path=self.cluster_runner,
+            job_resources=job_resources,
+            timeout=self.timeout,
+            job_script_arguments=aggregation_args,
+            job_env=self.cluster_env,
+            working_directory=self.working_directory,
+            timeout=timedelta(seconds=AGGREGATION_TIME * len(self.sliced_results)),
+            output_dir=self.output_file.parent if self.output_file else None,
+            output_filename=self.output_file.name if self.output_file else None,
+            log_directory=self.cluster_output_dir,
+            timestamp=timestamp,
+        )
+
         aggregation_scheduler = JobScheduler(
-            self.url,
-            self.working_directory,
-            self.cluster_output_dir,
-            self.partition,
-            self.extra_properties,
-            timedelta(seconds=AGGREGATION_TIME * len(self.sliced_results)),
-            self.user_name,
-            self.user_token,
+            url=self.url,
+            partition=self.partition,
+            user_name=self.user_name,
+            user_token=self.user_token,
+            cluster_output_dir=self.cluster_output_dir,
         )
-        aggregation_success = aggregation_scheduler.run(
-            aggregating_mode,
-            self.cluster_runner,
-            self.cluster_env,
-            memory,
-            aggregating_mode.cores,
-            aggregation_args,
-            aggregating_mode.__class__.__name__,
+
+        aggregation_jobs = self.program_wrapper.create_sliced_aggregating_jobs(
+            job_scheduling_information=jsi,
+            slice_params=self.sliced_results,
         )
+
+        aggregation_success = aggregation_scheduler.run(aggregation_jobs)
+
         if not aggregation_success:
             aggregation_scheduler.resubmit_killed_jobs(allow_all_failed=True)
 
