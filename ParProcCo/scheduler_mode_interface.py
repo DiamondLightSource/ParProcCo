@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Any
     from datetime import datetime
-    from .job_schedling_information import JobSchedulingInformation
+    from .job_scheduling_information import JobSchedulingInformation
 
 
 class SchedulerModeInterface:
