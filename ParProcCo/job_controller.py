@@ -193,7 +193,6 @@ class JobController:
             job_name=aggregating_mode.__class__.__name__,
             job_script_path=self.cluster_runner,
             job_resources=job_resources,
-            timeout=self.timeout,
             job_script_arguments=aggregation_args,
             job_env=self.cluster_env,
             working_directory=self.working_directory,
