@@ -32,7 +32,6 @@ class ProgramWrapper:
     def create_sliced_processing_jobs(
         self,
         job_scheduling_information: JobSchedulingInformation,
-        t: datetime,
         slice_params: list[slice] | None,
     ) -> list[JobSchedulingInformation]:
         if self.processing_mode is None or slice_params is None:
@@ -41,13 +40,11 @@ class ProgramWrapper:
         return self.processing_mode.create_slice_jobs(
             slice_params=slice_params,
             job_scheduling_information=job_scheduling_information,
-            t=t,
         )
 
     def create_sliced_aggregating_jobs(
         self,
         job_scheduling_information: JobSchedulingInformation,
-        t: datetime,
         slice_params: list[Path] | None,
     ) -> list[JobSchedulingInformation] | None:
         if self.aggregating_mode is None or slice_params is None:
@@ -56,5 +53,4 @@ class ProgramWrapper:
         return self.aggregating_mode.create_slice_jobs(
             slice_params=slice_params,
             job_scheduling_information=job_scheduling_information,
-            t=t,
         )

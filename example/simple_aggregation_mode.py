@@ -22,7 +22,6 @@ class SimpleAggregationMode(SchedulerModeInterface):
         self,
         slice_params: list[Any] | None,
         job_scheduling_information: JobSchedulingInformation,
-        t: datetime,
     ) -> list[JobSchedulingInformation]:
         """A basic implementation of create_slice_jobs"""
         if slice_params is None:
@@ -31,7 +30,6 @@ class SimpleAggregationMode(SchedulerModeInterface):
             self.create_slice_job(
                 slice_params=slice_params,
                 job_scheduling_information=deepcopy(job_scheduling_information),
-                t=t,
             )
         ]
 
@@ -39,9 +37,8 @@ class SimpleAggregationMode(SchedulerModeInterface):
         self,
         slice_params: list[Any],
         job_scheduling_information: JobSchedulingInformation,
-        t: datetime,
     ) -> JobSchedulingInformation:
-        timestamp = format_timestamp(t)
+        timestamp = format_timestamp(job_scheduling_information.timestamp)
         job_scheduling_information.output_filename = (
             f"aggregated_results_{timestamp}.nxs"
         )

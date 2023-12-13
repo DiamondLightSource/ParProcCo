@@ -27,7 +27,6 @@ class SimpleProcessingMode(SchedulerModeInterface):
         self,
         slice_params: list[Any] | None,
         job_scheduling_information: JobSchedulingInformation,
-        t: datetime,
     ) -> list[JobSchedulingInformation]:
         """A basic implementation of create_slice_jobs"""
         if slice_params is None:
@@ -38,7 +37,6 @@ class SimpleProcessingMode(SchedulerModeInterface):
                 i=i,
                 slice_params=slice_params,
                 job_scheduling_information=deepcopy(job_scheduling_information),
-                t=t,
             )
             for i in range(number_of_jobs)
         ]
@@ -48,10 +46,9 @@ class SimpleProcessingMode(SchedulerModeInterface):
         i: int,
         slice_params: list[slice],
         job_scheduling_information: JobSchedulingInformation,
-        t: datetime,
     ) -> JobSchedulingInformation:
         # Output paths:
-        timestamp = format_timestamp(t)
+        timestamp = format_timestamp(job_scheduling_information.timestamp)
         output_file = f"out_{i}"
         job_scheduling_information.output_path = (
             str(job_scheduling_information.output_path / output_file)

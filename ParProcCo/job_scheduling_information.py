@@ -36,6 +36,7 @@ class JobSchedulingInformation:
     working_directory: Path | None = None
     output_dir: Path | None = None
     output_filename: str | None = None
+    timestamp: datetime | None = None
 
     def __post_init__(self):
         self.set_job_script_path(self.job_script_path)  # For validation
@@ -99,7 +100,7 @@ class JobSchedulingInformation:
 
     def _generate_log_filename(self, suffix: str) -> str:
         log_filename = self.job_name
-        if self.start_time is not None:
-            log_filename += f"_{format_timestamp(self.start_time)}"
+        if self.time is not None:
+            log_filename += f"_{format_timestamp(self.timestamp)}"
         log_filename += f"_{suffix}"
         return log_filename

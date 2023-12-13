@@ -210,7 +210,8 @@ class JobScheduler:
         return self._submit_and_monitor(job_scheduling_info_list)
 
     def _submit_and_monitor(
-        self, job_scheduling_info_list: list[JobSchedulingInformation]
+        self,
+        job_scheduling_info_list: list[JobSchedulingInformation],
     ) -> bool:
         self._submit_jobs(job_scheduling_info_list)
         self._wait_for_jobs(job_scheduling_info_list)
@@ -218,16 +219,16 @@ class JobScheduler:
         return self.get_success(job_scheduling_info_list)
 
     def _submit_jobs(
-        self, job_scheduling_info_list: list[JobSchedulingInformation]
+        self,
+        job_scheduling_info_list: list[JobSchedulingInformation],
     ) -> None:
         logging.debug(
             f"Submitting jobs on cluster for job script {job_scheduling_info_list.job_script_path} and args {job_scheduling_info_list.job_script_arguments}"
         )
-        start_time = datetime.now()
         try:
             for job_scheduling_info in job_scheduling_info_list:
-                job_scheduling_info.start_time = start_time
                 submission = self.make_job_submission(job_scheduling_info)
+                job_scheduling_info.update_start_time()
                 resp = self.client.submit_job(submission)
                 if resp.job_id is None:
                     resp = self.client.submit_job(submission)

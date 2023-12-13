@@ -18,7 +18,6 @@ class SchedulerModeInterface:
         self,
         slice_params: list[Any] | None,
         job_scheduling_information: JobSchedulingInformation,
-        t: datetime,
     ) -> list[JobSchedulingInformation]:
         """For creating a list of new `JobSchedulingInformation`s based on the `slice_params` given"""
         raise NotImplementedError

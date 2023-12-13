@@ -13,41 +13,45 @@ from .utils import (
     get_absolute_path,
 )
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
+    from .job_scheduling_information import JobSchedulingInformation
+
 
 class PassThruProcessingMode(SchedulerModeInterface):
-    def __init__(self):
-        super().__init__()
-        self.cores = 6
-        self.program_name = "ppc_cluster_runner"
+    def create_slice_jobs(
+        self,
+        slice_params: list[Any] | None,
+        job_scheduling_information: JobSchedulingInformation,
+    ) -> list[JobSchedulingInformation]:
+        """Overrides SchedulerModeInterface.create_slice_jobs"""
 
-    def set_parameters(self, _slice_params: List[slice]) -> None:
-        """Overrides SchedulerModeInterface.set_parameters"""
-        self.number_jobs = 1
-
-    def generate_output_paths(
-        self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime
-    ) -> Tuple[str, str, str]:
-        """Overrides SchedulerModeInterface.generate_output_paths"""
-        timestamp = format_timestamp(t)
-        stdout_fp = str(error_dir / f"out_{timestamp}_{i}")
-        stderr_fp = str(error_dir / f"err_{timestamp}_{i}")
-        return str(output_dir) if output_dir else "", stdout_fp, stderr_fp
-
-    def generate_args(
-        self, i: int, memory: int, cores: int, jobscript_args: List[str], output_fp: str
-    ) -> Tuple[str, ...]:
-        """Overrides SchedulerModeInterface.generate_args"""
-        assert i < self.number_jobs
-        jobscript = str(
+        timestamp = format_timestamp(job_scheduling_information.timestamp)
+        job_scheduling_information.stdout_filename = f"out_{timestamp}"
+        job_scheduling_information.stderr_filename = f"err_{timestamp}"
+        job_script = str(
             check_jobscript_is_readable(
-                check_location(get_absolute_path(jobscript_args[0]))
+                check_location(
+                    get_absolute_path(
+                        job_scheduling_information.job_script_arguments[0]
+                    )
+                )
             )
         )
-        args = [jobscript, "--memory", str(memory), "--cores", str(cores)]
-        if output_fp:
-            args += ("--output", output_fp)
-        args += jobscript_args[1:]
-        return tuple(args)
+
+        args = [
+            job_script,
+            "--memory",
+            str(job_scheduling_information.job_resources.memory),
+            "--cores",
+            str(job_scheduling_information.job_resources.cores),
+        ]
+        if job_scheduling_information.output_filename:
+            args += ("--output", job_scheduling_information.output_filename)
+        args += job_scheduling_information.job_script_arguments[1:]
+        job_scheduling_information.job_script_arguments = args
 
 
 class PassThruWrapper(ProgramWrapper):
@@ -58,10 +62,22 @@ class PassThruWrapper(ProgramWrapper):
             original_wrapper.processing_mode.allowed_modules
         )
 
-    def get_args(self, args: List[str], debug: bool = False):
-        return self.original_wrapper.get_args(args, debug)
+    def create_slices(self, number_jobs: int, stop: int | None = None) -> None:
+        return None
 
-    def get_output(
-        self, output: Optional[str] = None, program_args: Optional[List[str]] = None
-    ) -> Path:
-        return self.original_wrapper.get_output(output, program_args)
+    def create_sliced_processing_jobs(
+        self,
+        job_scheduling_information: JobSchedulingInformation,
+        slice_params: list[slice] | None,
+    ) -> list[JobSchedulingInformation]:
+        return self.processing_mode.create_slice_jobs(
+            slice_params=slice_params,
+            job_scheduling_information=job_scheduling_information,
+        )
+
+    def create_sliced_aggregating_jobs(
+        self,
+        job_scheduling_information: JobSchedulingInformation,
+        slice_params: list[Path] | None,
+    ) -> list[JobSchedulingInformation]:
+        return []
