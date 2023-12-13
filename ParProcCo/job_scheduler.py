@@ -199,11 +199,9 @@ class JobScheduler:
     ) -> bool:
         return all((info.completion_status for info in job_scheduling_info_list))
 
-    def timestamp_ok(self, output: Path) -> bool:
+    def timestamp_ok(self, output: Path, start_time: datetime) -> bool:
         mod_time = datetime.fromtimestamp(output.stat().st_mtime)
-        if mod_time > self.start_time:
-            return True
-        return False
+        return mod_time > start_time
 
     def run(
         self,
@@ -278,7 +276,6 @@ class JobScheduler:
             ]
         )
         logging.info(f"creating submission with command: {job_script_command}")
-        job_scheduling_info.update_start_time()
         job = JobProperties(
             name=job_scheduling_info.job_name,
             partition=self.partition,
@@ -413,7 +410,9 @@ class JobScheduler:
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
 
-            elif not self.timestamp_ok(status_info.output_path):
+            elif not self.timestamp_ok(
+                status_info.output_path, start_time=job_scheduling_info.start_time
+            ):
                 status_info.final_state = SLURMSTATE.OLD_OUTPUT_FILE
                 logging.error(
                     f"Job {job_id} with args {job_scheduling_info.job_script_arguments} has not created"
