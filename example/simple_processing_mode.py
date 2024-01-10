@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from pathlib import Path
 from copy import deepcopy
 
 from ParProcCo.job_slicer_interface import JobSlicerInterface
@@ -20,6 +20,10 @@ if TYPE_CHECKING:
 
 
 class SimpleProcessingMode(JobSlicerInterface):
+    def __init__(self, job_script: Path) -> None:
+        self.job_script = check_jobscript_is_readable(
+            check_location(get_absolute_path(job_script))
+        )
         self.allowed_modules = ("python",)
 
     def create_slice_jobs(
@@ -48,12 +52,7 @@ class SimpleProcessingMode(JobSlicerInterface):
     ) -> JobSchedulingInformation:
         # Output paths:
         timestamp = format_timestamp(job_scheduling_information.timestamp)
-        output_file = f"out_{i}"
-        job_scheduling_information.output_path = (
-            str(job_scheduling_information.output_path / output_file)
-            if job_scheduling_information.output_path
-            else output_file
-        )
+        job_scheduling_information.output_filename = f"out_{i}"
         job_scheduling_information.stdout_filename = f"out_{timestamp}_{i}"
         job_scheduling_information.sterr_filename = f"err_{timestamp}_{i}"
 
@@ -61,21 +60,24 @@ class SimpleProcessingMode(JobSlicerInterface):
         slice_param = slice_to_string(slice_params[i])
         job_script = check_jobscript_is_readable(
             check_location(
-                get_absolute_path(job_scheduling_information.job_script_arguments[0])
+                get_absolute_path(job_scheduling_information.job_script_path)
             )
         )
         job_scheduling_information.job_script_arguments = tuple(
             [
-                job_script,
+                str(job_script),
                 "--memory",
                 str(job_scheduling_information.job_resources.memory),
                 "--cores",
-                str(job_scheduling_information.job_resources.cores),
+                str(job_scheduling_information.job_resources.cpu_cores),
                 "--output",
-                job_scheduling_information.output_path,
+                str(job_scheduling_information.get_output_path()),
                 "--images",
                 slice_param,
             ]
-            + job_scheduling_information.job_script_arguments[1:]
+            + job_scheduling_information.job_script_arguments
         )
+
+        job_scheduling_information.job_script_path = self.job_script
+
         return job_scheduling_information

@@ -11,6 +11,7 @@ from .utils import check_jobscript_is_readable, get_ppc_dir, format_timestamp
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from typing import Optional, Union, Dict, List, Tuple
     from .job_scheduler import StatusInfo
 
 
@@ -25,32 +26,32 @@ class JobResources:
 @dataclass
 class JobSchedulingInformation:
     job_name: str
-    job_script_path: Path | None
+    job_script_path: Optional[Path]
     job_resources: JobResources
     timeout: timedelta = timedelta(hours=2)
-    job_script_arguments: tuple[str] = field(default_factory=tuple)
-    job_env: dict[str, str] = field(default_factory=dict)
-    log_directory: Path | None = None
-    stderr_filename: str | None = None
-    stdout_filename: str | None = None
-    working_directory: Path | None = None
-    output_dir: Path | None = None
-    output_filename: str | None = None
-    timestamp: datetime | None = None
+    job_script_arguments: Tuple[str] = field(default_factory=tuple)
+    job_env: Dict[str, str] = field(default_factory=dict)
+    log_directory: Optional[Path] = None
+    stderr_filename: Optional[str] = None
+    stdout_filename: Optional[str] = None
+    working_directory: Optional[Path] = None
+    output_dir: Optional[Path] = None
+    output_filename: Optional[str] = None
+    timestamp: Optional[datetime] = None
 
     def __post_init__(self):
         self.set_job_script_path(self.job_script_path)  # For validation
         self.set_job_env(self.job_env)  # For validation
         # To be updated when submitted, not on creation
-        self.start_time: datetime | None = None
-        self.job_id: int | None = None
-        self.status_info: StatusInfo | None = None
+        self.start_time: Optional[datetime] = None
+        self.job_id: Optional[int] = None
+        self.status_info: Optional[StatusInfo] = None
         self.completion_status: bool = False
 
     def set_job_script_path(self, path: Path) -> None:
         self.job_script_path = check_jobscript_is_readable(path)
 
-    def set_job_env(self, job_env: dict[str, str] | None) -> None:
+    def set_job_env(self, job_env: Optional[Dict[str, str]]) -> None:
         self.job_env = (
             job_env if job_env else {"ParProcCo": "0"}
         )  # job_env cannot be empty dict
@@ -58,7 +59,7 @@ class JobSchedulingInformation:
         if test_ppc_dir:
             self.job_env.update(TEST_PPC_DIR=test_ppc_dir)
 
-    def update_start_time(self, start_time: datetime | None = None) -> None:
+    def update_start_time(self, start_time: Optional[datetime] = None) -> None:
         if start_time is None:
             start_time = datetime.now()
         self.start_time = start_time
@@ -100,7 +101,7 @@ class JobSchedulingInformation:
 
     def _generate_log_filename(self, suffix: str) -> str:
         log_filename = self.job_name
-        if self.time is not None:
+        if self.timestamp is not None:
             log_filename += f"_{format_timestamp(self.timestamp)}"
         log_filename += f"_{suffix}"
         return log_filename

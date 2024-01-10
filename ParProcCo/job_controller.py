@@ -68,8 +68,9 @@ class JobController:
     def run(
         self,
         number_jobs: int,
+        processing_job_resources: JobResources,
+        aggregation_job_resources: JobResources,
         jobscript_args: Optional[List] = None,
-        memory: int = 4000,
         job_name: str = "ParProcCo",
     ) -> None:
         self.cluster_runner = check_location(
@@ -80,7 +81,11 @@ class JobController:
 
         timestamp = datetime.now()
         sliced_jobs_success = self._submit_sliced_jobs(
-            number_jobs, jobscript_args, memory, job_name, timestamp=timestamp
+            number_jobs,
+            jobscript_args,
+            processing_job_resources,
+            job_name,
+            timestamp=timestamp,
         )
 
         if sliced_jobs_success and self.sliced_results:
@@ -90,7 +95,9 @@ class JobController:
                     self.sliced_results[0] if len(self.sliced_results) > 0 else None
                 )
             else:
-                self._submit_aggregation_job(memory, timestamp=timestamp)
+                self._submit_aggregation_job(
+                    aggregation_job_resources, timestamp=timestamp
+                )
                 out_file = self.aggregated_result
 
             if (

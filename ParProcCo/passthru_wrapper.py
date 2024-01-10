@@ -46,7 +46,7 @@ class PassThruProcessingMode(JobSlicerInterface):
             "--memory",
             str(job_scheduling_information.job_resources.memory),
             "--cores",
-            str(job_scheduling_information.job_resources.cores),
+            str(job_scheduling_information.job_resources.cpu_cores),
         ]
         if job_scheduling_information.output_filename:
             args += ("--output", job_scheduling_information.output_filename)

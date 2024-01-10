@@ -10,8 +10,6 @@ from typing import Dict, List, Optional, Union
 from copy import deepcopy
 
 from .job_scheduling_information import JobSchedulingInformation
-from .scheduler_mode_interface import SchedulerModeInterface
-from .utils import check_jobscript_is_readable, get_ppc_dir
 from .slurm.slurm_rest import (
     JobProperties,
     JobSubmission,
@@ -222,11 +220,11 @@ class JobScheduler:
         self,
         job_scheduling_info_list: list[JobSchedulingInformation],
     ) -> None:
-        logging.debug(
-            f"Submitting jobs on cluster for job script {job_scheduling_info_list.job_script_path} and args {job_scheduling_info_list.job_script_arguments}"
-        )
         try:
             for job_scheduling_info in job_scheduling_info_list:
+                logging.debug(
+                    f"Submitting job on cluster for job script {job_scheduling_info.job_script_path} and args {job_scheduling_info.job_script_arguments}"
+                )
                 submission = self.make_job_submission(job_scheduling_info)
                 job_scheduling_info.update_start_time()
                 resp = self.client.submit_job(submission)
@@ -242,7 +240,7 @@ class JobScheduler:
                     )
                 )
                 logging.debug(
-                    f"Job for job script {job_scheduling_info_list.job_script_path} and args {submission.job.argv}"
+                    f"Job for job script {job_scheduling_info.job_script_path} and args {submission.job.argv}"
                     f" has been submitted with id {resp.job_id}"
                 )
         except Exception:
@@ -262,7 +260,7 @@ class JobScheduler:
 
                 error_dir = self.cluster_output_dir / "cluster_logs"
             else:
-                error_dir = self.working_directory / "cluster_logs"
+                error_dir = job_scheduling_info.working_directory / "cluster_logs"
             if not error_dir.is_dir():
                 logging.debug(f"Making directory {error_dir}")
                 error_dir.mkdir(exist_ok=True, parents=True)
@@ -280,17 +278,17 @@ class JobScheduler:
         job = JobProperties(
             name=job_scheduling_info.job_name,
             partition=self.partition,
-            cpus_per_task=job_scheduling_info.job_resources.cores,
-            gpus_per_task=job_scheduling_info.job_resources.gpus,
+            cpus_per_task=job_scheduling_info.job_resources.cpu_cores,
+            gpus_per_task=str(job_scheduling_info.job_resources.gpus),
             environment=job_scheduling_info.job_env,
             memory_per_cpu=job_scheduling_info.job_resources.memory,
-            current_working_directory=str(self.working_directory),
-            standard_output=job_scheduling_info.get_stdout_path(),
-            standard_error=job_scheduling_info.get_stderr_path(),
+            current_working_directory=str(job_scheduling_info.working_directory),
+            standard_output=str(job_scheduling_info.get_stdout_path()),
+            standard_error=str(job_scheduling_info.get_stderr_path()),
             get_user_environment="10L",
         )
-        if job_scheduling_info.extra_properties:
-            for k, v in job_scheduling_info.extra_properties.items():
+        if job_scheduling_info.job_resources.extra_properties:
+            for k, v in job_scheduling_info.job_resources.extra_properties.items():
                 setattr(job, k, v)
 
         return JobSubmission(script=job_script_command, job=job)
