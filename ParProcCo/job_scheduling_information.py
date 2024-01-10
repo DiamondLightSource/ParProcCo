@@ -43,7 +43,6 @@ class JobSchedulingInformation:
         self.set_job_script_path(self.job_script_path)  # For validation
         self.set_job_env(self.job_env)  # For validation
         # To be updated when submitted, not on creation
-        self.start_time: Optional[datetime] = None
         self.job_id: Optional[int] = None
         self.status_info: Optional[StatusInfo] = None
         self.completion_status: bool = False
@@ -58,11 +57,6 @@ class JobSchedulingInformation:
         test_ppc_dir = get_ppc_dir()
         if test_ppc_dir:
             self.job_env.update(TEST_PPC_DIR=test_ppc_dir)
-
-    def update_start_time(self, start_time: Optional[datetime] = None) -> None:
-        if start_time is None:
-            start_time = datetime.now()
-        self.start_time = start_time
 
     def set_job_id(self, job_id: int) -> None:
         self.job_id = job_id
@@ -81,7 +75,7 @@ class JobSchedulingInformation:
         return self.output_dir / self.output_filename
 
     # TODO: make this a part of a wrapper that can be set on a per-job basis?
-    def get_stdout_path(self) -> str:
+    def get_stdout_path(self) -> Path:
         if self.log_directory is None:
             raise ValueError(
                 "The log directory must be set before getting the stdout path"
@@ -90,7 +84,7 @@ class JobSchedulingInformation:
             self.stdout_filename = self._generate_log_filename(suffix="_stdout.txt")
         return self.log_directory / self.stdout_filename
 
-    def get_stderr_path(self) -> str:
+    def get_stderr_path(self) -> Path:
         if self.log_directory is None:
             raise ValueError(
                 "The log directory must be set before getting the stderr path"

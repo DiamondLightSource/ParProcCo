@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, auto
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Sequence
 from copy import deepcopy
 
 from .job_scheduling_information import JobSchedulingInformation
@@ -117,8 +117,8 @@ class StatusInfo:
     """Class for keeping track of job status."""
 
     output_path: Path
-    i: int
-    start_time: int
+    submit_time: datetime
+    start_time: Optional[datetime] = None
     current_state: Optional[SLURMSTATE] = None
     slots: Optional[int] = None
     time_to_dispatch: Optional[int] = None
@@ -166,15 +166,22 @@ class JobScheduler:
             )
             slots = None
 
-        dispatch_time = job_info.start_time
+        start_time = job_info.start_time
         submit_time = job_info.submit_time
         end_time = job_info.end_time
-        if dispatch_time and submit_time and end_time:
-            time_to_dispatch = dispatch_time - submit_time
-            wall_time = end_time - dispatch_time
+
+        if submit_time:
+            status_info.submit_time = submit_time
+        if start_time:
+            status_info.start_time = start_time
+
+        if start_time and submit_time and end_time:
+            time_to_dispatch = start_time - submit_time
+            wall_time = end_time - start_time
         else:
             time_to_dispatch = None
             wall_time = None
+
         status_info = job_scheduling_info.status_info
         status_info.slots = slots
         status_info.time_to_dispatch = time_to_dispatch
@@ -210,9 +217,10 @@ class JobScheduler:
     def _submit_and_monitor(
         self,
         job_scheduling_info_list: list[JobSchedulingInformation],
+        wait_timeout: timedelta = timedelta(hours=2),
     ) -> bool:
         self._submit_jobs(job_scheduling_info_list)
-        self._wait_for_jobs(job_scheduling_info_list)
+        self._wait_for_jobs(job_scheduling_info_list, wait_timeout=wait_timeout)
         self._report_job_info(job_scheduling_info_list)
         return self.get_success(job_scheduling_info_list)
 
@@ -226,7 +234,6 @@ class JobScheduler:
                     f"Submitting job on cluster for job script {job_scheduling_info.job_script_path} and args {job_scheduling_info.job_script_arguments}"
                 )
                 submission = self.make_job_submission(job_scheduling_info)
-                job_scheduling_info.update_start_time()
                 resp = self.client.submit_job(submission)
                 if resp.job_id is None:
                     resp = self.client.submit_job(submission)
@@ -235,8 +242,8 @@ class JobScheduler:
                 job_scheduling_info.set_job_id(resp.job_id)
                 job_scheduling_info.update_status_info(
                     StatusInfo(
-                        Path(submission.job.standard_output),
-                        int(time.time()),
+                        output_path=Path(submission.job.standard_output),
+                        submit_time=datetime.now(),
                     )
                 )
                 logging.debug(
@@ -297,12 +304,11 @@ class JobScheduler:
         self,
         job_scheduling_info_list: list[JobSchedulingInformation],
         state_group: STATEGROUP,
-        timeout: int,
+        deadline: datetime,
         sleep_time: int,
     ) -> list[int]:
-        deadline = time.time() + timeout
         remaining_jobs = job_scheduling_info_list.copy()
-        while len(remaining_jobs) > 0 and time.time() <= deadline:
+        while len(remaining_jobs) > 0 and datetime.now() <= deadline:
             for job_info in list(remaining_jobs):
                 current_state = self.fetch_and_update_state(job_info)
                 if current_state in state_group:
@@ -312,73 +318,138 @@ class JobScheduler:
         return remaining_jobs
 
     def _wait_for_jobs(
-        self, job_scheduling_info_list: list[JobSchedulingInformation]
+        self,
+        job_scheduling_info_list: list[JobSchedulingInformation],
+        wait_timeout: timedelta = timedelta(hours=2),
     ) -> None:
-        wait_begin_time = time.time()
-        max_time = int(round(self.timeout.total_seconds()))
-        check_time = min(
-            int(round(max_time / 2)), 60
-        )  # smaller of half of max_time or one minute
-        logging.info("Jobs have check_time=%d and max_time=%d", check_time, max_time)
-        remaining_jobs = job_scheduling_info_list.copy()
-        try:
+        wait_begin_time = datetime.now()
+        wait_deadline = wait_begin_time + wait_timeout
+
+        def get_deadline(
+            job_scheduling_info: JobSchedulingInformation,
+        ) -> Optional[datetime]:
+            # Timeout shouldn't include queue time
+            if job_scheduling_info.status_info is None:
+                return None
+            start_time = job_scheduling_info.status_info.start_time
+            return start_time + job_scheduling_info.timeout
+
+        def handle_not_started(
+            job_scheduling_info_list: List[JobSchedulingInformation],
+            check_time: datetime,
+        ) -> List[JobSchedulingInformation]:
             # Wait for jobs to start (timeout shouldn't include queue time)
-            while len(remaining_jobs) > 0:
-                remaining_jobs = self.wait_all_jobs(
-                    remaining_jobs, STATEGROUP.STARTING, 60, 5
+            starting_jobs = job_scheduling_info_list.copy()
+            while len(job_scheduling_info_list) > 0 and datetime.now() < check_time:
+                starting_jobs -= set(
+                    self.wait_all_jobs(
+                        starting_jobs,
+                        STATEGROUP.STARTING,
+                        datetime.now() + timedelta(minutes=1),
+                        0,
+                    )
                 )
-                if len(remaining_jobs) > 0:
-                    logging.info("Jobs left to start: %d", len(remaining_jobs))
 
-            jobs_started_time = time.time()
-            running_jobs = [
-                job_scheduling_info
-                for job_scheduling_info in job_scheduling_info_list
-                if job_scheduling_info.status_info.current_state not in STATEGROUP.ENDED
-            ]
-            logging.info("All jobs started: %d still running", len(running_jobs))
+                if len(starting_jobs) > 0:
+                    # We want ot sleep only if there are jobs waiting to start
+                    time.sleep(5)
+                    logging.info("Jobs left to start: %d", len(starting_jobs))
+            return starting_jobs
 
-            deadline = wait_begin_time + max_time
-            while time.time() < deadline and len(running_jobs) > 0:
-                # Wait for jobs to complete
-                running_jobs = self.wait_all_jobs(
-                    running_jobs, STATEGROUP.ENDED, max_time, check_time
-                )
-                for job_scheduling_info in list(running_jobs):
-                    self.fetch_and_update_state(job_scheduling_info)
-                    if (
-                        job_scheduling_info.status_info.current_state
-                        in STATEGROUP.ENDED
-                    ):
-                        logging.debug(
-                            "Removing(1) ended %d", job_scheduling_info.job_id
-                        )
-                        running_jobs.remove(job_scheduling_info)
-                logging.info(
-                    "Jobs remaining = %d after %.3fs",
-                    len(running_jobs),
-                    time.time() - jobs_started_time,
-                )
-            for job_scheduling_info in list(running_jobs):
-                # Check state of remaining jobs immediately before cancelling
+        def handle_running_jobs(
+            job_scheduling_info_list: Sequence[JobSchedulingInformation],
+            deadline: datetime,
+            check_time: datetime,
+        ) -> List[JobSchedulingInformation]:
+            # Wait for jobs to complete
+            running_jobs = self.wait_all_jobs(
+                job_scheduling_info_list,
+                STATEGROUP.ENDED,
+                deadline,
+                int(round((datetime.now() - check_time).total_seconds())),
+            )
+            completed_jobs = []
+            for job_scheduling_info in running_jobs:
                 self.fetch_and_update_state(job_scheduling_info)
                 if job_scheduling_info.status_info.current_state in STATEGROUP.ENDED:
-                    logging.debug("Removing(2) ended %d", job_scheduling_info.job_id)
-                    running_jobs.remove(job_scheduling_info)
-                else:
-                    logging.warning(
-                        "Job %d timed out. Terminating job now.",
-                        job_scheduling_info.job_id,
-                    )
-                    self.client.cancel_job(job_scheduling_info.job_id)
-            if len(running_jobs) > 0:
-                # Termination takes some time, wait a max of 2 mins
-                self.wait_all_jobs(running_jobs, STATEGROUP.ENDED, 120, 60)
-                logging.info(
-                    "Jobs terminated = %d after %.3fs",
-                    len(running_jobs),
-                    time.time() - jobs_started_time,
+                    logging.debug("Removing ended %d", job_scheduling_info.job_id)
+                    completed_jobs.append(job_scheduling_info)
+            logging.info(
+                "Jobs remaining = %d after %.3fs",
+                len(running_jobs) - len(completed_jobs),
+                (datetime.now() - wait_begin_time).total_seconds(),
+            )
+            return completed_jobs
+
+        def handle_ended_jobs(
+            job_scheduling_info_list: Sequence[JobSchedulingInformation],
+        ) -> List[JobSchedulingInformation]:
+            ended_jobs = []
+            for job_scheduling_info in job_scheduling_info_list:
+                self.fetch_and_update_state(job_scheduling_info)
+                if job_scheduling_info.status_info.current_state in STATEGROUP.ENDED:
+                    logging.debug("Removing ended %d", job_scheduling_info.job_id)
+                    ended_jobs.append(job_scheduling_info)
+
+        def handle_timeouts(
+            job_scheduling_info_list: Sequence[JobSchedulingInformation],
+        ) -> List[JobSchedulingInformation]:
+            deadlines = ((jsi, get_deadline(jsi)) for jsi in job_scheduling_info_list)
+            timed_out_jobs = [
+                jsi
+                for jsi, deadline in deadlines
+                if deadline is not None and deadline < datetime.now()
+            ]
+            for job_scheduling_info in timed_out_jobs:
+                logging.warning(
+                    "Job %d timed out. Terminating job now.",
+                    job_scheduling_info.job_id,
                 )
+                self.client.cancel_job(job_scheduling_info.job_id)
+            return timed_out_jobs
+
+        ended_jobs = set(
+            handle_ended_jobs(job_scheduling_info_list=job_scheduling_info_list)
+        )
+        unfinished_jobs = set(job_scheduling_info_list) - ended_jobs
+        timed_out_jobs = set(
+            handle_timeouts(job_scheduling_info_list=job_scheduling_info_list)
+        )
+        running_jobs = unfinished_jobs - timed_out_jobs
+
+        # Check for any jobs that ended while waiting for jobs to start
+        running_jobs -= set(handle_ended_jobs(job_scheduling_info_list=running_jobs))
+
+        logging.info("Remaining jobs have check_time=%d", check_time)
+        try:
+            while datetime.now() < wait_deadline and len(running_jobs) > 0:
+                next_deadline = min([get_deadline(jsi) for jsi in running_jobs])
+                check_time = min(
+                    ((next_deadline - datetime.now()) / 2), timedelta(minutes=1)
+                )  # smaller of half of between now and the nearest deadline or one minute
+
+                not_started = handle_not_started(running_jobs, check_time=check_time)
+                newly_completed_jobs = handle_running_jobs(  # Removes
+                    running_jobs - not_started,
+                    deadline=next_deadline,
+                    check_time=check_time,
+                )
+
+                ended_jobs |= newly_completed_jobs  # Update ended jobs
+                running_jobs -= newly_completed_jobs
+                newly_timed_out_jobs = handle_timeouts(
+                    running_jobs
+                )  # Update timed out jobs
+
+                timed_out_jobs |= newly_timed_out_jobs
+                running_jobs -= newly_timed_out_jobs
+
+            handle_running_jobs(
+                timed_out_jobs,
+                deadline=datetime.now() + timedelta(minutes=2),
+                check_time=datetime.now() + timedelta(minutes=1),
+            )
+
         except Exception:
             logging.error("Unknown error occurred running job", exc_info=True)
 
@@ -410,7 +481,8 @@ class JobScheduler:
                 )
 
             elif not self.timestamp_ok(
-                status_info.output_path, start_time=job_scheduling_info.start_time
+                status_info.output_path,
+                start_time=job_scheduling_info.status_info.start_time,
             ):
                 status_info.final_state = SLURMSTATE.OLD_OUTPUT_FILE
                 logging.error(
