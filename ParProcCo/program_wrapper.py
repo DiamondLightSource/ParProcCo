@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .job_scheduling_information import JobSchedulingInformation
 from .slicer_interface import SlicerInterface
-from .scheduler_mode_interface import SchedulerModeInterface
+from .job_slicer_interface import JobSlicerInterface
 
 from typing import TYPE_CHECKING
 
@@ -14,9 +14,9 @@ if TYPE_CHECKING:
 class ProgramWrapper:
     def __init__(
         self,
-        processing_mode: SchedulerModeInterface | None = None,
+        processing_mode: JobSlicerInterface | None = None,
         slicer: SlicerInterface | None = None,
-        aggregating_mode: SchedulerModeInterface | None = None,
+        aggregating_mode: JobSlicerInterface | None = None,
     ):
         self.processing_mode = processing_mode
         self.slicer = slicer

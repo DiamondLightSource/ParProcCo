@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from .program_wrapper import ProgramWrapper
-from .scheduler_mode_interface import SchedulerModeInterface
+from .job_slicer_interface import JobSlicerInterface
 from .utils import (
     check_jobscript_is_readable,
     check_location,
@@ -20,13 +20,13 @@ if TYPE_CHECKING:
     from .job_scheduling_information import JobSchedulingInformation
 
 
-class PassThruProcessingMode(SchedulerModeInterface):
+class PassThruProcessingMode(JobSlicerInterface):
     def create_slice_jobs(
         self,
         slice_params: list[Any] | None,
         job_scheduling_information: JobSchedulingInformation,
     ) -> list[JobSchedulingInformation]:
-        """Overrides SchedulerModeInterface.create_slice_jobs"""
+        """Overrides JobSlicerInterface.create_slice_jobs"""
 
         timestamp = format_timestamp(job_scheduling_information.timestamp)
         job_scheduling_information.stdout_filename = f"out_{timestamp}"

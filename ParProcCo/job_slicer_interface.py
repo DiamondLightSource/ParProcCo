@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .job_scheduling_information import JobSchedulingInformation
 
 
-class SchedulerModeInterface:
+class JobSlicerInterface:
     def __init__(self) -> None:
         self.allowed_modules: tuple[str, ...] | None = None
 

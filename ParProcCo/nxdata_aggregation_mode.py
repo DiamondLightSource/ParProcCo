@@ -4,7 +4,7 @@ from datetime import datetime
 from copy import deepcopy
 from ParProcCo.job_scheduling_information import JobSchedulingInformation
 
-from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
+from ParProcCo.job_slicer_interface import JobSlicerInterface
 from ParProcCo.utils import (
     check_jobscript_is_readable,
     check_location,
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-class NXdataAggregationMode(SchedulerModeInterface):
+class NXdataAggregationMode(JobSlicerInterface):
     def __init__(self):
         self.allowed_modules = ("python",)
 
@@ -28,7 +28,7 @@ class NXdataAggregationMode(SchedulerModeInterface):
         slice_params: list[Any] | None,
         job_scheduling_information: JobSchedulingInformation,
     ) -> list[JobSchedulingInformation]:
-        """Overrides SchedulerModeInterface.create_slice_jobs"""
+        """Overrides JobSlicerInterface.create_slice_jobs"""
         if slice_params is None:
             return []
         return [

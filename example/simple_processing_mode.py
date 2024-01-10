@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from copy import deepcopy
 
-from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
+from ParProcCo.job_slicer_interface import JobSlicerInterface
 from ParProcCo.utils import (
     slice_to_string,
     check_jobscript_is_readable,
@@ -19,8 +19,7 @@ if TYPE_CHECKING:
     from ParProcCo.job_scheduling_information import JobSchedulingInformation
 
 
-class SimpleProcessingMode(SchedulerModeInterface):
-    def __init__(self) -> None:
+class SimpleProcessingMode(JobSlicerInterface):
         self.allowed_modules = ("python",)
 
     def create_slice_jobs(

@@ -4,7 +4,7 @@ from datetime import datetime
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
-from ParProcCo.scheduler_mode_interface import SchedulerModeInterface
+from ParProcCo.job_slicer_interface import JobSlicerInterface
 from ParProcCo.utils import (
     check_jobscript_is_readable,
     check_location,
@@ -17,7 +17,13 @@ if TYPE_CHECKING:
     from ParProcCo.job_scheduling_information import JobSchedulingInformation
 
 
-class SimpleAggregationMode(SchedulerModeInterface):
+class SimpleAggregationMode(JobSlicerInterface):
+    def __init__(self, job_script: Path) -> None:
+        super().__init__()
+        self.job_script = check_jobscript_is_readable(
+            check_location(get_absolute_path(job_script))
+        )
+
     def create_slice_jobs(
         self,
         slice_params: list[Any] | None,
