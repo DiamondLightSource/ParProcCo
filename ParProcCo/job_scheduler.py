@@ -121,8 +121,8 @@ class StatusInfo:
     start_time: Optional[datetime] = None
     current_state: Optional[SLURMSTATE] = None
     slots: Optional[int] = None
-    time_to_dispatch: Optional[int] = None
-    wall_time: Optional[int] = None
+    time_to_dispatch: Optional[timedelta] = None
+    wall_time: Optional[timedelta] = None
     final_state: Optional[SLURMSTATE] = None
 
 
@@ -174,11 +174,6 @@ class JobScheduler:
         submit_time = job_info.submit_time
         end_time = job_info.end_time
 
-        if submit_time:
-            status_info.submit_time = submit_time
-        if start_time:
-            status_info.start_time = start_time
-
         if start_time and submit_time and end_time:
             time_to_dispatch = start_time - submit_time
             wall_time = end_time - start_time
@@ -187,9 +182,15 @@ class JobScheduler:
             wall_time = None
 
         status_info = job_scheduling_info.status_info
+
+        if submit_time:
+            # Don't overwrite unless a more specific value is given by the scheduler
+            status_info.submit_time = datetime.fromtimestamp(submit_time)
+        if start_time:
+            status_info.start_time = datetime.fromtimestamp(start_time)
         status_info.slots = slots
-        status_info.time_to_dispatch = time_to_dispatch
-        status_info.wall_time = wall_time
+        status_info.time_to_dispatch = timedelta(seconds=time_to_dispatch)
+        status_info.wall_time = timedelta(seconds=wall_time)
         status_info.current_state = slurm_state
         logging.debug(f"Updating current state of {job_id} to {state}")
         return slurm_state
