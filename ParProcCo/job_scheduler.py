@@ -134,6 +134,8 @@ class JobScheduler:
         cluster_output_dir: Optional[Union[Path, str]],
         user_name: Optional[str] = None,
         user_token: Optional[str] = None,
+        wait_timeout: timedelta = timedelta(hours=2),
+        terminate_after_wait: bool = True,
     ):
         """JobScheduler can be used for cluster job submissions"""
         self.job_history: list[dict[int, JobSchedulingInformation]] = []
@@ -142,6 +144,8 @@ class JobScheduler:
         self.cluster_output_dir: Optional[Path] = (
             Path(cluster_output_dir) if cluster_output_dir else None
         )
+        self.wait_timeout = wait_timeout
+        self.terminate_after_wait = terminate_after_wait
 
     def fetch_and_update_state(
         self, job_scheduling_info: JobSchedulingInformation
@@ -217,10 +221,21 @@ class JobScheduler:
     def _submit_and_monitor(
         self,
         job_scheduling_info_list: list[JobSchedulingInformation],
-        wait_timeout: timedelta = timedelta(hours=2),
+        wait_timeout: Optional[timedelta] = None,
+        terminate_after_wait: Optional[bool] = None,
     ) -> bool:
+        # Use scheduler settings if not given here
+        if wait_timeout is None:
+            wait_timeout = self.wait_timeout
+        if terminate_after_wait is None:
+            terminate_after_wait = self.terminate_after_wait
+
         self._submit_jobs(job_scheduling_info_list)
-        self._wait_for_jobs(job_scheduling_info_list, wait_timeout=wait_timeout)
+        self._wait_for_jobs(
+            job_scheduling_info_list,
+            wait_timeout=wait_timeout,
+            terminate_after_wait=terminate_after_wait,
+        )
         self._report_job_info(job_scheduling_info_list)
         return self.get_success(job_scheduling_info_list)
 
@@ -324,6 +339,7 @@ class JobScheduler:
         self,
         job_scheduling_info_list: list[JobSchedulingInformation],
         wait_timeout: timedelta = timedelta(hours=2),
+        terminate_after_wait: bool = False,
     ) -> None:
         wait_begin_time = datetime.now()
         wait_deadline = wait_begin_time + wait_timeout
@@ -446,6 +462,21 @@ class JobScheduler:
 
                 timed_out_jobs |= newly_timed_out_jobs
                 running_jobs -= newly_timed_out_jobs
+
+            for jsi in list(running_jobs):
+                try:
+                    logging.info(
+                        "Waiting for jobs timed out. Terminating job %d now.",
+                        jsi.job_id,
+                    )
+                    self.client.cancel_job(jsi.job_id)
+                    timed_out_jobs.add(jsi)
+                except Exception:
+                    logging.error(
+                        "Unknown error occurred terminating job %d",
+                        jsi.job_id,
+                        exc_info=True,
+                    )
 
             handle_running_jobs(
                 timed_out_jobs,
