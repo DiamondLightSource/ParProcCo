@@ -175,8 +175,8 @@ class JobScheduler:
         end_time = job_info.end_time
 
         if start_time and submit_time and end_time:
-            time_to_dispatch = start_time - submit_time
-            wall_time = end_time - start_time
+            time_to_dispatch = timedelta(seconds=start_time - submit_time)
+            wall_time = timedelta(seconds=end_time - start_time)
         else:
             time_to_dispatch = None
             wall_time = None
@@ -189,8 +189,8 @@ class JobScheduler:
         if start_time:
             status_info.start_time = datetime.fromtimestamp(start_time)
         status_info.slots = slots
-        status_info.time_to_dispatch = timedelta(seconds=time_to_dispatch)
-        status_info.wall_time = timedelta(seconds=wall_time)
+        status_info.time_to_dispatch = time_to_dispatch
+        status_info.wall_time = wall_time
         status_info.current_state = slurm_state
         logging.debug(f"Updating current state of {job_id} to {state}")
         return slurm_state
