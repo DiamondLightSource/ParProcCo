@@ -23,7 +23,7 @@ from .slurm.slurm_client import get_slurm_token
 
 def check_jobscript_is_readable(jobscript: Path) -> Path:
     if not jobscript.is_file():
-        raise FileNotFoundError(f"{jobscript} does not exist")
+        raise FileNotFoundError(f"{jobscript} not found")
 
     if not (os.access(jobscript, os.R_OK) and os.access(jobscript, os.X_OK)):
         raise PermissionError(f"{jobscript} must be readable and executable by user")
