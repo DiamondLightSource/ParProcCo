@@ -390,16 +390,16 @@ class JobScheduler:
             check_time: timedelta,
         ) -> List[JobSchedulingInformation]:
             # Wait for jobs to complete
-            running_jobs = self.wait_all_jobs(
+            self.wait_all_jobs(
                 job_scheduling_info_list,
                 STATEGROUP.ENDED,
                 deadline,
                 int(round(check_time.total_seconds())),
             )
-            ended_jobs = handle_ended_jobs(running_jobs)
+            ended_jobs = handle_ended_jobs(job_scheduling_info_list)
             logging.info(
                 "Jobs remaining = %d after %.3fs",
-                len(running_jobs) - len(ended_jobs),
+                len(job_scheduling_info_list) - len(ended_jobs),
                 (datetime.now() - wait_begin_time).total_seconds(),
             )
             return ended_jobs
