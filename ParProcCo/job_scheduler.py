@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Union, Sequence
 from copy import deepcopy
 
 from .job_scheduling_information import JobSchedulingInformation
+from .utils import check_jobscript_is_readable
 from .slurm.slurm_rest import (
     JobProperties,
     JobSubmission,
@@ -293,10 +294,12 @@ class JobScheduler:
             logging.debug(
                 f"Directory {job_scheduling_info.log_directory} already exists"
             )
-
+        job_script_path = check_jobscript_is_readable(
+            job_scheduling_info.job_script_path
+        )
         job_script_command = " ".join(
             [
-                f"#!/bin/bash\n{job_scheduling_info.job_script_path}",
+                f"#!/bin/bash\n{job_script_path}",
                 *job_scheduling_info.job_script_arguments,
             ]
         )
