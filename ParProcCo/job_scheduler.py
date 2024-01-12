@@ -199,9 +199,9 @@ class JobScheduler:
         self, job_scheduling_info_list: list[JobSchedulingInformation]
     ) -> tuple[Path]:
         return tuple(
-            info.output_path
-            for info in job_scheduling_info_list
-            if info.output_path is not None
+            jsi.get_output_path()
+            for jsi in job_scheduling_info_list
+            if jsi.get_output_path() is not None
         )
 
     def get_success(
