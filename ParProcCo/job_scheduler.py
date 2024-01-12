@@ -591,11 +591,7 @@ class JobScheduler:
         self.job_history.append({jsi.job_id: jsi for jsi in job_scheduling_info_list})
 
     def resubmit_jobs(self, job_indices: List[int], batch: int | None = None) -> bool:
-        if batch is None:
-            batch = len(self.job_history) - 1
-        old_job_scheduling_info_list = self.get_batch_from_job_history(
-            batch_number=batch
-        )
+        old_job_scheduling_info_list = self.get_job_history_batch(batch_number=batch)
         new_job_scheduling_info_list = []
         for old_job_scheduling_info in old_job_scheduling_info_list:
             new_job_scheduling_info = deepcopy(old_job_scheduling_info)
@@ -620,9 +616,7 @@ class JobScheduler:
         self, batch_number: int | None = None, allow_all_failed: bool = False
     ) -> bool:
         logging.info("Resubmitting killed jobs")
-        job_scheduling_info_list = self.get_batch_from_job_history(
-            batch_number=batch_number
-        )
+        job_scheduling_info_list = self.get_job_history_batch(batch_number=batch_number)
         batch_completion_status = tuple(
             jsi.completion_status for jsi in job_scheduling_info_list
         )
@@ -655,9 +649,12 @@ class JobScheduler:
     def clear_job_history(self) -> None:
         self.job_history.clear()
 
-    def get_batch_from_job_history(
-        self, batch_number: int
-    ) -> list[JobSchedulingInformation]:
-        if batch_number >= len(self.job_history):
+    def get_job_history_batch(
+        self, batch_number: Optional[int] = None
+    ) -> dict[int, JobSchedulingInformation]:
+        if batch_number is None:
+            batch_number = len(self.job_history) - 1
+        elif batch_number >= len(self.job_history):
             raise IndexError("Batch %i does not exist in the job history")
+        logging.debug("Getting batch %i from job history", batch_number)
         return self.job_history[batch_number]
