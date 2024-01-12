@@ -608,7 +608,7 @@ class JobScheduler:
 
     def filter_killed_jobs(
         self, job_scheduling_information_list: List[JobSchedulingInformation]
-    ) -> List[int]:
+    ) -> List[JobSchedulingInformation]:
         return [
             jsi
             for jsi in job_scheduling_information_list
