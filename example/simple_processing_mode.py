@@ -78,6 +78,6 @@ class SimpleProcessingMode(JobSlicerInterface):
             + job_scheduling_information.job_script_arguments
         )
 
-        job_scheduling_information.job_script_path = self.job_script
+        job_scheduling_information.set_job_script_path(self.job_script)
 
         return job_scheduling_information

@@ -45,7 +45,7 @@ class SimpleAggregationMode(JobSlicerInterface):
         job_scheduling_information: JobSchedulingInformation,
     ) -> JobSchedulingInformation:
         timestamp = format_timestamp(job_scheduling_information.timestamp)
-        job_scheduling_information.job_script_path = self.job_script
+        job_scheduling_information.set_job_script_path(self.job_script)
 
         job_scheduling_information.output_filename = (
             f"aggregated_results_{timestamp}.nxs"
