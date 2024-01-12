@@ -593,17 +593,19 @@ class JobScheduler:
 
         self.job_history.append({jsi.job_id: jsi for jsi in job_scheduling_info_list})
 
-    def resubmit_jobs(self, job_indices: List[int], batch: int | None = None) -> bool:
-        old_job_scheduling_info_list = self.get_job_history_batch(batch_number=batch)
+    def resubmit_jobs(
+        self, job_ids: Optional[List[int]] = None, batch: int | None = None
+    ) -> bool:
+        old_job_scheduling_info_dict = self.get_job_history_batch(batch_number=batch)
         new_job_scheduling_info_list = []
-        for old_job_scheduling_info in old_job_scheduling_info_list:
-            new_job_scheduling_info = deepcopy(old_job_scheduling_info)
-            new_job_scheduling_info.set_completion_status(False)
-            new_job_scheduling_info.status_info = None
-            new_job_scheduling_info_list.append(new_job_scheduling_info)
-        logging.info(
-            f"Resubmitting jobs from batch {batch} with job_indices: {job_indices}"
-        )
+        for job_id, old_job_scheduling_info in old_job_scheduling_info_dict.items():
+            if job_ids is None or job_id in job_ids:
+                new_job_scheduling_info = deepcopy(old_job_scheduling_info)
+                new_job_scheduling_info.set_completion_status(False)
+                new_job_scheduling_info.status_info = None
+                new_job_scheduling_info.job_id = None
+                new_job_scheduling_info_list.append(new_job_scheduling_info)
+        logging.info(f"Resubmitting jobs from batch {batch} with job_ids: {job_ids}")
         return self._submit_and_monitor(new_job_scheduling_info_list)
 
     def filter_killed_jobs(
