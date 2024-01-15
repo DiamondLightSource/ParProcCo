@@ -113,7 +113,7 @@ class JobController:
             slice_params = self.program_wrapper.create_slices(number_jobs=number_jobs)
             logging.error(
                 f"Sliced jobs failed with slice_params: {slice_params}, jobscript_args: {jobscript_args},"
-                f" memory: {memory}, job_name: {job_name}"
+                f" job_name: {job_name}"
             )
             raise RuntimeError("Sliced jobs failed\n")
 
