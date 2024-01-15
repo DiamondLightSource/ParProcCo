@@ -74,7 +74,6 @@ class JobSchedulingInformation:
             return Path(self.output_filename)
         return self.output_dir / self.output_filename
 
-    # TODO: make this a part of a wrapper that can be set on a per-job basis?
     def get_stdout_path(self) -> Path:
         if self.log_directory is None:
             raise ValueError(
