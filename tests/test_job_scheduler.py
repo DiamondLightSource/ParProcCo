@@ -152,7 +152,7 @@ class TestJobScheduler(unittest.TestCase):
             )
 
             # submit jobs
-            js = create_js(working_directory, cluster_output_dir)
+            js = create_js(cluster_output_dir)
             js.run(jsi_list)
 
             # check output files
