@@ -469,6 +469,7 @@ class JobScheduler:
 
         if not running_jobs:
             logging.warning("All jobs ended before wait began")
+            handle_ended_jobs(ended_jobs.values())
             return
         try:
             while datetime.now() < wait_deadline and len(running_jobs) > 0:
@@ -621,17 +622,17 @@ class JobScheduler:
         self, batch_number: int | None = None, allow_all_failed: bool = False
     ) -> bool:
         logging.info("Resubmitting killed jobs")
-        job_scheduling_info_list = self.get_job_history_batch(batch_number=batch_number)
+        job_scheduling_info_dict = self.get_job_history_batch(batch_number=batch_number)
         batch_completion_status = tuple(
-            jsi.completion_status for jsi in job_scheduling_info_list
+            jsi.completion_status for jsi in job_scheduling_info_dict.values()
         )
         if all(batch_completion_status):
             logging.warning("No failed jobs to resubmit")
             return True
         elif allow_all_failed or any(batch_completion_status):
             failed_jobs = [
-                jsi.status_info
-                for jsi in job_scheduling_info_list
+                jsi
+                for jsi in job_scheduling_info_dict.values()
                 if jsi.status_info.final_state != SLURMSTATE.COMPLETED
             ]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
@@ -639,12 +640,14 @@ class JobScheduler:
                 f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}"
             )
             if killed_jobs:
-                return self.resubmit_jobs(killed_jobs)
+                return self.resubmit_jobs(
+                    job_ids=[jsi.job_id for jsi in killed_jobs], batch=batch_number
+                )
             return True
         pretty_format_job_history = "\n".join(
             [
                 f"Batch {i} - {', '.join(f'{jsi.job_id}: {jsi.status_info}' for jsi in batch.values())}"
-                for i, batch in enumerate(self.job_history, 1)
+                for i, batch in enumerate(self.job_history, 0)
             ]
         )
         raise RuntimeError(
@@ -656,10 +659,15 @@ class JobScheduler:
 
     def get_job_history_batch(
         self, batch_number: Optional[int] = None
-    ) -> dict[int, JobSchedulingInformation]:
+    ) -> Dict[int, JobSchedulingInformation]:
         if batch_number is None:
-            batch_number = len(self.job_history) - 1
+            batch_number = self.get_batch_number()
+            if batch_number < 0:
+                raise IndexError("Job history is empty")
         elif batch_number >= len(self.job_history):
             raise IndexError("Batch %i does not exist in the job history")
         logging.debug("Getting batch %i from job history", batch_number)
         return self.job_history[batch_number]
+
+    def get_batch_number(self) -> int:
+        return len(self.job_history) - 1
