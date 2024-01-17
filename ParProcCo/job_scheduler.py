@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, auto
@@ -120,7 +121,8 @@ class StatusInfo:
     submit_time: datetime
     start_time: Optional[datetime] = None
     current_state: Optional[SLURMSTATE] = None
-    slots: Optional[int] = None
+    cpus: Optional[int] = None
+    gpus: Optional[int] = None
     time_to_dispatch: Optional[timedelta] = None
     wall_time: Optional[timedelta] = None
     final_state: Optional[SLURMSTATE] = None
@@ -156,19 +158,30 @@ class JobScheduler:
             raise ValueError(f"Job info has no job id: {job_info}")
         state = job_info.job_state
         slurm_state = SLURMSTATE[state] if state else None
-        try:
-            tres_alloc_str = job_info.tres_alloc_str
-            slots = (
-                int((tres_alloc_str.split(",")[1]).split("=")[1])
-                if tres_alloc_str
-                else None
-            )
 
-        except Exception:
-            logging.warning(
-                f"Failed to get slots for job {job_id}; setting slots to 0. Job info: {job_info}"
-            )
-            slots = None
+        tres_alloc_str = job_info.tres_alloc_str
+        if not tres_alloc_str:
+            cpus = None
+            gpus = None
+        else:
+            try:
+                cpu_match = re.search(r"cpu=(\d+)", tres_alloc_str)
+                cpus = int(cpu_match.group(1)) if cpu_match else None
+            except Exception as e:
+                print(e)
+                logging.warning(
+                    f"Failed to get cpus for job {job_id}; setting cpus to 0. Job info: {job_info}",
+                )
+                cpus = None
+            try:
+                gpu_match = re.search(r"gpu=(\d+)", tres_alloc_str)
+                gpus = int(gpu_match.group(1)) if gpu_match else None
+            except Exception as e:
+                print(e)
+                logging.warning(
+                    f"Failed to get gpus for job {job_id}; setting gpus to 0. Job info: {job_info}",
+                )
+                gpus = None
 
         start_time = job_info.start_time
         submit_time = job_info.submit_time
@@ -188,7 +201,8 @@ class JobScheduler:
             status_info.submit_time = datetime.fromtimestamp(submit_time)
         if start_time:
             status_info.start_time = datetime.fromtimestamp(start_time)
-        status_info.slots = slots
+        status_info.cpus = cpus
+        status_info.gpus = gpus
         status_info.time_to_dispatch = time_to_dispatch
         status_info.wall_time = wall_time
         status_info.current_state = slurm_state
