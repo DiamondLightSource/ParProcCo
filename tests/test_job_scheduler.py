@@ -216,7 +216,7 @@ class TestJobScheduler(unittest.TestCase):
                 for i, err_msg in enumerate(context.output):
                     test_msg = (
                         f"'--input-path', '{input_path}') has not created a "
-                        f"new output file {cluster_output_dir  / 'out'}_{i}"
+                        f"new output file {jsi_list[i].get_stdout_path()}"
                     )
                     self.assertTrue(
                         test_msg in err_msg,
@@ -244,7 +244,8 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output"
+            working_directory = Path(working_directory)
+            cluster_output_dir = working_directory / "cluster_output"
             runner_script = setup_runner_script(working_directory)
             jobscript = setup_jobscript(working_directory)
             with open(jobscript, "a+") as f:
@@ -264,7 +265,8 @@ class TestJobScheduler(unittest.TestCase):
                 working_directory=working_directory,
                 job_env={},
                 timestamp=datetime.now(),
-                output_dir=cluster_output_dir,
+                output_dir=working_directory,
+                log_directory=cluster_output_dir,
                 timeout=timedelta(seconds=5),
             )
 
@@ -478,10 +480,10 @@ class TestJobScheduler(unittest.TestCase):
                 "all_killed",
                 [
                     StatusInfo(
-                        output_path=Path(f"to/somewhere_{i}"),
                         submit_time=datetime.now(),
                         current_state=SLURMSTATE.CANCELLED,
-                        slots=0,
+                        cpus=0,
+                        gpus=0,
                         time_to_dispatch=0,
                         wall_time=0,
                         final_state=SLURMSTATE.FAILED,
@@ -494,10 +496,10 @@ class TestJobScheduler(unittest.TestCase):
                 "none_killed",
                 [
                     StatusInfo(
-                        output_path=Path(f"to/somewhere_{i}"),
                         submit_time=datetime.now(),
                         current_state=SLURMSTATE.BOOT_FAIL,
-                        slots=0,
+                        cpus=0,
+                        gpus=0,
                         time_to_dispatch=0,
                         wall_time=0,
                         final_state=SLURMSTATE.FAILED,
@@ -510,19 +512,19 @@ class TestJobScheduler(unittest.TestCase):
                 "one_killed",
                 [
                     StatusInfo(
-                        output_path=Path("to/somewhere_0"),
                         submit_time=datetime.now(),
                         current_state=SLURMSTATE.CANCELLED,
-                        slots=0,
+                        cpus=0,
+                        gpus=0,
                         time_to_dispatch=0,
                         wall_time=0,
                         final_state=SLURMSTATE.FAILED,
                     ),
                     StatusInfo(
-                        output_path=Path("to/somewhere_1"),
                         submit_time=datetime.now(),
                         current_state=SLURMSTATE.OUT_OF_MEMORY,
-                        slots=0,
+                        cpus=0,
+                        gpus=0,
                         time_to_dispatch=0,
                         wall_time=0,
                         final_state=SLURMSTATE.OUT_OF_MEMORY,
@@ -558,39 +560,42 @@ class TestJobScheduler(unittest.TestCase):
             )
 
             job_ids = [0, 1, 2, 3]
+            stdout_paths = [
+                cluster_output_dir / "to" / f"somewhere_{i}" for i in job_ids
+            ]
             status_infos = [
                 StatusInfo(
-                    output_path=cluster_output_dir / "to" / "somewhere_0",
                     submit_time=datetime.now(),
                     current_state=SLURMSTATE.CANCELLED,
-                    slots=0,
+                    cpus=0,
+                    gpus=0,
                     time_to_dispatch=0,
                     wall_time=0,
                     final_state=SLURMSTATE.FAILED,
                 ),
                 StatusInfo(
-                    output_path=cluster_output_dir / "to" / "somewhere_1",
                     submit_time=datetime.now(),
                     current_state=SLURMSTATE.COMPLETED,
-                    slots=0,
+                    cpus=0,
+                    gpus=0,
                     time_to_dispatch=0,
                     wall_time=0,
                     final_state=SLURMSTATE.COMPLETED,
                 ),
                 StatusInfo(
-                    output_path=cluster_output_dir / "to" / "somewhere_2",
                     submit_time=datetime.now(),
                     current_state=SLURMSTATE.CANCELLED,
-                    slots=0,
+                    cpus=0,
+                    gpus=0,
                     time_to_dispatch=0,
                     wall_time=0,
                     final_state=SLURMSTATE.FAILED,
                 ),
                 StatusInfo(
-                    output_path=cluster_output_dir / "to" / "somewhere_3",
                     submit_time=datetime.now(),
                     current_state=SLURMSTATE.COMPLETED,
-                    slots=0,
+                    cpus=0,
+                    gpus=0,
                     time_to_dispatch=0,
                     wall_time=0,
                     final_state=SLURMSTATE.COMPLETED,
@@ -617,12 +622,12 @@ class TestJobScheduler(unittest.TestCase):
             )
             job_history = {}
             completion_statuses = [False, True, False, True]
-            for job_id, jsi, status_info, completed in zip(
-                job_ids, jsi_list, status_infos, completion_statuses
+            for job_id, jsi, stdout_path, status_info, completed in zip(
+                job_ids, jsi_list, stdout_paths, status_infos, completion_statuses
             ):
-                jsi.log_directory = status_info.output_path.parent
-                jsi.stdout_filename = status_info.output_path.name
-                jsi.sterr_filename = status_info.output_path.name + "_err"
+                jsi.log_directory = stdout_path.parent
+                jsi.stdout_filename = stdout_path.name
+                jsi.sterr_filename = jsi.stdout_filename + "_err"
                 jsi.set_job_id(job_id)
                 jsi.update_status_info(status_info)
                 jsi.set_completion_status(completed)
@@ -645,10 +650,10 @@ class TestJobScheduler(unittest.TestCase):
                 [
                     {
                         i: StatusInfo(
-                            output_path=Path(f"to/somewhere_{i}"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
@@ -656,6 +661,7 @@ class TestJobScheduler(unittest.TestCase):
                         for i in range(4)
                     }
                 ],
+                {i: Path(f"stdoud_{i}") for i in range(4)},
                 {i: True for i in range(4)},
                 False,
                 None,
@@ -668,10 +674,10 @@ class TestJobScheduler(unittest.TestCase):
                 [
                     {
                         i: StatusInfo(
-                            output_path=Path(f"to/somewhere_{i}"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.FAILED,
@@ -679,6 +685,7 @@ class TestJobScheduler(unittest.TestCase):
                         for i in range(4)
                     }
                 ],
+                {i: Path(f"stdout_{i}") for i in range(4)},
                 {i: False for i in range(4)},
                 False,
                 None,
@@ -691,10 +698,10 @@ class TestJobScheduler(unittest.TestCase):
                 {
                     0: {
                         i: StatusInfo(
-                            output_path=Path(f"to/somewhere_{i}"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.FAILED,
@@ -702,6 +709,7 @@ class TestJobScheduler(unittest.TestCase):
                         for i in range(4)
                     }
                 },
+                {i: Path(f"stdout_{i}") for i in range(4)},
                 {i: False for i in range(4)},
                 True,
                 [0, 1, 2, 3],
@@ -714,43 +722,44 @@ class TestJobScheduler(unittest.TestCase):
                 [
                     {
                         0: StatusInfo(
-                            output_path=Path("to/somewhere_0"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         1: StatusInfo(
-                            output_path=Path("to/somewhere_1"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                         2: StatusInfo(
-                            output_path=Path("to/somewhere_2"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         3: StatusInfo(
-                            output_path=Path("to/somewhere_3"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                     }
                 ],
+                {i: Path(f"stdout_{i}") for i in range(4)},
                 {0: False, 1: True, 2: False, 3: True},
                 True,
                 [0, 2],
@@ -763,43 +772,44 @@ class TestJobScheduler(unittest.TestCase):
                 [
                     {
                         0: StatusInfo(
-                            output_path=Path("to/somewhere_0"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         1: StatusInfo(
-                            output_path=Path("to/somewhere_1"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                         2: StatusInfo(
-                            output_path=Path("to/somewhere_2"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         3: StatusInfo(
-                            output_path=Path("to/somewhere_3"),
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
+                            cpus=0,
+                            gpus=0,
                             time_to_dispatch=0,
                             wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                     }
                 ],
+                {i: Path(f"stdout_{i}") for i in range(4)},
                 {0: False, 1: True, 2: False, 3: True},
                 True,
                 [0, 2],
@@ -813,6 +823,7 @@ class TestJobScheduler(unittest.TestCase):
         _name,
         allow_all_failed,
         job_statuses,
+        stdout_paths,
         job_completion_status,
         runs,
         indices,
@@ -849,12 +860,14 @@ class TestJobScheduler(unittest.TestCase):
             job_history = {}
             for job_id, jsi in enumerate(jsi_list):
                 status_info = job_statuses[0][job_id]
-                status_info.output_path = output_paths[
+                stdout_path = stdout_paths[
                     job_id
                 ]  # Only works because test IDs are 0, 1, 2, 3
-                jsi.log_directory = status_info.output_path.parent
-                jsi.stdout_filename = status_info.output_path.name
-                jsi.sterr_filename = status_info.output_path.name + "_err"
+                jsi.log_directory = cluster_output_dir / "logs"
+                jsi.stdout_filename = stdout_path.name
+                jsi.sterr_filename = stdout_path.name + "_err"
+                jsi.output_dir = output_paths[job_id].parent
+                jsi.output_filename = output_paths[job_id].name
                 jsi.set_job_id(job_id)
                 jsi.update_status_info(status_info)
                 jsi.set_completion_status(job_completion_status[job_id])

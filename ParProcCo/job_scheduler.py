@@ -117,7 +117,6 @@ class STATEGROUP(set, Enum):
 class StatusInfo:
     """Class for keeping track of job status."""
 
-    output_path: Path
     submit_time: datetime
     start_time: Optional[datetime] = None
     current_state: Optional[SLURMSTATE] = None
@@ -259,7 +258,6 @@ class JobScheduler:
                 job_scheduling_info.set_job_id(resp.job_id)
                 job_scheduling_info.update_status_info(
                     StatusInfo(
-                        output_path=Path(submission.job.standard_output),
                         submit_time=datetime.now(),
                     )
                 )
@@ -539,7 +537,7 @@ class JobScheduler:
         for job_scheduling_info in job_scheduling_info_list:
             job_id = job_scheduling_info.job_id
             status_info = job_scheduling_info.status_info
-            output_path = job_scheduling_info.get_output_path()
+            stdout_path = job_scheduling_info.get_stdout_path()
             logging.debug(f"Retrieving info for job {job_id}")
 
             # Check job states against expected possible options:
@@ -551,23 +549,23 @@ class JobScheduler:
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
 
-            elif not output_path.is_file():
+            elif not stdout_path.is_file():
                 status_info.final_state = SLURMSTATE.NO_OUTPUT
                 logging.error(
                     f"Job {job_id} with args {job_scheduling_info.job_script_arguments} has not created"
-                    f" output file {output_path}"
+                    f" output file {stdout_path}"
                     f" State: {state}."
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
 
             elif not self.timestamp_ok(
-                output_path,
+                stdout_path,
                 start_time=job_scheduling_info.status_info.start_time,
             ):
                 status_info.final_state = SLURMSTATE.OLD_OUTPUT_FILE
                 logging.error(
                     f"Job {job_id} with args {job_scheduling_info.job_script_arguments} has not created"
-                    f" a new output file {output_path}"
+                    f" a new output file {stdout_path}"
                     f" State: {state}."
                     f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
                 )
