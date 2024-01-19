@@ -4,7 +4,6 @@ import logging
 import os
 from datetime import timedelta, datetime
 from pathlib import Path
-from typing import List, Optional
 
 from .job_scheduler import JobScheduler
 from .slicer_interface import SlicerInterface
@@ -22,9 +21,9 @@ class JobController:
         program_wrapper: ProgramWrapper,
         output_dir_or_file: Path,
         partition: str,
-        extra_properties: Optional[dict[str, str]] = None,
-        user_name: Optional[str] = None,
-        user_token: Optional[str] = None,
+        extra_properties: dict[str, str] | None = None,
+        user_name: str | None = None,
+        user_token: str | None = None,
         timeout: timedelta = timedelta(hours=2),
     ) -> None:
         """JobController is used to coordinate cluster job submissions with JobScheduler"""
@@ -32,8 +31,8 @@ class JobController:
         self.program_wrapper = program_wrapper
         self.partition = partition
         self.extra_properties = extra_properties
-        self.output_file: Optional[Path] = None
-        self.cluster_output_dir: Optional[Path] = None
+        self.output_file: Path | None = None
+        self.cluster_output_dir: Path | None = None
 
         if output_dir_or_file is not None:
             logging.debug("JC output: %s", output_dir_or_file)
@@ -49,7 +48,7 @@ class JobController:
                 self.output_file,
             )
         try:
-            self.working_directory: Optional[Path] = check_location(os.getcwd())
+            self.working_directory: Path | None = check_location(os.getcwd())
         except Exception:
             logging.warning(
                 "Could not use %s as working directory on cluster so using %s",
@@ -62,15 +61,15 @@ class JobController:
         self.user_name = user_name
         self.user_token = user_token
         self.timeout = timeout
-        self.sliced_results: Optional[List[Path]] = None
-        self.aggregated_result: Optional[Path] = None
+        self.sliced_results: list[Path] | None = None
+        self.aggregated_result: Path | None = None
 
     def run(
         self,
         number_jobs: int,
         processing_job_resources: JobResources,
         aggregation_job_resources: JobResources,
-        jobscript_args: Optional[List] = None,
+        jobscript_args: list | None = None,
         job_name: str = "ParProcCo",
     ) -> None:
         self.cluster_runner = check_location(
@@ -120,7 +119,7 @@ class JobController:
     def _submit_sliced_jobs(
         self,
         number_of_jobs: int,
-        jobscript_args: Optional[List],
+        jobscript_args: list | None,
         memory: int,
         job_name: str,
         timestamp: datetime,

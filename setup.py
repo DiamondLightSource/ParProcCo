@@ -18,4 +18,5 @@ setup(
         "scripts/ppc_cluster_submit",
     ],
     url="https://github.com/DiamondLightSource/ParProcCo",
+    python_requires=">=3.10",
 )

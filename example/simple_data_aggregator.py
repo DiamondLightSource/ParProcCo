@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
 from ParProcCo.aggregator_interface import AggregatorInterface
 
@@ -10,7 +9,7 @@ class SimpleDataAggregator(AggregatorInterface):
     def __init__(self) -> None:
         pass
 
-    def aggregate(self, aggregation_output: Path, data_files: List[Path]) -> Path:
+    def aggregate(self, aggregation_output: Path, data_files: list[Path]) -> Path:
         """Overrides AggregatorInterface.aggregate"""
         aggregated_lines = []
         for data_file in data_files:

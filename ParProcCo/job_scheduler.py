@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, auto
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Sequence
+from collections.abc import Sequence
 from copy import deepcopy
 
 from .job_scheduling_information import JobSchedulingInformation
@@ -122,13 +122,13 @@ class StatusInfo:
     """Class for keeping track of job status."""
 
     submit_time: datetime
-    start_time: Optional[datetime] = None
-    current_state: Optional[SLURMSTATE] = None
-    cpus: Optional[int] = None
-    gpus: Optional[int] = None
-    time_to_dispatch: Optional[timedelta] = None
-    wall_time: Optional[timedelta] = None
-    final_state: Optional[SLURMSTATE] = None
+    start_time: datetime | None = None
+    current_state: SLURMSTATE | None = None
+    cpus: int | None = None
+    gpus: int | None = None
+    time_to_dispatch: timedelta | None = None
+    wall_time: timedelta | None = None
+    final_state: SLURMSTATE | None = None
 
 
 class JobScheduler:
@@ -136,9 +136,9 @@ class JobScheduler:
         self,
         url: str,
         partition: str,
-        cluster_output_dir: Optional[Union[Path, str]],
-        user_name: Optional[str] = None,
-        user_token: Optional[str] = None,
+        cluster_output_dir: Path | str | None,
+        user_name: str | None = None,
+        user_token: str | None = None,
         wait_timeout: timedelta = timedelta(hours=2),
         terminate_after_wait: bool = True,
     ):
@@ -146,7 +146,7 @@ class JobScheduler:
         self.job_history: list[dict[int, JobSchedulingInformation]] = []
         self.client = SlurmClient(url, user_name, user_token)
         self.partition = partition
-        self.cluster_output_dir: Optional[Path] = (
+        self.cluster_output_dir: Path | None = (
             Path(cluster_output_dir) if cluster_output_dir else None
         )
         self.wait_timeout = wait_timeout
@@ -154,7 +154,7 @@ class JobScheduler:
 
     def fetch_and_update_state(
         self, job_scheduling_info: JobSchedulingInformation
-    ) -> Optional[SLURMSTATE]:
+    ) -> SLURMSTATE | None:
         job_info = self.client.get_job(job_scheduling_info.job_id)
         job_id = job_info.job_id
         if job_id is None:
@@ -241,8 +241,8 @@ class JobScheduler:
     def _submit_and_monitor(
         self,
         job_scheduling_info_list: list[JobSchedulingInformation],
-        wait_timeout: Optional[timedelta] = None,
-        terminate_after_wait: Optional[bool] = None,
+        wait_timeout: timedelta | None = None,
+        terminate_after_wait: bool | None = None,
     ) -> bool:
         # Use scheduler settings if not given here
         if wait_timeout is None:
@@ -371,7 +371,7 @@ class JobScheduler:
         def get_deadline(
             job_scheduling_info: JobSchedulingInformation,
             allow_from_submission: bool = False,
-        ) -> Optional[datetime]:
+        ) -> datetime | None:
             # Timeout shouldn't include queue time
             if job_scheduling_info.status_info is None:
                 return None
@@ -387,9 +387,9 @@ class JobScheduler:
             )
 
         def handle_not_started(
-            job_scheduling_info_list: List[JobSchedulingInformation],
+            job_scheduling_info_list: list[JobSchedulingInformation],
             check_time: timedelta,
-        ) -> List[JobSchedulingInformation]:
+        ) -> list[JobSchedulingInformation]:
             # Wait for jobs to start (timeout shouldn't include queue time)
             starting_jobs = list(job_scheduling_info_list)
             timeout = datetime.now() + check_time
@@ -411,7 +411,7 @@ class JobScheduler:
             job_scheduling_info_list: Sequence[JobSchedulingInformation],
             deadline: datetime,
             check_time: timedelta,
-        ) -> List[JobSchedulingInformation]:
+        ) -> list[JobSchedulingInformation]:
             # Wait for jobs to complete
             self.wait_all_jobs(
                 job_scheduling_info_list,
@@ -429,7 +429,7 @@ class JobScheduler:
 
         def handle_ended_jobs(
             job_scheduling_info_list: Sequence[JobSchedulingInformation],
-        ) -> List[JobSchedulingInformation]:
+        ) -> list[JobSchedulingInformation]:
             ended_jobs = []
             for job_scheduling_info in job_scheduling_info_list:
                 self.fetch_and_update_state(job_scheduling_info)
@@ -440,7 +440,7 @@ class JobScheduler:
 
         def handle_timeouts(
             job_scheduling_info_list: Sequence[JobSchedulingInformation],
-        ) -> List[JobSchedulingInformation]:
+        ) -> list[JobSchedulingInformation]:
             deadlines = (
                 (jsi, get_deadline(jsi, allow_from_submission=False))
                 for jsi in job_scheduling_info_list
@@ -620,7 +620,7 @@ class JobScheduler:
         self.job_history.append({jsi.job_id: jsi for jsi in job_scheduling_info_list})
 
     def resubmit_jobs(
-        self, job_ids: Optional[List[int]] = None, batch: int | None = None
+        self, job_ids: list[int] | None = None, batch: int | None = None
     ) -> bool:
         old_job_scheduling_info_dict = self.get_job_history_batch(batch_number=batch)
         new_job_scheduling_info_list = []
@@ -635,8 +635,8 @@ class JobScheduler:
         return self._submit_and_monitor(new_job_scheduling_info_list)
 
     def filter_killed_jobs(
-        self, job_scheduling_information_list: List[JobSchedulingInformation]
-    ) -> List[JobSchedulingInformation]:
+        self, job_scheduling_information_list: list[JobSchedulingInformation]
+    ) -> list[JobSchedulingInformation]:
         return [
             jsi
             for jsi in job_scheduling_information_list
@@ -644,7 +644,7 @@ class JobScheduler:
         ]
 
     def resubmit_killed_jobs(
-        self, batch_number: int | None = None, allow_all_failed: bool = False
+        self, batch_number: int | NoneNone, allow_all_failed: bool = False
     ) -> bool:
         logging.info("Resubmitting killed jobs")
         job_scheduling_info_dict = self.get_job_history_batch(batch_number=batch_number)
@@ -682,8 +682,8 @@ class JobScheduler:
         self.job_history.clear()
 
     def get_job_history_batch(
-        self, batch_number: Optional[int] = None
-    ) -> Dict[int, JobSchedulingInformation]:
+        self, batch_number: int | None = None
+    ) -> dict[int, JobSchedulingInformation]:
         if batch_number is None:
             batch_number = self.get_batch_number()
             if batch_number < 0:
