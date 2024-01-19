@@ -33,7 +33,8 @@ class SLURMSTATE(Enum):
     """Job has been allocated resources, but are waiting for them to become
     ready for use (e.g. booting)"""
     COMPLETING = auto()
-    "Job is in the process of completing. Some processes on some nodes may still be active"
+    """Job is in the process of completing. Some processes on some nodes may still
+    be active"""
     DEADLINE = auto()
     "Job terminated on deadline"
     FAILED = auto()
@@ -63,15 +64,17 @@ class SLURMSTATE(Enum):
     SIGNALING = auto()
     "Job is being signaled"
     SPECIAL_EXIT = auto()
-    """The job was requeued in a special state. This state can be set by users, typically in
-        EpilogSlurmctld, if the job has terminated with a particular exit value"""
+    """The job was requeued in a special state. This state can be set by users,
+    typically in EpilogSlurmctld, if the job has terminated with a particular exit value
+    """
     STAGE_OUT = auto()
     "Job is staging out files"
     STOPPED = auto()
     """Job has an allocation, but execution has been stopped with SIGSTOP signal.
     CPUS have been retained by this job"""
     SUSPENDED = auto()
-    "Job has an allocation, but execution has been suspended and CPUs have been released for other jobs"
+    """Job has an allocation, but execution has been suspended and CPUs have been
+    released for other jobs"""
     TIMEOUT = auto()
     "Job terminated upon reaching its time limit"
     NO_OUTPUT = auto()
@@ -170,7 +173,8 @@ class JobScheduler:
             except Exception as e:
                 print(e)
                 logging.warning(
-                    f"Failed to get cpus for job {job_id}; setting cpus to 0. Job info: {job_info}",
+                    f"Failed to get cpus for job {job_id};"
+                    f" setting cpus to 0. Job info: {job_info}",
                 )
                 cpus = None
             try:
@@ -179,7 +183,8 @@ class JobScheduler:
             except Exception as e:
                 print(e)
                 logging.warning(
-                    f"Failed to get gpus for job {job_id}; setting gpus to 0. Job info: {job_info}",
+                    f"Failed to get gpus for job {job_id};"
+                    f" setting gpus to 0. Job info: {job_info}",
                 )
                 gpus = None
 
@@ -261,7 +266,9 @@ class JobScheduler:
         try:
             for job_scheduling_info in job_scheduling_info_list:
                 logging.debug(
-                    f"Submitting job on cluster for job script {job_scheduling_info.job_script_path} and args {job_scheduling_info.job_script_arguments}"
+                    "Submitting job on cluster for"
+                    f" job script {job_scheduling_info.job_script_path}"
+                    f" and args {job_scheduling_info.job_script_arguments}"
                 )
                 submission = self.make_job_submission(job_scheduling_info)
                 resp = self.client.submit_job(submission)
@@ -276,8 +283,9 @@ class JobScheduler:
                     )
                 )
                 logging.debug(
-                    f"Job for job script {job_scheduling_info.job_script_path} and args {submission.job.argv}"
-                    f" has been submitted with id {resp.job_id}"
+                    f"Job for job script {job_scheduling_info.job_script_path}"
+                    f" and args {submission.job.argv} has been submitted with"
+                    f" id {resp.job_id}"
                 )
         except Exception:
             logging.error("Unknown error occurred during job submission", exc_info=True)
@@ -497,7 +505,7 @@ class JobScheduler:
                 )
                 check_time = min(
                     ((next_deadline - datetime.now()) / 2), timedelta(minutes=1)
-                )  # smaller of half of between now and the nearest deadline or one minute
+                )
 
                 not_started = handle_not_started(
                     running_jobs.values(), check_time=check_time
@@ -560,16 +568,18 @@ class JobScheduler:
                 status_info.final_state = SLURMSTATE.FAILED
                 logging.error(
                     f"Job {job_id} failed."
-                    f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
+                    f" Dispatch time: {status_info.time_to_dispatch};"
+                    f" Wall time: {status_info.wall_time}."
                 )
 
             elif not stdout_path.is_file():
                 status_info.final_state = SLURMSTATE.NO_OUTPUT
                 logging.error(
-                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments} has not created"
-                    f" output file {stdout_path}"
+                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments}"
+                    f" has not created output file {stdout_path}"
                     f" State: {state}."
-                    f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
+                    f" Dispatch time: {status_info.time_to_dispatch};"
+                    f" Wall time: {status_info.wall_time}."
                 )
 
             elif not self.timestamp_ok(
@@ -578,30 +588,33 @@ class JobScheduler:
             ):
                 status_info.final_state = SLURMSTATE.OLD_OUTPUT_FILE
                 logging.error(
-                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments} has not created"
-                    f" a new output file {stdout_path}"
+                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments}"
+                    f" has not created a new output file {stdout_path}"
                     f" State: {state}."
-                    f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
+                    f" Dispatch time: {status_info.time_to_dispatch};"
+                    f" Wall time: {status_info.wall_time}."
                 )
 
             elif state == SLURMSTATE.COMPLETED:
                 job_scheduling_info.set_completion_status(True)
                 status_info.final_state = SLURMSTATE.COMPLETED
-                if status_info.slots and status_info.wall_time:
-                    cpu_time = status_info.wall_time * status_info.slots
+                if status_info.cpus and status_info.wall_time:
+                    cpu_time = str(status_info.wall_time * status_info.cpus)
                 else:
                     cpu_time = "n/a"
                 logging.info(
-                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments} completed."
-                    f" CPU time: {cpu_time}; Slots: {status_info.slots}"
-                    f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
+                    f"Job {job_id} with args {job_scheduling_info.job_script_arguments}"
+                    f" completed. CPU time: {cpu_time}; Slots: {status_info.cpus}"
+                    f" Dispatch time: {status_info.time_to_dispatch};"
+                    f" Wall time: {status_info.wall_time}."
                 )
             else:
                 status_info.final_state = state
                 logging.error(
                     f"Job {job_id} ended with job state {status_info.final_state}"
                     f" Args {job_scheduling_info.job_script_arguments};"
-                    f" Dispatch time: {status_info.time_to_dispatch}; Wall time: {status_info.wall_time}."
+                    f" Dispatch time: {status_info.time_to_dispatch};"
+                    f" Wall time: {status_info.wall_time}."
                 )
 
         self.job_history.append({jsi.job_id: jsi for jsi in job_scheduling_info_list})
@@ -649,7 +662,8 @@ class JobScheduler:
             ]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             logging.info(
-                f"Total failed_jobs: {len(failed_jobs)}. Total killed_jobs: {len(killed_jobs)}"
+                f"Total failed_jobs: {len(failed_jobs)}."
+                f" Total killed_jobs: {len(killed_jobs)}"
             )
             if killed_jobs:
                 return self.resubmit_jobs(
@@ -657,10 +671,8 @@ class JobScheduler:
                 )
             return True
         pretty_format_job_history = "\n".join(
-            [
-                f"Batch {i} - {', '.join(f'{jsi.job_id}: {jsi.status_info}' for jsi in batch.values())}"
-                for i, batch in enumerate(self.job_history, 0)
-            ]
+            f"Batch {i} - {', '.join(f'{jsi.job_id}: {jsi.status_info}' for jsi in batch.values())}"  # noqa: E501
+            for i, batch in enumerate(self.job_history, 0)
         )
         raise RuntimeError(
             f"All jobs failed. job_history: {pretty_format_job_history}\n"

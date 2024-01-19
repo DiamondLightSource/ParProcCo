@@ -75,7 +75,7 @@ class TestJobScheduler(unittest.TestCase):
                 job_env={"ParProcCo": "0"},
                 timestamp=timestamp_time,
                 output_dir=cluster_output_dir,
-                log_directory=None,  # Cluster output dir is only created if needed for logs
+                log_directory=None,
             )
             processing_mode = SimpleProcessingMode(job_script=runner_script)
             slice_params = [slice(0, None, 2), slice(1, None, 2)]
@@ -237,7 +237,8 @@ class TestJobScheduler(unittest.TestCase):
             self.assertEqual(
                 len(completion_statuses),
                 4,
-                msg=f"Number of completion statuses for batch is not 4. Completion statuses: {completion_statuses}\n",
+                msg="Number of completion statuses for batch is not 4."
+                f"Completion statuses: {completion_statuses}\n",
             )
 
     def test_job_times_out(self) -> None:
@@ -379,7 +380,8 @@ class TestJobScheduler(unittest.TestCase):
                 )
             self.assertTrue(error_msg in str(context.exception))
 
-            # Bypass the protection in the SimpleProcessingMode to check the protection in the job_scheduler
+            # Bypass the protection in the SimpleProcessingMode to check the protection
+            # in the job_scheduler
             with patch(
                 "example.simple_processing_mode.check_jobscript_is_readable",
                 side_effect=lambda x: x,
