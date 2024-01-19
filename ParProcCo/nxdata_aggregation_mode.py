@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from copy import deepcopy
 from ParProcCo.job_scheduling_information import JobSchedulingInformation
 
