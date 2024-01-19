@@ -116,7 +116,7 @@ class TestJobScheduler(unittest.TestCase):
         self.assertEqual(
             job_submission,
             expected,
-            msg=f"JobSubmission has incorrect parameter values\n",
+            msg="JobSubmission has incorrect parameter values\n",
         )
 
     def test_job_scheduler_runs(self) -> None:
