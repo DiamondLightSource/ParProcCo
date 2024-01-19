@@ -5,8 +5,6 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Union
-
 import yaml
 from dataclasses import dataclass
 from yaml import SafeLoader, YAMLObject
@@ -44,7 +42,7 @@ def jobscript_to_string(jobscript: Path) -> str:
     return data
 
 
-def get_filepath_on_path(filename: Optional[str]) -> Optional[Path]:
+def get_filepath_on_path(filename: str | None) -> Path | None:
     if filename is None:
         return None
     paths = os.environ["PATH"].split(":")
@@ -64,7 +62,7 @@ def get_ppc_dir() -> str | None:
     return os.getenv("TEST_PPC_DIR")
 
 
-def check_location(location: Union[Path, str]) -> Path:
+def check_location(location: Path | str) -> Path:
     location_path = Path(location).resolve()
     top = location_path.parts[1]
     if top in ("dls", "dls_sw", "home"):
@@ -78,7 +76,7 @@ def format_timestamp(t: datetime) -> str:
     return t.strftime("%Y%m%d_%H%M")
 
 
-def decode_to_string(any_string: Union[bytes, str]) -> str:
+def decode_to_string(any_string: bytes | str) -> str:
     output = any_string.decode() if not isinstance(any_string, str) else any_string
     return output
 
@@ -96,7 +94,7 @@ def get_absolute_path(filename: Path | str | None) -> str:
     raise FileNotFoundError(f"{filename} not found")
 
 
-def slice_to_string(s: Optional[slice]) -> str:
+def slice_to_string(s: slice | None) -> str:
     if s is None:
         return "::"
     start = s.start
@@ -110,11 +108,11 @@ class PPCConfig(YAMLObject):
     yaml_tag = "!PPCConfig"
     yaml_loader = SafeLoader
 
-    allowed_programs: Dict[str, str]  # program name, python package with wrapper module
+    allowed_programs: dict[str, str]  # program name, python package with wrapper module
     url: str  # slurm rest url
-    extra_property_envs: Optional[
-        Dict[str, str]
-    ] = None  # mapping of extra properties to environment variables to pass to slurm's JobProperties
+    extra_property_envs: dict[
+        str, str
+    ] | None = None  # mapping of extra properties to environment variables to pass to slurm's JobProperties
 
 
 PPC_YAML = "par_proc_co.yaml"

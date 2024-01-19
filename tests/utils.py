@@ -4,7 +4,6 @@ import getpass
 import os
 from os import path
 from pathlib import Path
-from typing import List, Tuple
 
 PARTITION = os.getenv("DEFAULT_SLURM_PARTITION")
 
@@ -26,7 +25,7 @@ def get_tmp_base_dir() -> str:
     return base_dir
 
 
-def setup_aggregator_data_files(working_directory: Path) -> List[Path]:
+def setup_aggregator_data_files(working_directory: Path) -> list[Path]:
     # create test files
     file_paths = [working_directory / f"file_0{i}.txt" for i in range(4)]
     file_contents = ["0\n8\n", "2\n10\n", "4\n12\n", "6\n14\n"]
@@ -47,7 +46,7 @@ def setup_data_file(working_directory: str) -> Path:
 
 def setup_data_files(
     working_directory: str, cluster_output_dir: Path
-) -> Tuple[Path, List[Path], List[str], List[slice]]:
+) -> tuple[Path, list[Path], list[str], list[slice]]:
     file_name = "test_raw_data.txt"
     input_file_path = Path(working_directory) / file_name
     with open(input_file_path, "w") as f:

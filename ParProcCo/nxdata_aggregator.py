@@ -4,7 +4,7 @@ import logging
 import string
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Iterator
 
 import h5py
 import numpy as np
@@ -17,37 +17,37 @@ from . import __version__
 
 class NXdataAggregator(AggregatorInterface):
     def __init__(self) -> None:
-        self.accumulator_aux_signals: List[np.ndarray]
-        self.accumulator_axis_lengths: List
-        self.accumulator_axis_ranges: List
+        self.accumulator_aux_signals: list[np.ndarray]
+        self.accumulator_axis_lengths: list
+        self.accumulator_axis_ranges: list
         self.accumulator_volume: np.ndarray
         self.accumulator_weights: np.ndarray
-        self.all_axes: List[List]
-        self.all_slices: List[Tuple[slice, ...]]
-        self.aux_signal_names: Optional[List[str]]
-        self.axes_maxs: List
-        self.axes_mins: List
-        self.axes_names: List[str]
-        self.axes_spacing: List
+        self.all_axes: list[list]
+        self.all_slices: list[tuple[slice, ...]]
+        self.aux_signal_names: list[str] | None
+        self.axes_maxs: list
+        self.axes_mins: list
+        self.axes_names: list[str]
+        self.axes_spacing: list
         self.data_dimensions: int
-        self.non_weight_aux_signal_names: List[str]
+        self.non_weight_aux_signal_names: list[str]
         self.nxdata_name: str
         self.nxdata_path_name: str
         self.nxentry_name: str
-        self.data_files: List[Path]
+        self.data_files: list[Path]
         self.renormalisation: bool
         self.signal_name: str
-        self.signal_shapes: List[Tuple]
+        self.signal_shapes: list[tuple]
         self.use_default_axes: bool = False
         self.is_binoculars: bool = False
 
-    def aggregate(self, aggregation_output: Path, data_files: List[Path]) -> Path:
+    def aggregate(self, aggregation_output: Path, data_files: list[Path]) -> Path:
         """Overrides AggregatorInterface.aggregate"""
         self._renormalise(data_files)
         aggregated_data_file = self._write_aggregation_file(aggregation_output)
         return aggregated_data_file
 
-    def _renormalise(self, data_files: List[Path]) -> None:
+    def _renormalise(self, data_files: list[Path]) -> None:
         start = datetime.now()
         self.data_files = data_files
         self._get_nxdata()
@@ -171,9 +171,7 @@ class NXdataAggregator(AggregatorInterface):
                     weights.shape == signal_shape
                 ), "signal and weight shapes must match"
 
-    def _get_default_nxgroup(
-        self, f: Union[h5py.File, h5py.Group], class_name: str
-    ) -> str:
+    def _get_default_nxgroup(self, f: h5py.File | h5py.Group, class_name: str) -> str:
         if "default" in f.attrs:
             group_name = f.attrs["default"]
             assert isinstance(group_name, (str, bytes))  # XXX
@@ -192,7 +190,7 @@ class NXdataAggregator(AggregatorInterface):
             raise ValueError(f"no {class_name} group found")
 
     def _get_group_name(
-        self, group: Union[h5py.File, h5py.Group], class_name: str
+        self, group: h5py.File | h5py.Group, class_name: str
     ) -> Iterator[str]:
         for group_name in group.keys():
             try:

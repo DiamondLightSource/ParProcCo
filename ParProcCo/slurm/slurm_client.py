@@ -4,7 +4,7 @@ import logging
 import os
 import requests
 from getpass import getuser
-from typing import Any, Optional
+from typing import Any
 from pydantic import BaseModel
 
 from .slurm_rest import (
@@ -26,8 +26,8 @@ class SlurmClient:
     def __init__(
         self,
         url: str,
-        user_name: Optional[str] = None,
-        user_token: Optional[str] = None,
+        user_name: str | None = None,
+        user_token: str | None = None,
     ):
         """Slurm client that communicates to Slurm via its RESTful API"""
         self._slurm_endpoint_url = f"{url}/slurm/{_SLURM_VERSION}"

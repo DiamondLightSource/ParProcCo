@@ -1,5 +1,4 @@
 from __future__ import annotations
-from pydantic import BaseModel
 
 from pathlib import Path
 from datetime import timedelta, datetime
@@ -11,7 +10,6 @@ from .utils import check_jobscript_is_readable, get_ppc_dir, format_timestamp
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Optional, Union, Dict, List, Tuple
     from .job_scheduler import StatusInfo
 
 
@@ -26,31 +24,31 @@ class JobResources:
 @dataclass
 class JobSchedulingInformation:
     job_name: str
-    job_script_path: Optional[Path]
+    job_script_path: Path | None
     job_resources: JobResources
     timeout: timedelta = timedelta(hours=2)
-    job_script_arguments: Tuple[str] = field(default_factory=tuple)
-    job_env: Dict[str, str] = field(default_factory=dict)
-    log_directory: Optional[Path] = None
-    stderr_filename: Optional[str] = None
-    stdout_filename: Optional[str] = None
-    working_directory: Optional[Path] = None
-    output_dir: Optional[Path] = None
-    output_filename: Optional[str] = None
-    timestamp: Optional[datetime] = None
+    job_script_arguments: tuple[str] = field(default_factory=tuple)
+    job_env: dict[str, str] = field(default_factory=dict)
+    log_directory: Path | None = None
+    stderr_filename: str | None = None
+    stdout_filename: str | None = None
+    working_directory: Path | None = None
+    output_dir: Path | None = None
+    output_filename: str | None = None
+    timestamp: datetime | None = None
 
     def __post_init__(self):
         self.set_job_script_path(self.job_script_path)  # For validation
         self.set_job_env(self.job_env)  # For validation
         # To be updated when submitted, not on creation
-        self.job_id: Optional[int] = None
-        self.status_info: Optional[StatusInfo] = None
+        self.job_id: int | None = None
+        self.status_info: StatusInfo | None = None
         self.completion_status: bool = False
 
     def set_job_script_path(self, path: Path) -> None:
         self.job_script_path = check_jobscript_is_readable(path)
 
-    def set_job_env(self, job_env: Optional[Dict[str, str]]) -> None:
+    def set_job_env(self, job_env: dict[str, str] | None) -> None:
         self.job_env = (
             job_env if job_env else {"ParProcCo": "0"}
         )  # job_env cannot be empty dict
