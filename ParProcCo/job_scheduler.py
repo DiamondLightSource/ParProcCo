@@ -644,7 +644,7 @@ class JobScheduler:
         ]
 
     def resubmit_killed_jobs(
-        self, batch_number: int | NoneNone, allow_all_failed: bool = False
+        self, batch_number: int | None = None, allow_all_failed: bool = False
     ) -> bool:
         logging.info("Resubmitting killed jobs")
         job_scheduling_info_dict = self.get_job_history_batch(batch_number=batch_number)
