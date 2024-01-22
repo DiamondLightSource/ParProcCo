@@ -11,6 +11,7 @@ source:
 build:
   number: 0
   script: "{{ PYTHON }} -m pip install . -vv"
+  skip: True  # [py<310]
 
 requirements:
   host:
@@ -50,4 +51,3 @@ extra:
   recipe-maintainers:
     - PeterC-DLS
     - VictoriaBeilsten-Edmands
-
