@@ -11,14 +11,16 @@ from datetime import timedelta
 from getpass import getuser
 
 from ParProcCo.job_controller import JobController
+from ParProcCo.job_scheduling_information import JobResources
 from ParProcCo.passthru_wrapper import PassThruWrapper
 from ParProcCo.utils import get_token, set_up_wrapper
 
 
 def create_parser() -> argparse.ArgumentParser:
     """
-    $ ppc_cluster_submit program [--partition cs05r] [--token path/to/token/file] [--output cluster_output_dir]
-     [--jobs 4] [--timeout 1h30m] --memory 4000M --cores 6 -s 0.01 ... [input files]
+    $ ppc_cluster_submit program [--partition cs05r] [--token path/to/token/file]
+     [--output cluster_output_dir] [--jobs 4] [--timeout 1h30m] --memory 4000M --cores 6
+     -s 0.01 ... [input files]
     """
     parser = argparse.ArgumentParser(
         description="ParProcCo run script",
@@ -84,16 +86,17 @@ def parse_memory(memory: str) -> int:
         raise ValueError('Memory specified must end with M or G')
     try:
         m = int(memory[:-1])
-        if m <= 0:
-            raise ValueError('Memory specified must be greater than 0')
-        if l == 'M' and m < 512:
-            logging.warning('Memory specified is recommended to be over 512M')
-        if l == 'G'and m > 64:
-            m = m*1024
-            logging.warning('Memory specified (>64G) seems to be excessive')
-        return m
-    except:
-        raise ValueError('Memory specified must start with a number')
+    except Exception as e:
+        raise ValueError('Memory specified must start with a number') from e
+
+    if m <= 0:
+        raise ValueError('Memory specified must be greater than 0')
+    if l == 'M' and m < 512:
+        logging.warning('Memory specified is recommended to be over 512M')
+    if l == 'G'and m > 64:
+        m = m*1024
+        logging.warning('Memory specified (>64G) seems to be excessive')
+    return m
 
 
 def run_ppc(args: argparse.Namespace, script_args: list[str]) -> None:
@@ -131,7 +134,6 @@ def run_ppc(args: argparse.Namespace, script_args: list[str]) -> None:
             wrapper = PassThruWrapper(wrapper)
     else:
         raise ValueError(f"Number of jobs must be one or more, given {args.jobs}")
-    wrapper.set_cores(args.cores)
     output = wrapper.get_output(args.output, script_args[1:])
     wrapper_args = wrapper.get_args(script_args, args.debug)
     jc = JobController(
@@ -144,7 +146,9 @@ def run_ppc(args: argparse.Namespace, script_args: list[str]) -> None:
         token,
         timeout,
     )
-    jc.run(args.jobs, wrapper_args, memory, "PPC-" + program)
+    jc.run(args.jobs, wrapper_args, "PPC-" + program,
+           JobResources(memory=memory, cpu_cores=args.cores,
+                        extra_properties=extra_properties))
     print("complete")
 
 

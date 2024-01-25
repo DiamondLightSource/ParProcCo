@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from ParProcCo.slicer_interface import SlicerInterface
+from ParProcCo.data_slicer_interface import DataSlicerInterface
 
 
-class SimpleDataSlicer(SlicerInterface):
+class SimpleDataSlicer(DataSlicerInterface):
     def __init__(self):
         pass
 
     def slice(self, number_jobs: int, stop: int | None = None) -> list[slice] | None:
-        """Overrides SlicerInterface.slice"""
+        """Overrides DataSlicerInterface.slice"""
         if not isinstance(number_jobs, int):
             raise TypeError(f"number_jobs is {type(number_jobs)}, should be int\n")
 

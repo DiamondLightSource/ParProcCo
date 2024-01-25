@@ -1,8 +1,9 @@
 import logging
 import os
 import shutil as _shutil
-from tempfile import mkdtemp
 import weakref as _weakref
+from tempfile import mkdtemp
+
 
 # class copied from tempfile and modified to
 # not clean up when an exception is raised

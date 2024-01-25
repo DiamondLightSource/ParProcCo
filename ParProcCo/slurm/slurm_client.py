@@ -2,18 +2,14 @@ from __future__ import annotations
 
 import logging
 import os
-import requests
 from getpass import getuser
 from typing import Any
+
+import requests
 from pydantic import BaseModel
 
-from .slurm_rest import (
-    JobsResponse,
-    JobResponseProperties,
-    JobSubmission,
-    JobSubmissionResponse,
-)
-
+from .slurm_rest import (JobResponseProperties, JobsResponse, JobSubmission,
+                         JobSubmissionResponse)
 
 _SLURM_VERSION = "v0.0.38"
 

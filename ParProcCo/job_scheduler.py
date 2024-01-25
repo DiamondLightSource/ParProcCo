@@ -1,22 +1,19 @@
 from __future__ import annotations
 
 import logging
-import time
 import re
+import time
+from collections.abc import Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum, auto
 from pathlib import Path
-from collections.abc import Sequence
-from copy import deepcopy
 
 from .job_scheduling_information import JobSchedulingInformation
-from .utils import check_jobscript_is_readable
-from .slurm.slurm_rest import (
-    JobProperties,
-    JobSubmission,
-)
 from .slurm.slurm_client import SlurmClient
+from .slurm.slurm_rest import JobProperties, JobSubmission
+from .utils import check_jobscript_is_readable
 
 
 class SLURMSTATE(Enum):

@@ -2,30 +2,31 @@ from __future__ import annotations
 
 import logging
 import os
-import pytest
 import time
 import unittest
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
 from parameterized import parameterized
 
-from example.simple_processing_mode import SimpleProcessingMode
-from ParProcCo.slurm.slurm_rest import JobProperties, JobSubmission, JobsResponse
-from ParProcCo.job_scheduler import JobScheduler, SLURMSTATE, StatusInfo
-from ParProcCo.job_scheduling_information import JobSchedulingInformation, JobResources
+from example.simple_processing_slicer import SimpleProcessingSlicer
+from ParProcCo.job_scheduler import SLURMSTATE, JobScheduler, StatusInfo
+from ParProcCo.job_scheduling_information import (JobResources,
+                                                  JobSchedulingInformation)
+from ParProcCo.slurm.slurm_rest import (JobProperties, JobsResponse,
+                                        JobSubmission)
 from ParProcCo.test import TemporaryDirectory
-from .utils import (
-    get_slurm_rest_url,
-    get_tmp_base_dir,
-    setup_data_files,
-    setup_jobscript,
-    setup_runner_script,
-    PARTITION,
-)
+from tests.utils import (PARTITION, get_slurm_rest_url, get_tmp_base_dir,
+                         setup_data_files, setup_jobscript,
+                         setup_runner_script)
 
 slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
+
+if not gh_testing and not PARTITION:
+    raise ValueError("Need to define default partition in DEFAULT_SLURM_PARTITION")
 
 
 def create_js(out_dir, timeout=timedelta(seconds=20)) -> JobScheduler:
@@ -61,14 +62,14 @@ class TestJobScheduler(unittest.TestCase):
             input_path = Path("path/to/file.extension")
             cluster_output_dir = working_directory / "cluster_output_dir"
             scheduler = create_js(cluster_output_dir)
-            runner_script = setup_runner_script(working_directory)
-            runner_script_args = ["--input-path", str(input_path)]
             job_script = setup_jobscript(working_directory)
+            runner_script = setup_runner_script(working_directory)
+            runner_script_args = [str(job_script), "--input-path", str(input_path)]
             timestamp_time = datetime.now()
 
             jsi = JobSchedulingInformation(
                 job_name="create_template_test",
-                job_script_path=job_script,
+                job_script_path=runner_script,
                 job_script_arguments=runner_script_args,
                 job_resources=JobResources(memory=4000, cpu_cores=5),
                 working_directory=working_directory,
@@ -77,9 +78,9 @@ class TestJobScheduler(unittest.TestCase):
                 output_dir=cluster_output_dir,
                 log_directory=None,
             )
-            processing_mode = SimpleProcessingMode(job_script=runner_script)
+            processing_slicer = SimpleProcessingSlicer(job_script)
             slice_params = [slice(0, None, 2), slice(1, None, 2)]
-            jsi_list = processing_mode.create_slice_jobs(
+            jsi_list = processing_slicer.create_slice_jobs(
                 slice_params=slice_params, job_scheduling_information=jsi
             )
 
@@ -89,6 +90,8 @@ class TestJobScheduler(unittest.TestCase):
                 f" --input-path {input_path}"
             )
             job_submission = scheduler.make_job_submission(jsi_list[0])
+            print(job_submission.script)
+            print(expected_command)
             cluster_output_dir_exists = cluster_output_dir.is_dir()
 
         expected = JobSubmission(
@@ -129,14 +132,14 @@ class TestJobScheduler(unittest.TestCase):
             input_path, output_paths, out_nums, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
+            job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
-            jobscript = setup_jobscript(working_directory)
-            runner_script_args = ["--input-path", str(input_path)]
-            processing_mode = SimpleProcessingMode(runner_script)
+            runner_script_args = [str(job_script), "--input-path", str(input_path)]
+            processing_slicer = SimpleProcessingSlicer(job_script)
 
             jsi = JobSchedulingInformation(
                 job_name="scheduler_runs_test",
-                job_script_path=jobscript,
+                job_script_path=runner_script,
                 job_script_arguments=runner_script_args,
                 job_resources=JobResources(memory=4000, cpu_cores=5),
                 working_directory=working_directory,
@@ -147,7 +150,7 @@ class TestJobScheduler(unittest.TestCase):
                 timeout=timedelta(seconds=60),
             )
 
-            jsi_list = processing_mode.create_slice_jobs(
+            jsi_list = processing_slicer.create_slice_jobs(
                 slice_params=slices, job_scheduling_information=jsi
             )
 
@@ -175,18 +178,17 @@ class TestJobScheduler(unittest.TestCase):
         ) as working_directory:
             working_directory = Path(working_directory)
             cluster_output_dir = working_directory / "cluster_output"
-            runner_script = setup_runner_script(working_directory)
-            jobscript = setup_jobscript(working_directory)
-
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
-            runner_script_args = ["--input-path", str(input_path)]
-            processing_mode = SimpleProcessingMode(runner_script)
+            job_script = setup_jobscript(working_directory)
+            runner_script = setup_runner_script(working_directory)
+            runner_script_args = [str(job_script), "--input-path", str(input_path)]
+            processing_slicer = SimpleProcessingSlicer(job_script)
 
             jsi = JobSchedulingInformation(
                 job_name="old_output_test",
-                job_script_path=jobscript,
+                job_script_path=runner_script,
                 job_script_arguments=runner_script_args,
                 job_resources=JobResources(memory=4000, cpu_cores=6),
                 working_directory=working_directory,
@@ -196,7 +198,7 @@ class TestJobScheduler(unittest.TestCase):
                 timeout=timedelta(seconds=60),
             )
 
-            jsi_list = processing_mode.create_slice_jobs(
+            jsi_list = processing_slicer.create_slice_jobs(
                 slice_params=slices, job_scheduling_information=jsi
             )
 
@@ -247,20 +249,19 @@ class TestJobScheduler(unittest.TestCase):
         ) as working_directory:
             working_directory = Path(working_directory)
             cluster_output_dir = working_directory / "cluster_output"
-            runner_script = setup_runner_script(working_directory)
-            jobscript = setup_jobscript(working_directory)
-            with open(jobscript, "a+") as f:
-                f.write("    import time\n    time.sleep(120)\n")
-
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
-            runner_script_args = ["--input-path", str(input_path)]
-            processing_mode = SimpleProcessingMode(runner_script)
+            job_script = setup_jobscript(working_directory)
+            with open(job_script, "a+") as f:
+                f.write("    import time\n    time.sleep(120)\n")
+            runner_script = setup_runner_script(working_directory)
+            runner_script_args = [str(job_script), "--input-path", str(input_path)]
+            processing_slicer = SimpleProcessingSlicer(job_script)
 
             jsi = JobSchedulingInformation(
                 job_name="timeout_test",
-                job_script_path=jobscript,
+                job_script_path=runner_script,
                 job_script_arguments=runner_script_args,
                 job_resources=JobResources(memory=4000, cpu_cores=6),
                 working_directory=working_directory,
@@ -271,7 +272,7 @@ class TestJobScheduler(unittest.TestCase):
                 timeout=timedelta(seconds=5),
             )
 
-            jsi_list = processing_mode.create_slice_jobs(
+            jsi_list = processing_slicer.create_slice_jobs(
                 slice_params=slices, job_scheduling_information=jsi
             )
 
@@ -313,7 +314,7 @@ class TestJobScheduler(unittest.TestCase):
                 "insufficient_permissions",
                 "test_bad_permissions",
                 True,
-                0o666,
+                0o660,
                 PermissionError,
                 "must be readable and executable by user",
             ),
@@ -321,7 +322,7 @@ class TestJobScheduler(unittest.TestCase):
                 "cannot_be_opened",
                 "test_bad_read_permissions",
                 True,
-                0o333,
+                0o330,
                 PermissionError,
                 "must be readable and executable by user",
             ),
@@ -340,12 +341,12 @@ class TestJobScheduler(unittest.TestCase):
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
-            jobscript = working_directory / "test_jobscript"
+            job_script = working_directory / "test_jobscript"
             runner_script = working_directory / rs_name
-            runner_script_args = ["--input-path", str(input_path)]
+            runner_script_args = [str(job_script), "--input-path", str(input_path)]
 
-            jobscript.touch()
-            os.chmod(jobscript, 0o777)
+            job_script.touch()
+            os.chmod(job_script, 0o770)
 
             if open_rs:
                 f = open(runner_script, "x")
@@ -353,18 +354,20 @@ class TestJobScheduler(unittest.TestCase):
                 os.chmod(runner_script, permissions)
 
             with self.assertRaises(error_name) as context:
-                processing_mode = SimpleProcessingMode(runner_script)
+                processing_slicer = SimpleProcessingSlicer(runner_script)
             self.assertTrue(
                 error_msg in str(context.exception), msg=str(context.exception)
             )
 
             # Now set up the processing mode bypassing the check using a valid file:
-            processing_mode = SimpleProcessingMode(jobscript)
-            processing_mode.job_script = runner_script
+            processing_slicer = SimpleProcessingSlicer(job_script)
+            processing_slicer.job_script = runner_script
 
+            # Bypass the protection in the JobSchedulingInformation to check the protection
+            # in the job_scheduler
             jsi = JobSchedulingInformation(
                 job_name="bad_scripts",
-                job_script_path=jobscript,
+                job_script_path=job_script,
                 job_script_arguments=runner_script_args,
                 job_resources=JobResources(memory=4000, cpu_cores=6),
                 working_directory=working_directory,
@@ -373,28 +376,11 @@ class TestJobScheduler(unittest.TestCase):
                 output_dir=cluster_output_dir,
                 timeout=timedelta(seconds=5),
             )
+            jsi.job_script_path = runner_script
 
-            with self.assertRaises(error_name) as context:
-                jsi_list = processing_mode.create_slice_jobs(
-                    slice_params=slices, job_scheduling_information=jsi
-                )
-            self.assertTrue(error_msg in str(context.exception))
-
-            # Bypass the protection in the SimpleProcessingMode to check the protection
-            # in the job_scheduler
-            with patch(
-                "example.simple_processing_mode.check_jobscript_is_readable",
-                side_effect=lambda x: x,
-            ), patch(
-                "example.simple_processing_mode.get_absolute_path",
-                side_effect=lambda x: x,
-            ), patch(
-                "ParProcCo.job_scheduling_information.check_jobscript_is_readable",
-                side_effect=lambda x: x,
-            ):
-                jsi_list = processing_mode.create_slice_jobs(
-                    slice_params=slices, job_scheduling_information=jsi
-                )
+            jsi_list = processing_slicer.create_slice_jobs(
+                slice_params=slices, job_scheduling_information=jsi
+            )
 
             with self.assertRaises(error_name) as context:
                 js.run(jsi_list)
@@ -606,11 +592,11 @@ class TestJobScheduler(unittest.TestCase):
 
             runner_script = setup_runner_script(working_directory)
             job_script = setup_jobscript(working_directory)
-            processing_mode = SimpleProcessingMode(runner_script)
+            processing_slicer = SimpleProcessingSlicer(job_script)
             jsi = JobSchedulingInformation(
                 job_name="test_resubmit_jobs",
-                job_script_path=job_script,
-                job_script_arguments=["--input-path", str(input_path)],
+                job_script_path=runner_script,
+                job_script_arguments=[str(job_script), "--input-path", str(input_path)],
                 job_resources=JobResources(memory=4000, cpu_cores=6),
                 working_directory=working_directory,
                 job_env={"ParProcCo": "0"},
@@ -619,7 +605,7 @@ class TestJobScheduler(unittest.TestCase):
                 timeout=timedelta(seconds=30),
             )
 
-            jsi_list = processing_mode.create_slice_jobs(
+            jsi_list = processing_slicer.create_slice_jobs(
                 slice_params=slices, job_scheduling_information=jsi
             )
             job_history = {}
@@ -842,11 +828,11 @@ class TestJobScheduler(unittest.TestCase):
 
             runner_script = setup_runner_script(working_directory)
             job_script = setup_jobscript(working_directory)
-            processing_mode = SimpleProcessingMode(runner_script)
+            processing_slicer = SimpleProcessingSlicer(job_script)
             jsi = JobSchedulingInformation(
                 job_name="test_resubmit_jobs",
-                job_script_path=job_script,
-                job_script_arguments=["--input-path", str(input_path)],
+                job_script_path=runner_script,
+                job_script_arguments=[str(job_script), "--input-path", str(input_path)],
                 job_resources=JobResources(memory=4000, cpu_cores=6),
                 working_directory=working_directory,
                 job_env={"ParProcCo": "0"},
@@ -855,7 +841,7 @@ class TestJobScheduler(unittest.TestCase):
                 timeout=timedelta(seconds=30),
             )
 
-            jsi_list = processing_mode.create_slice_jobs(
+            jsi_list = processing_slicer.create_slice_jobs(
                 slice_params=slices, job_scheduling_information=jsi
             )
 

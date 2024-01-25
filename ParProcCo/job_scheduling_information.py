@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-from datetime import timedelta, datetime
 from dataclasses import dataclass, field
-
-from .utils import check_jobscript_is_readable, get_ppc_dir, format_timestamp
-
-
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING
+
+from .utils import check_jobscript_is_readable, format_timestamp, get_ppc_dir
 
 if TYPE_CHECKING:
     from .job_scheduler import StatusInfo
@@ -15,8 +13,11 @@ if TYPE_CHECKING:
 
 @dataclass
 class JobResources:
+    "Memory per cpu in MB"
     memory: int = 4000
+    "CPU cores per task"
     cpu_cores: int = 6
+    "GPU per task"
     gpus: int = 0
     extra_properties: dict[str, str] = field(default_factory=dict)
 

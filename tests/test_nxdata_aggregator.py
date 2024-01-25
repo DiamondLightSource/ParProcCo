@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import logging
-import pytest
 import unittest
 from pathlib import Path
 
 import h5py
 import numpy as np
+import pytest
 from parameterized import parameterized
 
 from ParProcCo.nxdata_aggregator import NXdataAggregator
 from ParProcCo.test import TemporaryDirectory
 from ParProcCo.utils import decode_to_string
+
 from .utils import get_slurm_rest_url
 
 slurm_rest_url = get_slurm_rest_url()

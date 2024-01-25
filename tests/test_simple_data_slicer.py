@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import unittest
+
 from parameterized import parameterized
 
 from ParProcCo.simple_data_slicer import SimpleDataSlicer
