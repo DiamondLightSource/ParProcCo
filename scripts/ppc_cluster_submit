@@ -141,7 +141,6 @@ def run_ppc(args: argparse.Namespace, script_args: list[str]) -> None:
         wrapper,
         output,
         args.partition,
-        extra_properties,
         user,
         token,
         timeout,

@@ -14,13 +14,13 @@ if TYPE_CHECKING:
 
 
 class JobSlicerInterface:
-    def __init__(self, job_script: Path | None) -> None:
+    def __init__(self, job_script: Path | None = None) -> None:
         if job_script is not None:
             self.job_script = check_jobscript_is_readable(
                 check_location(get_absolute_path(job_script))
             )
         else:
-            self.job_script = "n/a"
+            self.job_script = Path("n/a")
         self.allowed_modules: tuple[str, ...] | None = None
 
     def create_slice_jobs(

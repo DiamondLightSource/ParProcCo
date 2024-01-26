@@ -27,6 +27,7 @@ class SimpleAggregationSlicer(JobSlicerInterface):
             return []
 
         jsi = deepcopy(job_scheduling_information)
+        assert jsi.timestamp is not None
         timestamp = format_timestamp(jsi.timestamp)
 
         jsi.output_filename = f"aggregated_results_{timestamp}.nxs"

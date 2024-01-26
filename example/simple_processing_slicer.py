@@ -22,17 +22,17 @@ class SimpleProcessingSlicer(JobSlicerInterface):
         slice_params: list[slice],
     ) -> JobSchedulingInformation:
         # Output paths:
+        assert job_scheduling_information.timestamp is not None
         timestamp = format_timestamp(job_scheduling_information.timestamp)
         job_scheduling_information.output_filename = f"out_{i}"
         job_scheduling_information.stdout_filename = f"out_{timestamp}_{i}"
-        job_scheduling_information.sterr_filename = f"err_{timestamp}_{i}"
+        job_scheduling_information.stderr_filename = f"err_{timestamp}_{i}"
 
         # Arguments:
         slice_param = slice_to_string(slice_params[i])
         old_args = job_scheduling_information.job_script_arguments
 
-        job_scheduling_information.job_script_arguments = tuple(
-            [
+        job_scheduling_information.job_script_arguments = (
                 old_args[0],
                 "--memory",
                 str(job_scheduling_information.job_resources.memory),
@@ -42,10 +42,6 @@ class SimpleProcessingSlicer(JobSlicerInterface):
                 str(job_scheduling_information.get_output_path()),
                 "--images",
                 slice_param,
-            ]
-            + old_args[1:]
-            if len(old_args) > 0
-            else ()
-        )
+        ) + old_args[1:] if len(old_args) > 0 else ()
 
         return job_scheduling_information

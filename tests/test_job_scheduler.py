@@ -30,6 +30,7 @@ if not gh_testing and not PARTITION:
 
 
 def create_js(out_dir, timeout=timedelta(seconds=20)) -> JobScheduler:
+    assert slurm_rest_url and PARTITION
     return JobScheduler(slurm_rest_url, PARTITION, out_dir, wait_timeout=timeout)
 
 
@@ -64,7 +65,7 @@ class TestJobScheduler(unittest.TestCase):
             scheduler = create_js(cluster_output_dir)
             job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
-            runner_script_args = [str(job_script), "--input-path", str(input_path)]
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
             timestamp_time = datetime.now()
 
             jsi = JobSchedulingInformation(
@@ -134,7 +135,7 @@ class TestJobScheduler(unittest.TestCase):
             )
             job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
-            runner_script_args = [str(job_script), "--input-path", str(input_path)]
+            runner_script_args =(str(job_script), "--input-path", str(input_path))
             processing_slicer = SimpleProcessingSlicer(job_script)
 
             jsi = JobSchedulingInformation(
@@ -183,7 +184,7 @@ class TestJobScheduler(unittest.TestCase):
             )
             job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
-            runner_script_args = [str(job_script), "--input-path", str(input_path)]
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
             processing_slicer = SimpleProcessingSlicer(job_script)
 
             jsi = JobSchedulingInformation(
@@ -210,6 +211,7 @@ class TestJobScheduler(unittest.TestCase):
             js._submit_jobs(jsi_list)
             js._wait_for_jobs(jsi_list)
             for jsi in jsi_list:
+                assert jsi.status_info
                 jsi.status_info.start_time = datetime.now() + timedelta(seconds=20)
 
             with self.assertLogs(level="WARNING") as context:
@@ -256,7 +258,7 @@ class TestJobScheduler(unittest.TestCase):
             with open(job_script, "a+") as f:
                 f.write("    import time\n    time.sleep(120)\n")
             runner_script = setup_runner_script(working_directory)
-            runner_script_args = [str(job_script), "--input-path", str(input_path)]
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
             processing_slicer = SimpleProcessingSlicer(job_script)
 
             jsi = JobSchedulingInformation(
@@ -298,6 +300,7 @@ class TestJobScheduler(unittest.TestCase):
             returned_jobs = jh[0]
             self.assertEqual(len(returned_jobs), 4)
             for jsi in returned_jobs.values():
+                assert jsi.status_info
                 self.assertEqual(jsi.status_info.final_state, SLURMSTATE.CANCELLED)
 
     @parameterized.expand(
@@ -343,7 +346,7 @@ class TestJobScheduler(unittest.TestCase):
             )
             job_script = working_directory / "test_jobscript"
             runner_script = working_directory / rs_name
-            runner_script_args = [str(job_script), "--input-path", str(input_path)]
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
 
             job_script.touch()
             os.chmod(job_script, 0o770)
@@ -399,7 +402,7 @@ class TestJobScheduler(unittest.TestCase):
 
             jsi_list = []
             for i, output in enumerate(output_paths, 1):
-                jsi = MagicMock(name=f"JSI_{i}")
+                jsi = MagicMock(spec=JobSchedulingInformation, name=f"JSI_{i}")
                 jsi.get_output_path.return_value = output
                 jsi_list.append(jsi)
 
@@ -422,7 +425,7 @@ class TestJobScheduler(unittest.TestCase):
 
             jsi_list = []
             for i, complete in enumerate([stat_0, stat_1], 1):
-                jsi = MagicMock(name=f"JSI_{i}")
+                jsi = MagicMock(spec=JobSchedulingInformation, name=f"JSI_{i}")
                 jsi.completion_status = complete
                 jsi_list.append(jsi)
 
@@ -470,10 +473,6 @@ class TestJobScheduler(unittest.TestCase):
                     StatusInfo(
                         submit_time=datetime.now(),
                         current_state=SLURMSTATE.CANCELLED,
-                        cpus=0,
-                        gpus=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
                         final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
@@ -486,10 +485,6 @@ class TestJobScheduler(unittest.TestCase):
                     StatusInfo(
                         submit_time=datetime.now(),
                         current_state=SLURMSTATE.BOOT_FAIL,
-                        cpus=0,
-                        gpus=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
                         final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
@@ -502,19 +497,11 @@ class TestJobScheduler(unittest.TestCase):
                     StatusInfo(
                         submit_time=datetime.now(),
                         current_state=SLURMSTATE.CANCELLED,
-                        cpus=0,
-                        gpus=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
                         final_state=SLURMSTATE.FAILED,
                     ),
                     StatusInfo(
                         submit_time=datetime.now(),
                         current_state=SLURMSTATE.OUT_OF_MEMORY,
-                        cpus=0,
-                        gpus=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
                         final_state=SLURMSTATE.OUT_OF_MEMORY,
                     ),
                 ],
@@ -531,7 +518,7 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(cluster_output_dir)
             jsi_list = []
             for status_info in job_statuses:
-                jsi = MagicMock(name="JobSchedulingInformation")
+                jsi = MagicMock(spec=JobSchedulingInformation, name="JobSchedulingInformation")
                 jsi.status_info = status_info
                 jsi_list.append(jsi)
             killed_jobs = js.filter_killed_jobs(jsi_list)
@@ -555,37 +542,21 @@ class TestJobScheduler(unittest.TestCase):
                 StatusInfo(
                     submit_time=datetime.now(),
                     current_state=SLURMSTATE.CANCELLED,
-                    cpus=0,
-                    gpus=0,
-                    time_to_dispatch=0,
-                    wall_time=0,
                     final_state=SLURMSTATE.FAILED,
                 ),
                 StatusInfo(
                     submit_time=datetime.now(),
                     current_state=SLURMSTATE.COMPLETED,
-                    cpus=0,
-                    gpus=0,
-                    time_to_dispatch=0,
-                    wall_time=0,
                     final_state=SLURMSTATE.COMPLETED,
                 ),
                 StatusInfo(
                     submit_time=datetime.now(),
                     current_state=SLURMSTATE.CANCELLED,
-                    cpus=0,
-                    gpus=0,
-                    time_to_dispatch=0,
-                    wall_time=0,
                     final_state=SLURMSTATE.FAILED,
                 ),
                 StatusInfo(
                     submit_time=datetime.now(),
                     current_state=SLURMSTATE.COMPLETED,
-                    cpus=0,
-                    gpus=0,
-                    time_to_dispatch=0,
-                    wall_time=0,
                     final_state=SLURMSTATE.COMPLETED,
                 ),
             ]
@@ -596,7 +567,7 @@ class TestJobScheduler(unittest.TestCase):
             jsi = JobSchedulingInformation(
                 job_name="test_resubmit_jobs",
                 job_script_path=runner_script,
-                job_script_arguments=[str(job_script), "--input-path", str(input_path)],
+                job_script_arguments=(str(job_script), "--input-path", str(input_path)),
                 job_resources=JobResources(memory=4000, cpu_cores=6),
                 working_directory=working_directory,
                 job_env={"ParProcCo": "0"},
@@ -615,7 +586,7 @@ class TestJobScheduler(unittest.TestCase):
             ):
                 jsi.log_directory = stdout_path.parent
                 jsi.stdout_filename = stdout_path.name
-                jsi.sterr_filename = jsi.stdout_filename + "_err"
+                jsi.stderr_filename = stdout_path.name + "_err"
                 jsi.set_job_id(job_id)
                 jsi.update_status_info(status_info)
                 jsi.set_completion_status(completed)
@@ -640,10 +611,6 @@ class TestJobScheduler(unittest.TestCase):
                         i: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         )
                         for i in range(4)
@@ -664,10 +631,6 @@ class TestJobScheduler(unittest.TestCase):
                         i: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         )
                         for i in range(4)
@@ -688,10 +651,6 @@ class TestJobScheduler(unittest.TestCase):
                         i: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         )
                         for i in range(4)
@@ -712,37 +671,21 @@ class TestJobScheduler(unittest.TestCase):
                         0: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         1: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                         2: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         3: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                     }
@@ -762,37 +705,21 @@ class TestJobScheduler(unittest.TestCase):
                         0: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         1: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                         2: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         3: StatusInfo(
                             submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            cpus=0,
-                            gpus=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                     }
@@ -832,7 +759,7 @@ class TestJobScheduler(unittest.TestCase):
             jsi = JobSchedulingInformation(
                 job_name="test_resubmit_jobs",
                 job_script_path=runner_script,
-                job_script_arguments=[str(job_script), "--input-path", str(input_path)],
+                job_script_arguments=(str(job_script), "--input-path", str(input_path)),
                 job_resources=JobResources(memory=4000, cpu_cores=6),
                 working_directory=working_directory,
                 job_env={"ParProcCo": "0"},
@@ -853,7 +780,7 @@ class TestJobScheduler(unittest.TestCase):
                 ]  # Only works because test IDs are 0, 1, 2, 3
                 jsi.log_directory = cluster_output_dir / "logs"
                 jsi.stdout_filename = stdout_path.name
-                jsi.sterr_filename = stdout_path.name + "_err"
+                jsi.stderr_filename = stdout_path.name + "_err"
                 jsi.output_dir = output_paths[job_id].parent
                 jsi.output_filename = output_paths[job_id].name
                 jsi.set_job_id(job_id)

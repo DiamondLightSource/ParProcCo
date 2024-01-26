@@ -89,13 +89,13 @@ class NXdataAggregator(AggregatorInterface):
             assert (
                 axes_lengths == signal_shape
             ), "axes_lengths must equal volumes_array.shape"
-            slices = []
+            a_slices = []
             for j, axis in enumerate(axes):
                 start = int(round((axis[0] - self.axes_mins[j]) / self.axes_spacing[j]))
                 stop = axes_lengths[j] + start
-                slices.append(slice(start, stop))
+                a_slices.append(slice(start, stop))
 
-            self.all_slices.append(tuple(slices))
+            self.all_slices.append(tuple(a_slices))
 
         self.accumulator_axis_lengths = []
         self.accumulator_axis_ranges = []

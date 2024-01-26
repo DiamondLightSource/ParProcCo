@@ -29,7 +29,9 @@ class TestJobController(unittest.TestCase):
         self.base_dir: str = get_tmp_base_dir()
         self.current_dir: str = os.getcwd()
         self.starting_path = os.environ["PATH"]
+        assert slurm_rest_url and PARTITION
         self.url = slurm_rest_url
+        self.partition = PARTITION
 
     def tearDown(self) -> None:
         os.environ["PATH"] = self.starting_path
@@ -64,7 +66,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                PARTITION,
+                self.partition,
                 timeout=timedelta(seconds=1),
             )
             with self.assertRaises(RuntimeError) as context:
@@ -94,7 +96,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                PARTITION,
+                self.partition,
             )
             jc.run(4, runner_script_args)
 
@@ -135,7 +137,7 @@ class TestJobController(unittest.TestCase):
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                PARTITION,
+                self.partition,
             )
             jc.run(1, runner_script_args)
 

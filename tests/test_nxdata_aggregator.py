@@ -709,7 +709,7 @@ class TestNXdataAggregator(unittest.TestCase):
             aggregator._accumulate_volumes()
             if renormalisation:
                 self.assertEqual(aggregator.accumulator_weights.shape, (3, 3, 5))
-                volume = [
+                volume = np.array([
                     0.0,
                     1.0,
                     2.0,
@@ -755,14 +755,14 @@ class TestNXdataAggregator(unittest.TestCase):
                     0.0,
                     0.0,
                     0.0,
-                ]
+                ])
                 self.assertEqual(aggregator.accumulator_volume.shape, (3, 3, 5))
                 np.testing.assert_allclose(
                     aggregator.accumulator_volume,
-                    np.array(volume).reshape(3, 3, 5),
+                    volume.reshape(3, 3, 5),
                     rtol=6.9e-9,
                 )
-                weight = [
+                weight = np.array([
                     7.0,
                     11.0,
                     15.0,
@@ -808,14 +808,14 @@ class TestNXdataAggregator(unittest.TestCase):
                     0.0,
                     0.0,
                     0.0,
-                ]
+                ])
                 np.testing.assert_allclose(
                     aggregator.accumulator_weights,
-                    np.array(weight).reshape(3, 3, 5),
+                    weight.reshape(3, 3, 5),
                     rtol=1e-14,
                 )
             else:
-                volume = [
+                volume = np.array([
                     0.0,
                     2.0,
                     4.0,
@@ -861,11 +861,11 @@ class TestNXdataAggregator(unittest.TestCase):
                     0.0,
                     0.0,
                     0.0,
-                ]
+                ])
                 self.assertEqual(aggregator.accumulator_volume.shape, (3, 3, 5))
                 np.testing.assert_allclose(
                     aggregator.accumulator_volume,
-                    np.array(volume).reshape(3, 3, 5),
+                    volume.reshape(3, 3, 5),
                     rtol=1e-14,
                 )
                 self.assertFalse(hasattr(aggregator, "accumulator_weights"))
@@ -873,7 +873,7 @@ class TestNXdataAggregator(unittest.TestCase):
             for aux_signal in aggregator.accumulator_aux_signals:
                 self.assertEqual(aux_signal.shape, (3, 3, 5))
                 if renormalisation:
-                    signal = [
+                    signal = np.array([
                         53.0,
                         163.0,
                         329.0,
@@ -919,9 +919,9 @@ class TestNXdataAggregator(unittest.TestCase):
                         0.0,
                         0.0,
                         0.0,
-                    ]
+                    ])
                 else:
-                    signal = [
+                    signal = np.array([
                         16.0,
                         30.0,
                         44.0,
@@ -967,9 +967,9 @@ class TestNXdataAggregator(unittest.TestCase):
                         0.0,
                         0.0,
                         0.0,
-                    ]
+                    ])
                 np.testing.assert_allclose(
-                    aux_signal, np.array(signal).reshape(3, 3, 5), rtol=1e-14
+                    aux_signal, signal.reshape(3, 3, 5), rtol=1e-14
                 )
 
     @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")

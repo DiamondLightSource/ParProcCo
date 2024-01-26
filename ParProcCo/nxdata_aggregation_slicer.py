@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 class NXdataAggregationSlicer(JobSlicerInterface):
     def __init__(self):
-        super().__init_()
+        super().__init__("nxdata_aggregate")
         self.allowed_modules = ("python",)
 
     def create_slice_jobs(
@@ -27,6 +27,7 @@ class NXdataAggregationSlicer(JobSlicerInterface):
             return []
 
         jsi = deepcopy(job_scheduling_information)
+        assert jsi.timestamp is not None
         timestamp = format_timestamp(jsi.timestamp)
 
         jsi.output_filename = f"aggregated_results_{timestamp}.nxs"

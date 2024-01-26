@@ -61,18 +61,20 @@ class JobController:
         self.user_name = user_name
         self.user_token = user_token
         self.timeout = timeout
-        self.sliced_results: list[Path] | None = None
+        self.sliced_results: tuple[Path, ...] | None = None
         self.aggregated_result: Path | None = None
 
     def run(
         self,
         number_jobs: int,
-        jobscript_args: list | None = None,
+        jobscript_args: list[str] | None = None,
         job_name: str = "ParProcCo",
         processing_job_resources: JobResources | None = None,
         aggregation_job_resources: JobResources | None = None,
     ) -> None:
         self.cluster_runner = self.program_wrapper.get_process_script()
+        if self.cluster_runner is None:
+            raise ValueError("Processing script must be defined")
         if processing_job_resources is None:
             processing_job_resources = JobResources()
         if aggregation_job_resources is None:
@@ -85,11 +87,12 @@ class JobController:
         logging.debug("Cluster environment is %s", self.cluster_env)
 
         timestamp = datetime.now()
-        jobscript_args[0] = str(
-            check_jobscript_is_readable(
-                check_location(get_absolute_path(jobscript_args[0]))
+        if jobscript_args:
+            jobscript_args[0] = str(
+                check_jobscript_is_readable(
+                    check_location(get_absolute_path(jobscript_args[0]))
+                )
             )
-        )
         sliced_jobs_success = self._submit_sliced_jobs(
             number_jobs,
             jobscript_args,
@@ -100,9 +103,10 @@ class JobController:
 
         if sliced_jobs_success and self.sliced_results:
             logging.info("Sliced jobs ran successfully.")
+            out_file: Path | None = None
             if number_jobs == 1:
                 out_file = (
-                    self.sliced_results[0] if len(self.sliced_results) > 0 else None
+                    self.sliced_results[0] if self.sliced_results else None
                 )
             else:
                 self._submit_aggregation_job(aggregation_job_resources, timestamp)
@@ -128,7 +132,7 @@ class JobController:
     def _submit_sliced_jobs(
         self,
         number_of_jobs: int,
-        jobscript_args: list | None,
+        jobscript_args: list[str] | None,
         job_resources: JobResources,
         job_name: str,
         timestamp: datetime,
@@ -136,19 +140,20 @@ class JobController:
         if jobscript_args is None:
             jobscript_args = []
 
+        assert self.cluster_runner
         jsi = JobSchedulingInformation(
             job_name=job_name,
             job_script_path=self.cluster_runner,
             job_resources=job_resources,
             timeout=self.timeout,
-            job_script_arguments=jobscript_args,
-            job_env=self.cluster_env,
+            job_script_arguments=tuple(jobscript_args),
             working_directory=self.working_directory,
             output_dir=self.output_file.parent if self.output_file else None,
             output_filename=self.output_file.name if self.output_file else None,
             log_directory=self.cluster_output_dir,
             timestamp=timestamp,
         )
+        jsi.set_job_env(self.cluster_env)
 
         job_scheduler = JobScheduler(
             url=self.url,
@@ -186,12 +191,12 @@ class JobController:
         if aggregator_path is not None:
             aggregation_args.append(str(aggregator_path))
 
+        assert self.sliced_results is not None and self.cluster_runner
         jsi = JobSchedulingInformation(
             job_name=aggregating_slicer.__class__.__name__,
             job_script_path=self.cluster_runner,
             job_resources=job_resources,
-            job_script_arguments=aggregation_args,
-            job_env=self.cluster_env,
+            job_script_arguments=tuple(aggregation_args),
             working_directory=self.working_directory,
             timeout=timedelta(seconds=AGGREGATION_TIME * len(self.sliced_results)),
             output_dir=self.output_file.parent if self.output_file else None,
@@ -199,6 +204,7 @@ class JobController:
             log_directory=self.cluster_output_dir,
             timestamp=timestamp,
         )
+        jsi.set_job_env(self.cluster_env)
 
         aggregation_scheduler = JobScheduler(
             url=self.url,
@@ -209,7 +215,7 @@ class JobController:
         )
 
         aggregation_jobs = aggregating_slicer.create_slice_jobs(
-            jsi, self.sliced_results
+            jsi, list(self.sliced_results)
         )
 
         aggregation_success = aggregation_scheduler.run(aggregation_jobs)

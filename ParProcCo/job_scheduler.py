@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 import time
-from collections.abc import Sequence
+from collections.abc import Sequence, ValuesView
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -80,38 +80,38 @@ class SLURMSTATE(Enum):
     "Custom state. Output file has not been updated since job started."
 
 
-class STATEGROUP(set, Enum):
-    OUTOFTIME = {SLURMSTATE.TIMEOUT, SLURMSTATE.DEADLINE}
-    FINISHED = {
+class STATEGROUP(tuple[SLURMSTATE], Enum):
+    OUTOFTIME = (SLURMSTATE.TIMEOUT, SLURMSTATE.DEADLINE)
+    FINISHED = (
         SLURMSTATE.COMPLETED,
         SLURMSTATE.FAILED,
         SLURMSTATE.TIMEOUT,
         SLURMSTATE.DEADLINE,
-    }
-    COMPUTEISSUE = {
+    )
+    COMPUTEISSUE = (
         SLURMSTATE.BOOT_FAIL,
         SLURMSTATE.NODE_FAIL,
         SLURMSTATE.OUT_OF_MEMORY,
-    }
-    ENDED = {
+    )
+    ENDED = (
         SLURMSTATE.COMPLETED,
         SLURMSTATE.FAILED,
         SLURMSTATE.TIMEOUT,
         SLURMSTATE.DEADLINE,
-    }
-    REQUEUEABLE = {
+    )
+    REQUEUEABLE = (
         SLURMSTATE.CONFIGURING,
         SLURMSTATE.RUNNING,
         SLURMSTATE.STOPPED,
         SLURMSTATE.SUSPENDED,
-    }
-    STARTING = {
+    )
+    STARTING = (
         SLURMSTATE.PENDING,
         SLURMSTATE.REQUEUED,
         SLURMSTATE.RESIZING,
         SLURMSTATE.SUSPENDED,
         SLURMSTATE.CONFIGURING,
-    }
+    )
 
 
 @dataclass
@@ -197,7 +197,7 @@ class JobScheduler:
             wall_time = None
 
         status_info = job_scheduling_info.status_info
-
+        assert status_info
         if submit_time:
             # Don't overwrite unless a more specific value is given by the scheduler
             status_info.submit_time = datetime.fromtimestamp(submit_time)
@@ -212,20 +212,21 @@ class JobScheduler:
         return slurm_state
 
     def get_output_paths(
-        self, job_scheduling_info_list: list[JobSchedulingInformation]
-    ) -> tuple[Path]:
-        return tuple(
+        self, job_scheduling_info_list: list[JobSchedulingInformation] | ValuesView[JobSchedulingInformation]
+    ) -> tuple[Path, ...]:
+        return tuple(p for p in (
             jsi.get_output_path()
             for jsi in job_scheduling_info_list
-            if jsi.get_output_path() is not None
-        )
+        ) if p)
 
     def get_success(
         self, job_scheduling_info_list: list[JobSchedulingInformation]
     ) -> bool:
         return all((info.completion_status for info in job_scheduling_info_list))
 
-    def timestamp_ok(self, output: Path, start_time: datetime) -> bool:
+    def timestamp_ok(self, output: Path, start_time: datetime | None) -> bool:
+        if start_time is None:
+            return False
         mod_time = datetime.fromtimestamp(output.stat().st_mtime)
         return mod_time > start_time
 
@@ -268,6 +269,7 @@ class JobScheduler:
                     f" and args {job_scheduling_info.job_script_arguments}"
                 )
                 submission = self.make_job_submission(job_scheduling_info)
+                assert submission.job is not None
                 resp = self.client.submit_job(submission)
                 if resp.job_id is None:
                     resp = self.client.submit_job(submission)
@@ -301,6 +303,7 @@ class JobScheduler:
 
                 error_dir = self.cluster_output_dir / "cluster_logs"
             else:
+                assert job_scheduling_info.working_directory
                 error_dir = job_scheduling_info.working_directory / "cluster_logs"
             job_scheduling_info.log_directory = error_dir
 
@@ -308,9 +311,11 @@ class JobScheduler:
             logging.debug(f"Making directory {job_scheduling_info.log_directory}")
             job_scheduling_info.log_directory.mkdir(exist_ok=True, parents=True)
         else:
+            assert job_scheduling_info.log_directory
             logging.debug(
                 f"Directory {job_scheduling_info.log_directory} already exists"
             )
+        assert job_scheduling_info.job_script_path
         job_script_path = check_jobscript_is_readable(
             job_scheduling_info.job_script_path
         )
@@ -341,7 +346,7 @@ class JobScheduler:
 
     def wait_all_jobs(
         self,
-        job_scheduling_info_list: list[JobSchedulingInformation],
+        job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
         state_group: STATEGROUP,
         deadline: datetime,
         sleep_time: int,
@@ -384,7 +389,7 @@ class JobScheduler:
             )
 
         def handle_not_started(
-            job_scheduling_info_list: list[JobSchedulingInformation],
+            job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
             check_time: timedelta,
         ) -> list[JobSchedulingInformation]:
             # Wait for jobs to start (timeout shouldn't include queue time)
@@ -405,7 +410,7 @@ class JobScheduler:
             return starting_jobs
 
         def wait_for_ended(
-            job_scheduling_info_list: Sequence[JobSchedulingInformation],
+            job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
             deadline: datetime,
             check_time: timedelta,
         ) -> list[JobSchedulingInformation]:
@@ -425,18 +430,19 @@ class JobScheduler:
             return ended_jobs
 
         def handle_ended_jobs(
-            job_scheduling_info_list: Sequence[JobSchedulingInformation],
+            job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
         ) -> list[JobSchedulingInformation]:
             ended_jobs = []
             for job_scheduling_info in job_scheduling_info_list:
                 self.fetch_and_update_state(job_scheduling_info)
+                assert job_scheduling_info.status_info
                 if job_scheduling_info.status_info.current_state in STATEGROUP.ENDED:
                     logging.debug("Removing ended %d", job_scheduling_info.job_id)
                     ended_jobs.append(job_scheduling_info)
             return ended_jobs
 
         def handle_timeouts(
-            job_scheduling_info_list: Sequence[JobSchedulingInformation],
+            job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
         ) -> list[JobSchedulingInformation]:
             deadlines = (
                 (jsi, get_deadline(jsi, allow_from_submission=False))
@@ -497,7 +503,7 @@ class JobScheduler:
                         for deadline in (
                             get_deadline(jsi, allow_from_submission=True)
                             for jsi in running_jobs.values()
-                        )
+                        ) if deadline is not None
                     ]
                 )
                 check_time = min(
@@ -524,7 +530,7 @@ class JobScheduler:
             logging.debug("_wait_for_jobs loop ending, starting clear-up")
 
             if terminate_after_wait:
-                for jsi in list(running_jobs):
+                for jsi in running_jobs.values():
                     try:
                         logging.info(
                             "Waiting for jobs timed out. Terminating job %d now.",
@@ -556,6 +562,7 @@ class JobScheduler:
         for job_scheduling_info in job_scheduling_info_list:
             job_id = job_scheduling_info.job_id
             status_info = job_scheduling_info.status_info
+            assert status_info
             stdout_path = job_scheduling_info.get_stdout_path()
             logging.debug(f"Retrieving info for job {job_id}")
 
@@ -581,7 +588,7 @@ class JobScheduler:
 
             elif not self.timestamp_ok(
                 stdout_path,
-                start_time=job_scheduling_info.status_info.start_time,
+                start_time=status_info.start_time,
             ):
                 status_info.final_state = SLURMSTATE.OLD_OUTPUT_FILE
                 logging.error(
@@ -626,7 +633,7 @@ class JobScheduler:
                 new_job_scheduling_info = deepcopy(old_job_scheduling_info)
                 new_job_scheduling_info.set_completion_status(False)
                 new_job_scheduling_info.status_info = None
-                new_job_scheduling_info.job_id = None
+                new_job_scheduling_info.job_id = -1
                 new_job_scheduling_info_list.append(new_job_scheduling_info)
         logging.info(f"Resubmitting jobs from batch {batch} with job_ids: {job_ids}")
         return self._submit_and_monitor(new_job_scheduling_info_list)
@@ -637,7 +644,7 @@ class JobScheduler:
         return [
             jsi
             for jsi in job_scheduling_information_list
-            if jsi.status_info.current_state == SLURMSTATE.CANCELLED
+            if jsi.status_info and jsi.status_info.current_state == SLURMSTATE.CANCELLED
         ]
 
     def resubmit_killed_jobs(
@@ -655,7 +662,7 @@ class JobScheduler:
             failed_jobs = [
                 jsi
                 for jsi in job_scheduling_info_dict.values()
-                if jsi.status_info.final_state != SLURMSTATE.COMPLETED
+                if jsi.status_info and jsi.status_info.final_state != SLURMSTATE.COMPLETED
             ]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             logging.info(

@@ -15,6 +15,9 @@ if TYPE_CHECKING:
 
 
 class PassThruProcessingSlicer(JobSlicerInterface):
+    def __init__(self):
+        super().__init__("ppc_cluster_runner")
+
     def create_slice_jobs(
         self,
         job_scheduling_information: JobSchedulingInformation,
@@ -22,29 +25,26 @@ class PassThruProcessingSlicer(JobSlicerInterface):
     ) -> list[JobSchedulingInformation]:
         """Overrides JobSlicerInterface.create_slice_jobs"""
 
+        assert job_scheduling_information.timestamp is not None
         timestamp = format_timestamp(job_scheduling_information.timestamp)
         job_scheduling_information.stdout_filename = f"out_{timestamp}"
         job_scheduling_information.stderr_filename = f"err_{timestamp}"
+        old_args= job_scheduling_information.job_script_arguments
         job_script = str(
-            check_jobscript_is_readable(
-                check_location(
-                    get_absolute_path(
-                        job_scheduling_information.job_script_arguments[0]
-                    )
-                )
-            )
+            check_jobscript_is_readable(check_location(get_absolute_path(old_args[0])))
         )
 
-        args = [
+        args: tuple[str, ...] = (
             job_script,
             "--memory",
             str(job_scheduling_information.job_resources.memory),
             "--cores",
             str(job_scheduling_information.job_resources.cpu_cores),
-        ]
+        )
         if job_scheduling_information.output_filename:
             args += ("--output", job_scheduling_information.output_filename)
-        args += job_scheduling_information.job_script_arguments[1:]
+        if len(old_args) > 1:
+            args += old_args[1:]
         job_scheduling_information.job_script_arguments = args
         return [job_scheduling_information]
 
@@ -53,8 +53,8 @@ class PassThruWrapper(ProgramWrapper):
     def __init__(self, original_wrapper: ProgramWrapper):
         super().__init__(processing_slicer=PassThruProcessingSlicer())
         self.original_wrapper = original_wrapper
-        self.processing_mode.allowed_modules = (
-            original_wrapper.processing_mode.allowed_modules
+        self.processing_slicer.allowed_modules = (
+            original_wrapper.processing_slicer.allowed_modules
         )
 
     def get_args(self, args: list[str], debug: bool = False):

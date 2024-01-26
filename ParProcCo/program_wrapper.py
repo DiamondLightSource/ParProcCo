@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class ProgramWrapper:
     def __init__(
         self,
-        processing_slicer: JobSlicerInterface | None = None,
+        processing_slicer: JobSlicerInterface,
         slicer: DataSlicerInterface | None = None,
         aggregating_slicer: JobSlicerInterface | None = None,
     ):
@@ -66,7 +66,7 @@ class ProgramWrapper:
                     ppc_modules.append(m)
         else:
             for m in reversed(loaded_modules):
-                if m and m != self.cluster_module:
+                if m:
                     ppc_modules.append(m)
                     break
 

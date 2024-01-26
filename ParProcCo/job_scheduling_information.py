@@ -25,10 +25,10 @@ class JobResources:
 @dataclass
 class JobSchedulingInformation:
     job_name: str
-    job_script_path: Path | None
+    job_script_path: Path
     job_resources: JobResources
     timeout: timedelta = timedelta(hours=2)
-    job_script_arguments: tuple[str] = field(default_factory=tuple)
+    job_script_arguments: tuple[str, ...] = field(default_factory=tuple)
     job_env: dict[str, str] = field(default_factory=dict)
     log_directory: Path | None = None
     stderr_filename: str | None = None
@@ -38,11 +38,11 @@ class JobSchedulingInformation:
     output_filename: str | None = None
     timestamp: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.set_job_script_path(self.job_script_path)  # For validation
         self.set_job_env(self.job_env)  # For validation
         # To be updated when submitted, not on creation
-        self.job_id: int | None = None
+        self.job_id: int = -1
         self.status_info: StatusInfo | None = None
         self.completion_status: bool = False
 
