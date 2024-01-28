@@ -4,8 +4,12 @@ from typing import TYPE_CHECKING
 
 from .job_slicer_interface import JobSlicerInterface
 from .program_wrapper import ProgramWrapper
-from .utils import (check_jobscript_is_readable, check_location,
-                    format_timestamp, get_absolute_path)
+from .utils import (
+    check_jobscript_is_readable,
+    check_location,
+    format_timestamp,
+    get_absolute_path,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -29,7 +33,7 @@ class PassThruProcessingSlicer(JobSlicerInterface):
         timestamp = format_timestamp(job_scheduling_information.timestamp)
         job_scheduling_information.stdout_filename = f"out_{timestamp}"
         job_scheduling_information.stderr_filename = f"err_{timestamp}"
-        old_args= job_scheduling_information.job_script_arguments
+        old_args = job_scheduling_information.job_script_arguments
         job_script = str(
             check_jobscript_is_readable(check_location(get_absolute_path(old_args[0])))
         )
@@ -42,7 +46,13 @@ class PassThruProcessingSlicer(JobSlicerInterface):
             str(job_scheduling_information.job_resources.cpu_cores),
         )
         if job_scheduling_information.output_filename:
-            args += ("--output", job_scheduling_information.output_filename)
+            args += (
+                "--output",
+                str(
+                    job_scheduling_information.output_dir
+                    / job_scheduling_information.output_filename
+                ),
+            )
         if len(old_args) > 1:
             args += old_args[1:]
         job_scheduling_information.job_script_arguments = args

@@ -212,12 +212,13 @@ class JobScheduler:
         return slurm_state
 
     def get_output_paths(
-        self, job_scheduling_info_list: list[JobSchedulingInformation] | ValuesView[JobSchedulingInformation]
+        self,
+        job_scheduling_info_list: list[JobSchedulingInformation]
+        | ValuesView[JobSchedulingInformation],
     ) -> tuple[Path, ...]:
-        return tuple(p for p in (
-            jsi.get_output_path()
-            for jsi in job_scheduling_info_list
-        ) if p)
+        return tuple(
+            p for p in (jsi.get_output_path() for jsi in job_scheduling_info_list) if p
+        )
 
     def get_success(
         self, job_scheduling_info_list: list[JobSchedulingInformation]
@@ -346,7 +347,9 @@ class JobScheduler:
 
     def wait_all_jobs(
         self,
-        job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
+        job_scheduling_info_list: Sequence[JobSchedulingInformation]
+        | ValuesView[JobSchedulingInformation],
+        in_group: bool,
         state_group: STATEGROUP,
         deadline: datetime,
         sleep_time: int,
@@ -355,7 +358,7 @@ class JobScheduler:
         while len(remaining_jobs) > 0 and datetime.now() <= deadline:
             for jsi in list(remaining_jobs):
                 current_state = self.fetch_and_update_state(jsi)
-                if current_state in state_group:
+                if (current_state in state_group) == in_group:
                     remaining_jobs.remove(jsi)
             if len(remaining_jobs) > 0:
                 time.sleep(sleep_time)
@@ -375,51 +378,60 @@ class JobScheduler:
             allow_from_submission: bool = False,
         ) -> datetime | None:
             # Timeout shouldn't include queue time
-            if job_scheduling_info.status_info is None:
+            status_info = job_scheduling_info.status_info
+            if status_info is None:
                 return None
-            elif job_scheduling_info.status_info.start_time is None:
+            elif status_info.start_time is None:
                 if allow_from_submission:
-                    return (
-                        job_scheduling_info.status_info.submit_time
-                        + job_scheduling_info.timeout
-                    )
+                    return status_info.submit_time + job_scheduling_info.timeout
                 return None
-            return (
-                job_scheduling_info.status_info.start_time + job_scheduling_info.timeout
-            )
+            return status_info.start_time + job_scheduling_info.timeout
 
         def handle_not_started(
-            job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
+            job_scheduling_info_list: Sequence[JobSchedulingInformation]
+            | ValuesView[JobSchedulingInformation],
             check_time: timedelta,
         ) -> list[JobSchedulingInformation]:
             # Wait for jobs to start (timeout shouldn't include queue time)
             starting_jobs = list(job_scheduling_info_list)
             timeout = datetime.now() + check_time
-            while len(job_scheduling_info_list) > 0 and datetime.now() < timeout:
-                for jsi in self.wait_all_jobs(
+            logging.debug(
+                "Wait for jobs (%d) to start up to %s", len(starting_jobs), timeout
+            )
+            while len(starting_jobs) > 0 and datetime.now() < timeout:
+                starting_jobs = self.wait_all_jobs(
                     starting_jobs,
+                    False,
                     STATEGROUP.STARTING,
                     timeout,
-                    0,
-                ):
-                    starting_jobs.remove(jsi)
+                    5,
+                )
                 if len(starting_jobs) > 0:
-                    # We want ot sleep only if there are jobs waiting to start
+                    # We want to sleep only if there are jobs waiting to start
                     time.sleep(5)
                     logging.info("Jobs left to start: %d", len(starting_jobs))
             return starting_jobs
 
         def wait_for_ended(
-            job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
+            job_scheduling_info_list: Sequence[JobSchedulingInformation]
+            | ValuesView[JobSchedulingInformation],
             deadline: datetime,
             check_time: timedelta,
         ) -> list[JobSchedulingInformation]:
+            sleep_time = int(round(check_time.total_seconds()))
+            logging.debug(
+                "Wait for ending in %d jobs up to %s with sleeps of %ss",
+                len(job_scheduling_info_list),
+                deadline,
+                sleep_time,
+            )
             # Wait for jobs to complete
             self.wait_all_jobs(
                 job_scheduling_info_list,
+                True,
                 STATEGROUP.ENDED,
                 deadline,
-                int(round(check_time.total_seconds())),
+                sleep_time,
             )
             ended_jobs = handle_ended_jobs(job_scheduling_info_list)
             logging.info(
@@ -430,7 +442,8 @@ class JobScheduler:
             return ended_jobs
 
         def handle_ended_jobs(
-            job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
+            job_scheduling_info_list: Sequence[JobSchedulingInformation]
+            | ValuesView[JobSchedulingInformation],
         ) -> list[JobSchedulingInformation]:
             ended_jobs = []
             for job_scheduling_info in job_scheduling_info_list:
@@ -442,7 +455,8 @@ class JobScheduler:
             return ended_jobs
 
         def handle_timeouts(
-            job_scheduling_info_list: Sequence[JobSchedulingInformation] | ValuesView[JobSchedulingInformation],
+            job_scheduling_info_list: Sequence[JobSchedulingInformation]
+            | ValuesView[JobSchedulingInformation],
         ) -> list[JobSchedulingInformation]:
             deadlines = (
                 (jsi, get_deadline(jsi, allow_from_submission=False))
@@ -492,8 +506,8 @@ class JobScheduler:
 
         if not running_jobs:
             logging.warning("All jobs ended before wait began")
-            handle_ended_jobs(ended_jobs.values())
             return
+
         try:
             while datetime.now() < wait_deadline and len(running_jobs) > 0:
                 # Handle none started (empty deadline list)
@@ -503,7 +517,8 @@ class JobScheduler:
                         for deadline in (
                             get_deadline(jsi, allow_from_submission=True)
                             for jsi in running_jobs.values()
-                        ) if deadline is not None
+                        )
+                        if deadline is not None
                     ]
                 )
                 check_time = min(
@@ -662,7 +677,8 @@ class JobScheduler:
             failed_jobs = [
                 jsi
                 for jsi in job_scheduling_info_dict.values()
-                if jsi.status_info and jsi.status_info.final_state != SLURMSTATE.COMPLETED
+                if jsi.status_info
+                and jsi.status_info.final_state != SLURMSTATE.COMPLETED
             ]
             killed_jobs = self.filter_killed_jobs(failed_jobs)
             logging.info(
