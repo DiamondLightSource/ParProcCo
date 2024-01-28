@@ -8,8 +8,12 @@ from typing import Any
 import requests
 from pydantic import BaseModel
 
-from .slurm_rest import (JobResponseProperties, JobsResponse, JobSubmission,
-                         JobSubmissionResponse)
+from .slurm_rest import (
+    JobResponseProperties,
+    JobsResponse,
+    JobSubmission,
+    JobSubmissionResponse,
+)
 
 _SLURM_VERSION = "v0.0.38"
 

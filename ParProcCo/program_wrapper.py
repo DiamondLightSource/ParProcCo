@@ -4,8 +4,8 @@ import logging
 import os
 from typing import TYPE_CHECKING
 
-from .job_slicer_interface import JobSlicerInterface
 from .data_slicer_interface import DataSlicerInterface
+from .job_slicer_interface import JobSlicerInterface
 
 if TYPE_CHECKING:
     from pathlib import Path

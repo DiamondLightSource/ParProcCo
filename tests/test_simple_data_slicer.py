@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import logging
 import unittest
+from typing import TYPE_CHECKING
 
 from parameterized import parameterized
 
 from ParProcCo.simple_data_slicer import SimpleDataSlicer
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Any
+
 
 class TestDataSlicer(unittest.TestCase):
     def setUp(self) -> None:
@@ -77,7 +78,13 @@ class TestDataSlicer(unittest.TestCase):
         ]
     )
     def test_slices(
-        self, name: str, args: list[Any], kwargs: dict[str,Any], error_msg: str | None, expected_length: int, expected_slices: list[slice]
+        self,
+        name: str,
+        args: list[Any],
+        kwargs: dict[str, Any],
+        error_msg: str | None,
+        expected_length: int,
+        expected_slices: list[slice],
     ) -> None:
         slicer = SimpleDataSlicer()
 

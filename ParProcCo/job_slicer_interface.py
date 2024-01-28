@@ -4,8 +4,11 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ParProcCo.utils import (check_jobscript_is_readable, check_location,
-                             get_absolute_path)
+from ParProcCo.utils import (
+    check_jobscript_is_readable,
+    check_location,
+    get_absolute_path,
+)
 
 if TYPE_CHECKING:
     from typing import Any
@@ -50,6 +53,6 @@ class JobSlicerInterface:
         slice_params: list[Any],
     ) -> JobSchedulingInformation:
         """This mutates the JSI according to the job number and slice parameters.
-        
+
         This must be implemented if create_slice_jobs has not been overridden."""
         raise NotImplementedError

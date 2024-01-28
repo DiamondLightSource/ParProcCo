@@ -11,9 +11,15 @@ import pytest
 from example.simple_wrapper import SimpleWrapper
 from ParProcCo.job_controller import JobController
 from ParProcCo.test import TemporaryDirectory
-from tests.utils import (PARTITION, get_slurm_rest_url, get_tmp_base_dir,
-                         setup_aggregation_script, setup_data_file,
-                         setup_jobscript, setup_runner_script)
+from tests.utils import (
+    PARTITION,
+    get_slurm_rest_url,
+    get_tmp_base_dir,
+    setup_aggregation_script,
+    setup_data_file,
+    setup_jobscript,
+    setup_runner_script,
+)
 
 slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None

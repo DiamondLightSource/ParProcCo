@@ -33,6 +33,7 @@ class SimpleProcessingSlicer(JobSlicerInterface):
         old_args = job_scheduling_information.job_script_arguments
 
         job_scheduling_information.job_script_arguments = (
+            (
                 old_args[0],
                 "--memory",
                 f"{job_scheduling_information.job_resources.memory}M",
@@ -42,6 +43,10 @@ class SimpleProcessingSlicer(JobSlicerInterface):
                 str(job_scheduling_information.get_output_path()),
                 "--images",
                 slice_param,
-        ) + old_args[1:] if len(old_args) > 0 else ()
+            )
+            + old_args[1:]
+            if len(old_args) > 0
+            else ()
+        )
 
         return job_scheduling_information

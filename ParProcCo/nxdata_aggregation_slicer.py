@@ -5,8 +5,12 @@ from typing import TYPE_CHECKING
 
 from ParProcCo.job_scheduling_information import JobSchedulingInformation
 from ParProcCo.job_slicer_interface import JobSlicerInterface
-from ParProcCo.utils import (check_jobscript_is_readable, check_location,
-                             format_timestamp, get_absolute_path)
+from ParProcCo.utils import (
+    check_jobscript_is_readable,
+    check_location,
+    format_timestamp,
+    get_absolute_path,
+)
 
 if TYPE_CHECKING:
     from typing import Any

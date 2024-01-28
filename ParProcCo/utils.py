@@ -11,8 +11,9 @@ import yaml
 from yaml import SafeLoader, YAMLObject
 
 if sys.version_info < (3, 10):
-    from backports.entry_points_selectable import \
-        entry_points  # @UnresolvedImport @UnusedImport
+    from backports.entry_points_selectable import (
+        entry_points,
+    )  # @UnresolvedImport @UnusedImport
 else:
     from importlib.metadata import entry_points  # @UnresolvedImport @Reimport
 

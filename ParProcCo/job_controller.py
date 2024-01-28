@@ -5,12 +5,11 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from .data_slicer_interface import DataSlicerInterface
 from .job_scheduler import JobScheduler
 from .job_scheduling_information import JobResources, JobSchedulingInformation
 from .program_wrapper import ProgramWrapper
-from .data_slicer_interface import DataSlicerInterface
-from .utils import (check_jobscript_is_readable, check_location,
-                    get_absolute_path)
+from .utils import check_jobscript_is_readable, check_location, get_absolute_path
 
 AGGREGATION_TIME = 60  # timeout per single file, in seconds
 
@@ -105,9 +104,7 @@ class JobController:
             logging.info("Sliced jobs ran successfully.")
             out_file: Path | None = None
             if number_jobs == 1:
-                out_file = (
-                    self.sliced_results[0] if self.sliced_results else None
-                )
+                out_file = self.sliced_results[0] if self.sliced_results else None
             else:
                 self._submit_aggregation_job(aggregation_job_resources, timestamp)
                 out_file = self.aggregated_result

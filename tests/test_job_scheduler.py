@@ -13,14 +13,17 @@ from parameterized import parameterized
 
 from example.simple_processing_slicer import SimpleProcessingSlicer
 from ParProcCo.job_scheduler import SLURMSTATE, JobScheduler, StatusInfo
-from ParProcCo.job_scheduling_information import (JobResources,
-                                                  JobSchedulingInformation)
-from ParProcCo.slurm.slurm_rest import (JobProperties, JobsResponse,
-                                        JobSubmission)
+from ParProcCo.job_scheduling_information import JobResources, JobSchedulingInformation
+from ParProcCo.slurm.slurm_rest import JobProperties, JobsResponse, JobSubmission
 from ParProcCo.test import TemporaryDirectory
-from tests.utils import (PARTITION, get_slurm_rest_url, get_tmp_base_dir,
-                         setup_data_files, setup_jobscript,
-                         setup_runner_script)
+from tests.utils import (
+    PARTITION,
+    get_slurm_rest_url,
+    get_tmp_base_dir,
+    setup_data_files,
+    setup_jobscript,
+    setup_runner_script,
+)
 
 slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
@@ -135,7 +138,7 @@ class TestJobScheduler(unittest.TestCase):
             )
             job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
-            runner_script_args =(str(job_script), "--input-path", str(input_path))
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
             processing_slicer = SimpleProcessingSlicer(job_script)
 
             jsi = JobSchedulingInformation(
@@ -518,7 +521,9 @@ class TestJobScheduler(unittest.TestCase):
             js = create_js(cluster_output_dir)
             jsi_list = []
             for status_info in job_statuses:
-                jsi = MagicMock(spec=JobSchedulingInformation, name="JobSchedulingInformation")
+                jsi = MagicMock(
+                    spec=JobSchedulingInformation, name="JobSchedulingInformation"
+                )
                 jsi.status_info = status_info
                 jsi_list.append(jsi)
             killed_jobs = js.filter_killed_jobs(jsi_list)
