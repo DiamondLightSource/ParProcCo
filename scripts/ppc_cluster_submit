@@ -18,7 +18,7 @@ from ParProcCo.utils import get_token, set_up_wrapper
 
 def create_parser() -> argparse.ArgumentParser:
     """
-    $ ppc_cluster_submit program [--partition cs05r] [--token path/to/token/file]
+    $ ppc_cluster_submit program [--partition hpc00] [--token path/to/token/file]
      [--output cluster_output_dir] [--jobs 4] [--timeout 1h30m] --memory 4000M --cores 6
      -s 0.01 ... [input files]
     """
@@ -33,7 +33,7 @@ def create_parser() -> argparse.ArgumentParser:
         required=True,
     )
     parser.add_argument(
-        "--token", help="str: slurm token filepath", type=str, required=True
+        "--token", help="str: slurm token filepath", type=str
     )
     parser.add_argument("-o", "--output", help="str: cluster output file or directory")
     parser.add_argument(
@@ -81,8 +81,8 @@ def parse_timeout(timeout: str) -> timedelta:
 
 
 def parse_memory(memory: str) -> int:
-    l = memory[-1]
-    if l not in ('M', 'G'):
+    s = memory[-1]
+    if s not in ('M', 'G'):
         raise ValueError('Memory specified must end with M or G')
     try:
         m = int(memory[:-1])
@@ -91,11 +91,12 @@ def parse_memory(memory: str) -> int:
 
     if m <= 0:
         raise ValueError('Memory specified must be greater than 0')
-    if l == 'M' and m < 512:
+    if s == 'M' and m < 512:
         logging.warning('Memory specified is recommended to be over 512M')
-    if l == 'G'and m > 64:
+    if s == 'G':
+        if m > 64:
+            logging.warning('Memory specified (>64G) seems to be excessive')
         m = m*1024
-        logging.warning('Memory specified (>64G) seems to be excessive')
     return m
 
 

@@ -35,7 +35,7 @@ class SimpleProcessingSlicer(JobSlicerInterface):
         job_scheduling_information.job_script_arguments = (
                 old_args[0],
                 "--memory",
-                str(job_scheduling_information.job_resources.memory),
+                f"{job_scheduling_information.job_resources.memory}M",
                 "--cores",
                 str(job_scheduling_information.job_resources.cpu_cores),
                 "--output",

@@ -22,7 +22,7 @@ class ProgramWrapper:
         self.slicer = slicer
         self.aggregating_slicer = aggregating_slicer
 
-    def get_args(self, args: list[str], debug: bool = False):
+    def get_args(self, args: list[str], debug: bool = False) -> list[str]:
         """
         Get arguments given passed-in arguments
         args  -- given arguments

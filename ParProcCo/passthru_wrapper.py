@@ -37,7 +37,7 @@ class PassThruProcessingSlicer(JobSlicerInterface):
         args: tuple[str, ...] = (
             job_script,
             "--memory",
-            str(job_scheduling_information.job_resources.memory),
+            f"{job_scheduling_information.job_resources.memory}M",
             "--cores",
             str(job_scheduling_information.job_resources.cpu_cores),
         )
