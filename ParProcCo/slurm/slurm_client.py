@@ -85,8 +85,8 @@ class SlurmClient:
             if n == 1:
                 return ji.jobs[0]
             if n > 1:
-                raise ValueError("Multiple jobs returned {ji.jobs}")
-        raise ValueError("No job info found for job id {job_id}")
+                raise ValueError(f"Multiple jobs returned {ji.jobs}")
+        raise ValueError(f"No job info found for job id {job_id}")
 
     def submit_job(self, job_submission: JobSubmission) -> JobSubmissionResponse:
         response = self._post("job/submit", job_submission)
