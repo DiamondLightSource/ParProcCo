@@ -24,3 +24,17 @@ setup(
 ```
 
 which will look for a module called `blah1_wrapper` in `whatever_package1` package.
+
+
+## Testing
+
+Tests can be run with
+```
+$ pytest tests
+```
+To test interactions with Slurm, set the following environment variables:
+```
+SLURM_REST_URL  # URL for server and port where the REST endpoints are hosted
+SLURM_PARTITION # Slurm cluster parition 
+SLURM_JWT       # JSON web token for access to REST endpoints
+```

@@ -89,7 +89,7 @@ class TestJobScheduler(unittest.TestCase):
             )
 
             expected_command = (
-                f"#!/bin/bash\n{runner_script} {job_script} --memory 4000 --cores 5"
+                f"#!/bin/bash\n{runner_script} {job_script} --memory 4000M --cores 5"
                 f" --output {cluster_output_dir}/out_0 --images 0::2"
                 f" --input-path {input_path}"
             )

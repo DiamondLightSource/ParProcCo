@@ -5,7 +5,7 @@ import os
 from os import path
 from pathlib import Path
 
-PARTITION = os.getenv("DEFAULT_SLURM_PARTITION")
+PARTITION = os.getenv("SLURM_PARTITION")
 
 
 def get_slurm_rest_url() -> str | None:
