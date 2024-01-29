@@ -94,8 +94,6 @@ class TestJobScheduler(unittest.TestCase):
                 f" --input-path {input_path}"
             )
             job_submission = scheduler.make_job_submission(jsi_list[0])
-            print(job_submission.script)
-            print(expected_command)
             cluster_output_dir_exists = cluster_output_dir.is_dir()
 
         expected = JobSubmission(

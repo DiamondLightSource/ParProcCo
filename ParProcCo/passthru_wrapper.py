@@ -45,14 +45,9 @@ class PassThruProcessingSlicer(JobSlicerInterface):
             "--cores",
             str(job_scheduling_information.job_resources.cpu_cores),
         )
-        if job_scheduling_information.output_filename:
-            args += (
-                "--output",
-                str(
-                    job_scheduling_information.output_dir
-                    / job_scheduling_information.output_filename
-                ),
-            )
+        output_path = job_scheduling_information.get_output_path()
+        if output_path is not None:
+            args += ("--output", str(output_path))
         if len(old_args) > 1:
             args += old_args[1:]
         job_scheduling_information.job_script_arguments = args

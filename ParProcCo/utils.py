@@ -2,20 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
 from dataclasses import dataclass
 from datetime import datetime
+from importlib.metadata import entry_points  # @UnresolvedImport @Reimport
 from pathlib import Path
 
 import yaml
 from yaml import SafeLoader, YAMLObject
-
-if sys.version_info < (3, 10):
-    from backports.entry_points_selectable import (
-        entry_points,
-    )  # @UnresolvedImport @UnusedImport
-else:
-    from importlib.metadata import entry_points  # @UnresolvedImport @Reimport
 
 from .slurm.slurm_client import get_slurm_token
 

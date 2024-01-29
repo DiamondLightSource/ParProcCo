@@ -154,8 +154,8 @@ class JobScheduler:
     ) -> SLURMSTATE | None:
         job_info = self.client.get_job(job_scheduling_info.job_id)
         job_id = job_info.job_id
-        if job_id is None:
-            raise ValueError(f"Job info has no job id: {job_info}")
+        if job_id < 0:
+            raise ValueError(f"Job info has invalid job id: {job_info}")
         state = job_info.job_state
         slurm_state = SLURMSTATE[state] if state else None
 
