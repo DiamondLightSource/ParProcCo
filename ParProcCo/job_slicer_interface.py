@@ -23,7 +23,7 @@ class JobSlicerInterface:
                 check_location(get_absolute_path(job_script))
             )
         else:
-            self.job_script = Path("n/a")
+            self.job_script = Path() # set this to the current working directory
         self.allowed_modules: tuple[str, ...] | None = None
 
     def create_slice_jobs(
