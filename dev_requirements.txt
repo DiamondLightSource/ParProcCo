@@ -1,7 +1,5 @@
-h5py
-numpy
-parameterized
-PyYAML
-pydantic
-datamodel-code-generator
+h5py >=3
+pydantic >=2
+pyyaml
 requests
+datamodel-code-generator

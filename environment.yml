@@ -3,9 +3,10 @@ channels:
   - conda-forge
 dependencies:
   - python >=3.10
-  - h5py
-  - uge-drmaa2
-  - ruamel.yaml
-  - pytest
+  - h5py >=3
+  - pydantic >=2
+  - pyyaml
+  - requests
   - parameterized
+  - pytest
   - datamodel-code-generator
