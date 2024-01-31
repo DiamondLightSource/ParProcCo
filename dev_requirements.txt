@@ -1,5 +1,0 @@
-h5py >=3
-pydantic >=2
-pyyaml
-requests
-datamodel-code-generator
