@@ -19,7 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -40,7 +40,7 @@ jobs:
     - name: Build sdist and wheel
       run: pipx run build
     - name: Upload sdist and wheel as artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist
         path: dist
@@ -61,7 +61,7 @@ jobs:
 
     steps:
       # download sdist and wheel from dist job
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
       # publish to PyPI using trusted publishing
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
