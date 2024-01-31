@@ -8,9 +8,10 @@ setup(
     description="Parallel Processing Coordinator. Splits dataset processing to run parallel cluster jobs and aggregates outputs",
     author_email="dataanalysis@diamond.ac.uk",
     packages=find_packages(),
-    install_requires=["h5py", "numpy", "PyYAML", "pydantic"],
+    install_requires=["h5py", "pydantic", "pyyaml", "requests"],
     extras_require={
-        "testing": ["parameterized"],
+        "testing": ["parameterized", "pytest"],
+        "dev": ["datamodel-code-generator"],
     },
     scripts=[
         "scripts/nxdata_aggregate",
