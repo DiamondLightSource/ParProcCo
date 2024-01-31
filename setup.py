@@ -6,6 +6,8 @@ setup(
     name="ParProcCo",
     version=__version__,
     description="Parallel Processing Coordinator. Splits dataset processing to run parallel cluster jobs and aggregates outputs",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
     author_email="dataanalysis@diamond.ac.uk",
     packages=find_packages(),
     install_requires=["h5py", "pydantic", "pyyaml", "requests"],
