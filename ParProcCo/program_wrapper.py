@@ -1,32 +1,28 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
-from pathlib import Path
-
-from .slicer_interface import SlicerInterface
-from .scheduler_mode_interface import SchedulerModeInterface
-from .utils import get_filepath_on_path
-
 import logging
 import os
+from typing import TYPE_CHECKING
+
+from .data_slicer_interface import DataSlicerInterface
+from .job_slicer_interface import JobSlicerInterface
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ProgramWrapper:
     def __init__(
         self,
-        processing_mode: SchedulerModeInterface,
-        slicer: Optional[SlicerInterface] = None,
-        aggregating_mode: Optional[SchedulerModeInterface] = None,
+        processing_slicer: JobSlicerInterface,
+        slicer: DataSlicerInterface | None = None,
+        aggregating_slicer: JobSlicerInterface | None = None,
     ):
-        self.processing_mode = processing_mode
+        self.processing_slicer = processing_slicer
         self.slicer = slicer
-        self.aggregating_mode = aggregating_mode
+        self.aggregating_slicer = aggregating_slicer
 
-    def set_cores(self, cores: int):
-        self.processing_mode.cores = cores
-
-    def get_args(self, args: List[str], debug: bool = False):
+    def get_args(self, args: list[str], debug: bool = False) -> list[str]:
         """
         Get arguments given passed-in arguments
         args  -- given arguments
@@ -34,37 +30,35 @@ class ProgramWrapper:
         """
         return args
 
-    def create_slices(
-        self, number_jobs: int, stop: Optional[int] = None
-    ) -> List[Optional[slice]]:
-        if number_jobs == 1 or self.slicer is None:
-            return [None]
-        return self.slicer.slice(number_jobs, stop)
-
     def get_output(
-        self, output: Optional[str], _program_args: Optional[List[str]]
-    ) -> Optional[Path]:
+        self, output: str | None, _program_args: list[str] | None
+    ) -> Path | None:
         return Path(output) if output else None
 
-    def get_aggregate_script(self) -> Optional[Path]:
-        return (
-            get_filepath_on_path(self.aggregating_mode.program_name)
-            if self.aggregating_mode
-            else None
-        )
+    def create_slices(
+        self, number_jobs: int, stop: int | None = None
+    ) -> list[slice] | None:
+        if number_jobs == 1 or self.slicer is None:
+            return None
+        return self.slicer.slice(number_jobs, stop)
 
-    def get_cluster_runner_script(self) -> Optional[Path]:
-        return get_filepath_on_path(self.processing_mode.program_name)
+    def get_process_script(self) -> Path | None:
+        return self.processing_slicer.job_script if self.processing_slicer else None
 
-    def get_environment(self) -> Optional[Dict[str, str]]:
+    def get_aggregate_script(self) -> Path | None:
+        return self.aggregating_slicer.job_script if self.aggregating_slicer else None
+
+    def get_environment(self) -> dict[str, str] | None:
         test_modules = os.getenv("TEST_PPC_MODULES")
         if test_modules:
             return {"PPC_MODULES": test_modules}
 
         loaded_modules = os.getenv("LOADEDMODULES", "").split(":")
         logging.debug("Modules are %s", loaded_modules)
-        allowed = self.processing_mode.allowed_modules
-        logging.debug("Allowed include %s from %s", allowed, type(self.processing_mode))
+        allowed = self.processing_slicer.allowed_modules
+        logging.debug(
+            "Allowed include %s from %s", allowed, type(self.processing_slicer)
+        )
         ppc_modules = []
         if allowed:
             for m in loaded_modules:

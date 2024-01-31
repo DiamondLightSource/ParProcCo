@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import logging
 import unittest
+from typing import TYPE_CHECKING
+
 from parameterized import parameterized
 
 from ParProcCo.simple_data_slicer import SimpleDataSlicer
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
 class TestDataSlicer(unittest.TestCase):
@@ -73,7 +78,13 @@ class TestDataSlicer(unittest.TestCase):
         ]
     )
     def test_slices(
-        self, name, args, kwargs, error_msg, expected_length, expected_slices
+        self,
+        name: str,
+        args: list[Any],
+        kwargs: dict[str, Any],
+        error_msg: str | None,
+        expected_length: int,
+        expected_slices: list[slice],
     ) -> None:
         slicer = SimpleDataSlicer()
 
@@ -84,7 +95,7 @@ class TestDataSlicer(unittest.TestCase):
             return
 
         slices = slicer.slice(*args, **kwargs)
-
+        assert slices is not None
         self.assertEqual(len(slices), expected_length)
         self.assertEqual(slices, expected_slices)
 

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING
 
+from .job_slicer_interface import JobSlicerInterface
 from .program_wrapper import ProgramWrapper
-from .scheduler_mode_interface import SchedulerModeInterface
 from .utils import (
     check_jobscript_is_readable,
     check_location,
@@ -13,55 +11,64 @@ from .utils import (
     get_absolute_path,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Any
 
-class PassThruProcessingMode(SchedulerModeInterface):
+    from .job_scheduling_information import JobSchedulingInformation
+
+
+class PassThruProcessingSlicer(JobSlicerInterface):
     def __init__(self):
-        super().__init__()
-        self.cores = 6
-        self.program_name = "ppc_cluster_runner"
+        super().__init__("ppc_cluster_runner")
 
-    def set_parameters(self, _slice_params: List[slice]) -> None:
-        """Overrides SchedulerModeInterface.set_parameters"""
-        self.number_jobs = 1
+    def create_slice_jobs(
+        self,
+        job_scheduling_information: JobSchedulingInformation,
+        slice_params: list[Any] | None,
+    ) -> list[JobSchedulingInformation]:
+        """Overrides JobSlicerInterface.create_slice_jobs"""
 
-    def generate_output_paths(
-        self, output_dir: Optional[Path], error_dir: Path, i: int, t: datetime
-    ) -> Tuple[str, str, str]:
-        """Overrides SchedulerModeInterface.generate_output_paths"""
-        timestamp = format_timestamp(t)
-        stdout_fp = str(error_dir / f"out_{timestamp}_{i}")
-        stderr_fp = str(error_dir / f"err_{timestamp}_{i}")
-        return str(output_dir) if output_dir else "", stdout_fp, stderr_fp
-
-    def generate_args(
-        self, i: int, memory: int, cores: int, jobscript_args: List[str], output_fp: str
-    ) -> Tuple[str, ...]:
-        """Overrides SchedulerModeInterface.generate_args"""
-        assert i < self.number_jobs
-        jobscript = str(
-            check_jobscript_is_readable(
-                check_location(get_absolute_path(jobscript_args[0]))
-            )
+        assert job_scheduling_information.timestamp is not None
+        timestamp = format_timestamp(job_scheduling_information.timestamp)
+        job_scheduling_information.stdout_filename = f"out_{timestamp}"
+        job_scheduling_information.stderr_filename = f"err_{timestamp}"
+        old_args = job_scheduling_information.job_script_arguments
+        job_script = str(
+            check_jobscript_is_readable(check_location(get_absolute_path(old_args[0])))
         )
-        args = [jobscript, "--memory", str(memory), "--cores", str(cores)]
-        if output_fp:
-            args += ("--output", output_fp)
-        args += jobscript_args[1:]
-        return tuple(args)
+
+        args: tuple[str, ...] = (
+            job_script,
+            "--memory",
+            f"{job_scheduling_information.job_resources.memory}M",
+            "--cores",
+            str(job_scheduling_information.job_resources.cpu_cores),
+        )
+        output_path = job_scheduling_information.get_output_path()
+        if output_path is not None:
+            args += ("--output", str(output_path))
+        if len(old_args) > 1:
+            args += old_args[1:]
+        job_scheduling_information.job_script_arguments = args
+        return [job_scheduling_information]
 
 
 class PassThruWrapper(ProgramWrapper):
     def __init__(self, original_wrapper: ProgramWrapper):
-        super().__init__(PassThruProcessingMode())
+        super().__init__(processing_slicer=PassThruProcessingSlicer())
         self.original_wrapper = original_wrapper
-        self.processing_mode.allowed_modules = (
-            original_wrapper.processing_mode.allowed_modules
+        self.processing_slicer.allowed_modules = (
+            original_wrapper.processing_slicer.allowed_modules
         )
 
-    def get_args(self, args: List[str], debug: bool = False):
+    def get_args(self, args: list[str], debug: bool = False):
         return self.original_wrapper.get_args(args, debug)
 
     def get_output(
-        self, output: Optional[str] = None, program_args: Optional[List[str]] = None
-    ) -> Path:
+        self, output: str | None, program_args: list[str] | None
+    ) -> Path | None:
         return self.original_wrapper.get_output(output, program_args)
+
+    def create_slices(self, number_jobs: int, stop: int | None = None) -> None:
+        return None

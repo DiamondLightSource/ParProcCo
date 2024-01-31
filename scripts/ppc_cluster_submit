@@ -11,14 +11,16 @@ from datetime import timedelta
 from getpass import getuser
 
 from ParProcCo.job_controller import JobController
+from ParProcCo.job_scheduling_information import JobResources
 from ParProcCo.passthru_wrapper import PassThruWrapper
 from ParProcCo.utils import get_token, set_up_wrapper
 
 
 def create_parser() -> argparse.ArgumentParser:
     """
-    $ ppc_cluster_submit program [--partition cs05r] [--token path/to/token/file] [--output cluster_output_dir]
-     [--jobs 4] [--timeout 1h30m] --memory 4000M --cores 6 -s 0.01 ... [input files]
+    $ ppc_cluster_submit program [--partition hpc00] [--token path/to/token/file]
+     [--output cluster_output_dir] [--jobs 4] [--timeout 1h30m] --memory 4000M --cores 6
+     -s 0.01 ... [input files]
     """
     parser = argparse.ArgumentParser(
         description="ParProcCo run script",
@@ -31,7 +33,7 @@ def create_parser() -> argparse.ArgumentParser:
         required=True,
     )
     parser.add_argument(
-        "--token", help="str: slurm token filepath", type=str, required=True
+        "--token", help="str: slurm token filepath", type=str
     )
     parser.add_argument("-o", "--output", help="str: cluster output file or directory")
     parser.add_argument(
@@ -79,21 +81,23 @@ def parse_timeout(timeout: str) -> timedelta:
 
 
 def parse_memory(memory: str) -> int:
-    l = memory[-1]
-    if l not in ('M', 'G'):
+    s = memory[-1]
+    if s not in ('M', 'G'):
         raise ValueError('Memory specified must end with M or G')
     try:
         m = int(memory[:-1])
-        if m <= 0:
-            raise ValueError('Memory specified must be greater than 0')
-        if l == 'M' and m < 512:
-            logging.warning('Memory specified is recommended to be over 512M')
-        if l == 'G'and m > 64:
-            m = m*1024
+    except Exception as e:
+        raise ValueError('Memory specified must start with a number') from e
+
+    if m <= 0:
+        raise ValueError('Memory specified must be greater than 0')
+    if s == 'M' and m < 512:
+        logging.warning('Memory specified is recommended to be over 512M')
+    if s == 'G':
+        if m > 64:
             logging.warning('Memory specified (>64G) seems to be excessive')
-        return m
-    except:
-        raise ValueError('Memory specified must start with a number')
+        m = m*1024
+    return m
 
 
 def run_ppc(args: argparse.Namespace, script_args: list[str]) -> None:
@@ -131,7 +135,6 @@ def run_ppc(args: argparse.Namespace, script_args: list[str]) -> None:
             wrapper = PassThruWrapper(wrapper)
     else:
         raise ValueError(f"Number of jobs must be one or more, given {args.jobs}")
-    wrapper.set_cores(args.cores)
     output = wrapper.get_output(args.output, script_args[1:])
     wrapper_args = wrapper.get_args(script_args, args.debug)
     jc = JobController(
@@ -139,16 +142,19 @@ def run_ppc(args: argparse.Namespace, script_args: list[str]) -> None:
         wrapper,
         output,
         args.partition,
-        extra_properties,
         user,
         token,
         timeout,
     )
-    jc.run(args.jobs, wrapper_args, memory, "PPC-" + program)
-    print("complete")
+    jc.run(args.jobs, wrapper_args, "PPC-" + program,
+           JobResources(memory=memory, cpu_cores=args.cores,
+                        extra_properties=extra_properties))
+    print("Jobs completed")
 
 
 if __name__ == "__main__":
     args, script_args = create_parser().parse_known_args()
     logging.getLogger().setLevel(logging.DEBUG if args.debug else logging.INFO)
+    if args.debug:
+        logging.basicConfig(format="%(asctime)s:%(levelname)s:%(name)s:%(module)s:%(funcName)s:%(lineno)d:%(message)s")
     run_ppc(args, script_args)

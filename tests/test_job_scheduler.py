@@ -2,32 +2,39 @@ from __future__ import annotations
 
 import logging
 import os
-import pytest
 import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
 from parameterized import parameterized
 
-from example.simple_processing_mode import SimpleProcessingMode
-from ParProcCo.slurm.slurm_rest import JobProperties, JobSubmission, JobsResponse
-from ParProcCo.job_scheduler import JobScheduler, SLURMSTATE, StatusInfo
+from example.simple_processing_slicer import SimpleProcessingSlicer
+from ParProcCo.job_scheduler import SLURMSTATE, JobScheduler, StatusInfo
+from ParProcCo.job_scheduling_information import JobResources, JobSchedulingInformation
+from ParProcCo.slurm.slurm_rest import JobProperties, JobsResponse, JobSubmission
 from ParProcCo.test import TemporaryDirectory
-from .utils import (
+from tests.utils import (
+    PARTITION,
     get_slurm_rest_url,
     get_tmp_base_dir,
     setup_data_files,
     setup_jobscript,
     setup_runner_script,
-    PARTITION,
 )
 
 slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
 
+if not gh_testing and not PARTITION:
+    raise ValueError("Need to define default partition in DEFAULT_SLURM_PARTITION")
 
-def create_js(work_dir, out_dir, timeout=timedelta(seconds=20)) -> JobScheduler:
-    return JobScheduler(slurm_rest_url, work_dir, out_dir, PARTITION, timeout=timeout)
+
+def create_js(out_dir, timeout=timedelta(seconds=20)) -> JobScheduler:
+    assert slurm_rest_url and PARTITION
+    return JobScheduler(slurm_rest_url, PARTITION, out_dir, wait_timeout=timeout)
 
 
 @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
@@ -45,7 +52,7 @@ class TestJobScheduler(unittest.TestCase):
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
-            js = create_js(working_directory, cluster_output_dir)
+            js = create_js(cluster_output_dir)
         self.assertTrue(
             js.client._session.headers["X-SLURM-USER-NAME"] == os.environ["USER"],
             msg="User name not set correctly\n",
@@ -55,45 +62,38 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
+            working_directory = Path(working_directory)
             input_path = Path("path/to/file.extension")
-            cluster_output_dir = Path(working_directory) / "cluster_output_dir"
-            scheduler = create_js(working_directory, cluster_output_dir)
+            cluster_output_dir = working_directory / "cluster_output_dir"
+            scheduler = create_js(cluster_output_dir)
+            job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
-            jobscript = setup_jobscript(working_directory)
-            processing_mode = SimpleProcessingMode()
-            processing_mode.set_parameters([slice(0, None, 2), slice(1, None, 2)])
-            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            scheduler.jobscript_path = runner_script
-            scheduler.jobscript_args = runner_script_args
-            scheduler.jobscript_command = " ".join(
-                [
-                    "#!/bin/bash\n",
-                    str(scheduler.jobscript_path),
-                    *scheduler.jobscript_args,
-                ]
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
+            timestamp_time = datetime.now()
+
+            jsi = JobSchedulingInformation(
+                job_name="create_template_test",
+                job_script_path=runner_script,
+                job_script_arguments=runner_script_args,
+                job_resources=JobResources(memory=4000, cpu_cores=5),
+                working_directory=working_directory,
+                job_env={"ParProcCo": "0"},
+                timestamp=timestamp_time,
+                output_dir=cluster_output_dir,
+                log_directory=None,
             )
+            processing_slicer = SimpleProcessingSlicer(job_script)
+            slice_params = [slice(0, None, 2), slice(1, None, 2)]
+            jsi_list = processing_slicer.create_slice_jobs(
+                slice_params=slice_params, job_scheduling_information=jsi
+            )
+
             expected_command = (
-                f"#!/bin/bash\n{runner_script} {jobscript} --memory 4000 --cores 5"
+                f"#!/bin/bash\n{runner_script} {job_script} --memory 4000M --cores 5"
                 f" --output {cluster_output_dir}/out_0 --images 0::2"
                 f" --input-path {input_path}"
             )
-
-            scheduler.memory = 4000
-            scheduler.cores = 5
-            scheduler.job_name = "create_template_test"
-            scheduler.scheduler_mode = processing_mode
-            scheduler.job_env = {"ParProcCo": "0"}
-            (
-                _,
-                stdout_fp,
-                stderr_fp,
-            ) = scheduler.scheduler_mode.generate_output_paths(
-                cluster_output_dir,
-                cluster_output_dir / "cluster_logs",
-                0,
-                scheduler.start_time,
-            )
-            job_submission = scheduler.make_job_submission(0)
+            job_submission = scheduler.make_job_submission(jsi_list[0])
             cluster_output_dir_exists = cluster_output_dir.is_dir()
 
         expected = JobSubmission(
@@ -102,11 +102,12 @@ class TestJobScheduler(unittest.TestCase):
                 name="create_template_test",
                 partition=PARTITION,
                 cpus_per_task=5,
+                gpus_per_task="0",
                 environment={"ParProcCo": "0"},
                 memory_per_cpu=4000,
                 current_working_directory=str(working_directory),
-                standard_output=stdout_fp,
-                standard_error=stderr_fp,
+                standard_output=str(jsi_list[0].get_stdout_path()),
+                standard_error=str(jsi_list[0].get_stderr_path()),
                 get_user_environment="10L",
             ),
             jobs=None,
@@ -127,24 +128,37 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output"
+            working_directory = Path(working_directory)
+            cluster_output_dir = working_directory / "cluster_output"
 
             input_path, output_paths, out_nums, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
+            job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
-            jobscript = setup_jobscript(working_directory)
-            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingMode(runner_script)
-            processing_mode.set_parameters(slices)
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
+            processing_slicer = SimpleProcessingSlicer(job_script)
+
+            jsi = JobSchedulingInformation(
+                job_name="scheduler_runs_test",
+                job_script_path=runner_script,
+                job_script_arguments=runner_script_args,
+                job_resources=JobResources(memory=4000, cpu_cores=5),
+                working_directory=working_directory,
+                job_env={"ParProcCo": "0"},
+                timestamp=datetime.now(),
+                output_dir=cluster_output_dir,
+                log_directory=cluster_output_dir / "cluster_logs",
+                timeout=timedelta(seconds=60),
+            )
+
+            jsi_list = processing_slicer.create_slice_jobs(
+                slice_params=slices, job_scheduling_information=jsi
+            )
 
             # submit jobs
-            js = create_js(working_directory, cluster_output_dir)
-            js.run(
-                processing_mode,
-                runner_script,
-                jobscript_args=runner_script_args,
-            )
+            js = create_js(cluster_output_dir)
+            js.run(jsi_list)
 
             # check output files
             for output_file, expected_nums in zip(output_paths, out_nums):
@@ -164,91 +178,112 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output"
-            runner_script = setup_runner_script(working_directory)
-            jobscript = setup_jobscript(working_directory)
-
+            working_directory = Path(working_directory)
+            cluster_output_dir = working_directory / "cluster_output"
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
-            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingMode(runner_script)
-            processing_mode.set_parameters(slices)
+            job_script = setup_jobscript(working_directory)
+            runner_script = setup_runner_script(working_directory)
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
+            processing_slicer = SimpleProcessingSlicer(job_script)
 
-            js = create_js(working_directory, cluster_output_dir)
+            jsi = JobSchedulingInformation(
+                job_name="old_output_test",
+                job_script_path=runner_script,
+                job_script_arguments=runner_script_args,
+                job_resources=JobResources(memory=4000, cpu_cores=6),
+                working_directory=working_directory,
+                job_env={},
+                timestamp=datetime.now(),
+                output_dir=cluster_output_dir,
+                timeout=timedelta(seconds=60),
+            )
+
+            jsi_list = processing_slicer.create_slice_jobs(
+                slice_params=slices, job_scheduling_information=jsi
+            )
+
+            js = create_js(cluster_output_dir, timeout=timedelta(seconds=120))
 
             # submit jobs
-            js.jobscript_path = runner_script
-            js.job_env = {}
-            job_indices = list(range(processing_mode.number_jobs))
-            js.jobscript_args = runner_script_args
-            js.job_history[js.batch_number] = {}
-            js.job_completion_status = {str(i): False for i in range(4)}
-            js.memory = 4000
-            js.cores = 6
-            js.job_name = "old_output_test"
-            js.scheduler_mode = processing_mode
 
             # _submit_and_monitor
-            js._submit_jobs(job_indices)
-            js._wait_for_jobs()
-            t = datetime.now()
-            js.start_time = t
+            js._submit_jobs(jsi_list)
+            js._wait_for_jobs(jsi_list)
+            for jsi in jsi_list:
+                assert jsi.status_info
+                jsi.status_info.start_time = datetime.now() + timedelta(seconds=20)
 
             with self.assertLogs(level="WARNING") as context:
-                js._report_job_info()
+                js._report_job_info(jsi_list)
                 self.assertEqual(len(context.output), 4)
                 for i, err_msg in enumerate(context.output):
                     test_msg = (
-                        f"with args ['{working_directory + '/test_script'}', '--input-path',"
-                        f" '{working_directory + '/test_raw_data.txt'}'] has not created a new output file"
+                        f"'--input-path', '{input_path}') has not created a "
+                        f"new output file {jsi_list[i].get_stdout_path()}"
                     )
-                    self.assertTrue(test_msg in err_msg)
-            js._report_job_info()
+                    self.assertTrue(
+                        test_msg in err_msg,
+                        msg=f"'{test_msg}' was  not found in '{err_msg}'",
+                    )
+            js._report_job_info(jsi_list)
 
-            job_stats = js.job_completion_status
             # check failure list
+            jh = js.get_job_history_batch()
+            completion_statuses = [jsi.completion_status for jsi in jh.values()]
             self.assertFalse(
-                js.get_success(), msg="JobScheduler.success is not False\n"
+                js.get_success(jsi_list), msg="JobScheduler.success is not False\n"
             )
             self.assertFalse(
-                any(job_stats.values()),
-                msg=f"All jobs not failed:" f"{js.job_completion_status.values()}\n",
+                any(completion_statuses),
+                msg=f"All jobs not failed:" f"{completion_statuses}\n",
             )
             self.assertEqual(
-                len(job_stats),
+                len(completion_statuses),
                 4,
-                msg=f"len(js.job_completion_status) is not 4. js.job_completion_status: {job_stats}\n",
+                msg="Number of completion statuses for batch is not 4."
+                f"Completion statuses: {completion_statuses}\n",
             )
 
     def test_job_times_out(self) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output"
-            runner_script = setup_runner_script(working_directory)
-            jobscript = setup_jobscript(working_directory)
-            with open(jobscript, "a+") as f:
-                f.write("    import time\n    time.sleep(120)\n")
-
+            working_directory = Path(working_directory)
+            cluster_output_dir = working_directory / "cluster_output"
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
-            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingMode(runner_script)
-            processing_mode.set_parameters(slices)
+            job_script = setup_jobscript(working_directory)
+            with open(job_script, "a+") as f:
+                f.write("    import time\n    time.sleep(120)\n")
+            runner_script = setup_runner_script(working_directory)
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
+            processing_slicer = SimpleProcessingSlicer(job_script)
 
-            # submit jobs
-            js = create_js(
-                working_directory, cluster_output_dir, timeout=timedelta(seconds=10)
+            jsi = JobSchedulingInformation(
+                job_name="timeout_test",
+                job_script_path=runner_script,
+                job_script_arguments=runner_script_args,
+                job_resources=JobResources(memory=4000, cpu_cores=6),
+                working_directory=working_directory,
+                job_env={},
+                timestamp=datetime.now(),
+                output_dir=working_directory,
+                log_directory=cluster_output_dir,
+                timeout=timedelta(seconds=5),
             )
 
+            jsi_list = processing_slicer.create_slice_jobs(
+                slice_params=slices, job_scheduling_information=jsi
+            )
+
+            # submit jobs
+            js = create_js(cluster_output_dir, timeout=timedelta(seconds=10))
+
             with self.assertLogs(level="WARNING") as context:
-                js.run(
-                    processing_mode,
-                    runner_script,
-                    jobscript_args=runner_script_args,
-                )
+                js.run(jsi_list)
                 self.assertEqual(len(context.output), 8, msg=f"{context.output}")
                 for warn_msg in context.output[:4]:
                     self.assertTrue(
@@ -265,10 +300,9 @@ class TestJobScheduler(unittest.TestCase):
             )
             returned_jobs = jh[0]
             self.assertEqual(len(returned_jobs), 4)
-            for job_id in returned_jobs:
-                self.assertEqual(
-                    returned_jobs[job_id].final_state, SLURMSTATE.CANCELLED
-                )
+            for jsi in returned_jobs.values():
+                assert jsi.status_info
+                self.assertEqual(jsi.status_info.final_state, SLURMSTATE.CANCELLED)
 
     @parameterized.expand(
         [
@@ -278,13 +312,13 @@ class TestJobScheduler(unittest.TestCase):
                 False,
                 None,
                 FileNotFoundError,
-                "bad_jobscript_name does not exist",
+                "bad_jobscript_name not found",
             ),
             (
                 "insufficient_permissions",
                 "test_bad_permissions",
                 True,
-                0o666,
+                0o660,
                 PermissionError,
                 "must be readable and executable by user",
             ),
@@ -292,7 +326,7 @@ class TestJobScheduler(unittest.TestCase):
                 "cannot_be_opened",
                 "test_bad_read_permissions",
                 True,
-                0o333,
+                0o330,
                 PermissionError,
                 "must be readable and executable by user",
             ),
@@ -304,42 +338,78 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output"
+            working_directory = Path(working_directory)
+            cluster_output_dir = working_directory / "cluster_output"
 
             js = create_js(working_directory, cluster_output_dir)
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
-            jobscript = Path(working_directory) / "test_jobscript"
-            runner_script = Path(working_directory) / rs_name
-            runner_script_args = [str(jobscript), "--input-path", str(input_path)]
-            processing_mode = SimpleProcessingMode(runner_script)
-            processing_mode.set_parameters(slices)
+            job_script = working_directory / "test_jobscript"
+            runner_script = working_directory / rs_name
+            runner_script_args = (str(job_script), "--input-path", str(input_path))
+
+            job_script.touch()
+            os.chmod(job_script, 0o770)
+
             if open_rs:
                 f = open(runner_script, "x")
                 f.close()
                 os.chmod(runner_script, permissions)
 
             with self.assertRaises(error_name) as context:
-                js.run(
-                    processing_mode,
-                    runner_script,
-                    jobscript_args=runner_script_args,
-                )
+                processing_slicer = SimpleProcessingSlicer(runner_script)
+            self.assertTrue(
+                error_msg in str(context.exception), msg=str(context.exception)
+            )
+
+            # Now set up the processing mode bypassing the check using a valid file:
+            processing_slicer = SimpleProcessingSlicer(job_script)
+            processing_slicer.job_script = runner_script
+
+            # Bypass the protection in the JobSchedulingInformation to check the protection
+            # in the job_scheduler
+            jsi = JobSchedulingInformation(
+                job_name="bad_scripts",
+                job_script_path=job_script,
+                job_script_arguments=runner_script_args,
+                job_resources=JobResources(memory=4000, cpu_cores=6),
+                working_directory=working_directory,
+                job_env={},
+                timestamp=datetime.now(),
+                output_dir=cluster_output_dir,
+                timeout=timedelta(seconds=5),
+            )
+            jsi.job_script_path = runner_script
+
+            jsi_list = processing_slicer.create_slice_jobs(
+                slice_params=slices, job_scheduling_information=jsi
+            )
+
+            with self.assertRaises(error_name) as context:
+                js.run(jsi_list)
             self.assertTrue(error_msg in str(context.exception))
 
     def test_get_output_paths(self) -> None:
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
-            js = create_js(working_directory, cluster_output_dir)
-            js.output_paths = [
+            js = create_js(cluster_output_dir)
+
+            output_paths = (
                 cluster_output_dir / "out1.nxs",
                 cluster_output_dir / "out2.nxs",
-            ]
+            )
+
+            jsi_list = []
+            for i, output in enumerate(output_paths, 1):
+                jsi = MagicMock(spec=JobSchedulingInformation, name=f"JSI_{i}")
+                jsi.get_output_path.return_value = output
+                jsi_list.append(jsi)
+
             self.assertEqual(
-                js.get_output_paths(),
-                [cluster_output_dir / "out1.nxs", cluster_output_dir / "out2.nxs"],
+                js.get_output_paths(jsi_list),
+                output_paths,
             )
 
     @parameterized.expand(
@@ -352,34 +422,44 @@ class TestJobScheduler(unittest.TestCase):
     def test_get_success(self, _name, stat_0, stat_1, success) -> None:
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
-            js = create_js(working_directory, cluster_output_dir)
-            js.job_completion_status = {"0": stat_0, "1": stat_1}
-            self.assertEqual(js.get_success(), success)
+            js = create_js(cluster_output_dir)
+
+            jsi_list = []
+            for i, complete in enumerate([stat_0, stat_1], 1):
+                jsi = MagicMock(spec=JobSchedulingInformation, name=f"JSI_{i}")
+                jsi.completion_status = complete
+                jsi_list.append(jsi)
+
+            self.assertEqual(js.get_success(jsi_list), success)
 
     @parameterized.expand([("true", True), ("false", False)])
-    def test_timestamp_ok_true(self, _name, run_scheduler_last) -> None:
+    def test_timestamp_ok_true(self, _name, start_time_before) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
             cluster_output_dir.mkdir(parents=True, exist_ok=True)
             filepath = cluster_output_dir / "out_0.nxs"
-            if run_scheduler_last:
-                js = create_js(working_directory, cluster_output_dir)
+            if start_time_before:
+                start_time = datetime.now()
                 time.sleep(2)
             f = open(filepath, "x")
             f.close()
-            if not run_scheduler_last:
+            if not start_time_before:
                 time.sleep(2)
-                js = create_js(working_directory, cluster_output_dir)
-            self.assertEqual(js.timestamp_ok(filepath), run_scheduler_last)
+                start_time = datetime.now()
+
+            js = create_js(cluster_output_dir)
+            self.assertEqual(
+                js.timestamp_ok(filepath, start_time=start_time), start_time_before
+            )
 
     def test_get_jobs_response(self) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
-            js = create_js(working_directory, cluster_output_dir)
+            js = create_js(cluster_output_dir)
             jobs = js.client.get_jobs_response()
         self.assertTrue(
             isinstance(jobs, JobsResponse),
@@ -392,13 +472,8 @@ class TestJobScheduler(unittest.TestCase):
                 "all_killed",
                 [
                     StatusInfo(
-                        output_path=Path(f"to/somewhere_{i}"),
-                        i=i,
-                        start_time=0,
+                        submit_time=datetime.now(),
                         current_state=SLURMSTATE.CANCELLED,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
                         final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
@@ -409,13 +484,8 @@ class TestJobScheduler(unittest.TestCase):
                 "none_killed",
                 [
                     StatusInfo(
-                        output_path=Path(f"to/somewhere_{i}"),
-                        i=i,
-                        start_time=0,
+                        submit_time=datetime.now(),
                         current_state=SLURMSTATE.BOOT_FAIL,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
                         final_state=SLURMSTATE.FAILED,
                     )
                     for i in range(2)
@@ -426,23 +496,13 @@ class TestJobScheduler(unittest.TestCase):
                 "one_killed",
                 [
                     StatusInfo(
-                        output_path=Path("to/somewhere_0"),
-                        i=0,
-                        start_time=0,
+                        submit_time=datetime.now(),
                         current_state=SLURMSTATE.CANCELLED,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
                         final_state=SLURMSTATE.FAILED,
                     ),
                     StatusInfo(
-                        output_path=Path("to/somewhere_1"),
-                        i=1,
-                        start_time=0,
+                        submit_time=datetime.now(),
                         current_state=SLURMSTATE.OUT_OF_MEMORY,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
                         final_state=SLURMSTATE.OUT_OF_MEMORY,
                     ),
                 ],
@@ -450,94 +510,95 @@ class TestJobScheduler(unittest.TestCase):
             ),
         ]
     )
-    def test_filter_killed_jobs(self, _name, failed_jobs, result) -> None:
+    def test_filter_killed_jobs(self, _name, job_statuses, result) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
-            js = create_js(working_directory, cluster_output_dir)
-            killed_jobs_indices = js.filter_killed_jobs(failed_jobs)
-            self.assertEqual(killed_jobs_indices, result)
+            js = create_js(cluster_output_dir)
+            jsi_list = []
+            for status_info in job_statuses:
+                jsi = MagicMock(
+                    spec=JobSchedulingInformation, name="JobSchedulingInformation"
+                )
+                jsi.status_info = status_info
+                jsi_list.append(jsi)
+            killed_jobs = js.filter_killed_jobs(jsi_list)
+            self.assertEqual(killed_jobs, [jsi_list[i] for i in result])
 
     def test_resubmit_jobs(self) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output"
+            working_directory = Path(working_directory)
+            cluster_output_dir = working_directory / "cluster_output"
             input_path, output_paths, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
-            processing_mode = SimpleProcessingMode()
-            processing_mode.set_parameters(slices)
-            jobscript = setup_runner_script(working_directory)
 
-            js = create_js(working_directory, cluster_output_dir)
-            js.jobscript_path = jobscript
-            js.jobscript_args = [
-                str(setup_jobscript(working_directory)),
-                "--input-path",
-                str(input_path),
+            job_ids = [0, 1, 2, 3]
+            stdout_paths = [
+                cluster_output_dir / "to" / f"somewhere_{i}" for i in job_ids
             ]
-            js.memory = 4000
-            js.cores = 6
-            js.job_name = "test_resubmit_jobs"
-            js.scheduler_mode = processing_mode
-            js.output_paths = output_paths
-            js.job_env = {"ParProcCo": "0"}
-            js.job_history = {
-                0: {
-                    0: StatusInfo(
-                        output_path=Path("to/somewhere_0"),
-                        i=0,
-                        start_time=0,
-                        current_state=SLURMSTATE.CANCELLED,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
-                        final_state=SLURMSTATE.FAILED,
-                    ),
-                    1: StatusInfo(
-                        output_path=Path("to/somewhere_1"),
-                        i=1,
-                        start_time=0,
-                        current_state=SLURMSTATE.COMPLETED,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
-                        final_state=SLURMSTATE.COMPLETED,
-                    ),
-                    2: StatusInfo(
-                        output_path=Path("to/somewhere_2"),
-                        i=2,
-                        start_time=0,
-                        current_state=SLURMSTATE.CANCELLED,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
-                        final_state=SLURMSTATE.FAILED,
-                    ),
-                    3: StatusInfo(
-                        output_path=Path("to/somewhere_3"),
-                        i=3,
-                        start_time=0,
-                        current_state=SLURMSTATE.COMPLETED,
-                        slots=0,
-                        time_to_dispatch=0,
-                        wall_time=0,
-                        final_state=SLURMSTATE.COMPLETED,
-                    ),
-                }
-            }
+            status_infos = [
+                StatusInfo(
+                    submit_time=datetime.now(),
+                    current_state=SLURMSTATE.CANCELLED,
+                    final_state=SLURMSTATE.FAILED,
+                ),
+                StatusInfo(
+                    submit_time=datetime.now(),
+                    current_state=SLURMSTATE.COMPLETED,
+                    final_state=SLURMSTATE.COMPLETED,
+                ),
+                StatusInfo(
+                    submit_time=datetime.now(),
+                    current_state=SLURMSTATE.CANCELLED,
+                    final_state=SLURMSTATE.FAILED,
+                ),
+                StatusInfo(
+                    submit_time=datetime.now(),
+                    current_state=SLURMSTATE.COMPLETED,
+                    final_state=SLURMSTATE.COMPLETED,
+                ),
+            ]
 
-            js.job_completion_status = {
-                "0": False,
-                "1": True,
-                "2": False,
-                "3": True,
-            }
+            runner_script = setup_runner_script(working_directory)
+            job_script = setup_jobscript(working_directory)
+            processing_slicer = SimpleProcessingSlicer(job_script)
+            jsi = JobSchedulingInformation(
+                job_name="test_resubmit_jobs",
+                job_script_path=runner_script,
+                job_script_arguments=(str(job_script), "--input-path", str(input_path)),
+                job_resources=JobResources(memory=4000, cpu_cores=6),
+                working_directory=working_directory,
+                job_env={"ParProcCo": "0"},
+                timestamp=datetime.now(),
+                output_dir=cluster_output_dir,
+                timeout=timedelta(seconds=30),
+            )
 
-            success = js.resubmit_jobs([0, 2])
+            jsi_list = processing_slicer.create_slice_jobs(
+                slice_params=slices, job_scheduling_information=jsi
+            )
+            job_history = {}
+            completion_statuses = [False, True, False, True]
+            for job_id, jsi, stdout_path, status_info, completed in zip(
+                job_ids, jsi_list, stdout_paths, status_infos, completion_statuses
+            ):
+                jsi.log_directory = stdout_path.parent
+                jsi.stdout_filename = stdout_path.name
+                jsi.stderr_filename = stdout_path.name + "_err"
+                jsi.set_job_id(job_id)
+                jsi.update_status_info(status_info)
+                jsi.set_completion_status(completed)
+                job_history[job_id] = jsi
+
+            js = create_js(cluster_output_dir)
+            js.job_history.append(job_history)
+
+            success = js.resubmit_jobs(job_ids=[0, 2], batch=0)
             self.assertTrue(success)
             resubmitted_output_paths = [output_paths[i] for i in [0, 2]]
             for output in resubmitted_output_paths:
@@ -548,22 +609,18 @@ class TestJobScheduler(unittest.TestCase):
             (
                 "all_success",
                 False,
-                {
-                    0: {
+                [
+                    {
                         i: StatusInfo(
-                            output_path=Path(f"to/somewhere_{i}"),
-                            i=i,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         )
                         for i in range(4)
                     }
-                },
-                {str(i): True for i in range(4)},
+                ],
+                {i: Path(f"stdoud_{i}") for i in range(4)},
+                {i: True for i in range(4)},
                 False,
                 None,
                 True,
@@ -572,22 +629,18 @@ class TestJobScheduler(unittest.TestCase):
             (
                 "all_failed_do_not_allow",
                 False,
-                {
-                    0: {
+                [
+                    {
                         i: StatusInfo(
-                            output_path=Path(f"to/somewhere_{i}"),
-                            i=i,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         )
                         for i in range(4)
                     }
-                },
-                {str(i): False for i in range(4)},
+                ],
+                {i: Path(f"stdout_{i}") for i in range(4)},
+                {i: False for i in range(4)},
                 False,
                 None,
                 False,
@@ -599,19 +652,15 @@ class TestJobScheduler(unittest.TestCase):
                 {
                     0: {
                         i: StatusInfo(
-                            output_path=Path(f"to/somewhere_{i}"),
-                            i=i,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         )
                         for i in range(4)
                     }
                 },
-                {str(i): False for i in range(4)},
+                {i: Path(f"stdout_{i}") for i in range(4)},
+                {i: False for i in range(4)},
                 True,
                 [0, 1, 2, 3],
                 True,
@@ -620,51 +669,32 @@ class TestJobScheduler(unittest.TestCase):
             (
                 "some_failed_do_allow",
                 True,
-                {
-                    0: {
+                [
+                    {
                         0: StatusInfo(
-                            output_path=Path("to/somewhere_0"),
-                            i=0,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         1: StatusInfo(
-                            output_path=Path("to/somewhere_1"),
-                            i=1,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                         2: StatusInfo(
-                            output_path=Path("to/somewhere_2"),
-                            i=2,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         3: StatusInfo(
-                            output_path=Path("to/somewhere_3"),
-                            i=3,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                     }
-                },
-                {"0": False, "1": True, "2": False, "3": True},
+                ],
+                {i: Path(f"stdout_{i}") for i in range(4)},
+                {0: False, 1: True, 2: False, 3: True},
                 True,
                 [0, 2],
                 True,
@@ -673,51 +703,32 @@ class TestJobScheduler(unittest.TestCase):
             (
                 "some_failed_do_not_allow",
                 False,
-                {
-                    0: {
+                [
+                    {
                         0: StatusInfo(
-                            output_path=Path("to/somewhere_0"),
-                            i=0,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         1: StatusInfo(
-                            output_path=Path("to/somewhere_1"),
-                            i=1,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                         2: StatusInfo(
-                            output_path=Path("to/somewhere_2"),
-                            i=2,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.FAILED,
                         ),
                         3: StatusInfo(
-                            output_path=Path("to/somewhere_3"),
-                            i=3,
-                            start_time=0,
+                            submit_time=datetime.now(),
                             current_state=SLURMSTATE.CANCELLED,
-                            slots=0,
-                            time_to_dispatch=0,
-                            wall_time=0,
                             final_state=SLURMSTATE.COMPLETED,
                         ),
                     }
-                },
-                {"0": False, "1": True, "2": False, "3": True},
+                ],
+                {i: Path(f"stdout_{i}") for i in range(4)},
+                {0: False, 1: True, 2: False, 3: True},
                 True,
                 [0, 2],
                 True,
@@ -729,7 +740,8 @@ class TestJobScheduler(unittest.TestCase):
         self,
         _name,
         allow_all_failed,
-        job_history,
+        job_statuses,
+        stdout_paths,
         job_completion_status,
         runs,
         indices,
@@ -743,46 +755,74 @@ class TestJobScheduler(unittest.TestCase):
             input_path, output_paths, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
-            processing_mode = SimpleProcessingMode()
-            processing_mode.set_parameters(slices)
-            js = create_js(working_directory, cluster_output_dir)
-            jobscript = setup_runner_script(working_directory)
-            js.jobscript_path = jobscript
-            js.jobscript_args = [
-                str(setup_jobscript(working_directory)),
-                "--input-path",
-                str(input_path),
-            ]
-            js.memory = 4000
-            js.cores = 6
-            js.job_name = "test_resubmit_jobs"
-            js.scheduler_mode = processing_mode
-            for output_path, status_info in zip(output_paths, job_history[0].values()):
-                status_info.output = output_path
-            js.job_env = {"ParProcCo": "0"}
-            js.job_history = job_history
-            js.job_completion_status = job_completion_status
-            js.output_paths = output_paths
+
+            runner_script = setup_runner_script(working_directory)
+            job_script = setup_jobscript(working_directory)
+            processing_slicer = SimpleProcessingSlicer(job_script)
+            jsi = JobSchedulingInformation(
+                job_name="test_resubmit_jobs",
+                job_script_path=runner_script,
+                job_script_arguments=(str(job_script), "--input-path", str(input_path)),
+                job_resources=JobResources(memory=4000, cpu_cores=6),
+                working_directory=working_directory,
+                job_env={"ParProcCo": "0"},
+                timestamp=datetime.now(),
+                output_dir=cluster_output_dir,
+                timeout=timedelta(seconds=30),
+            )
+
+            jsi_list = processing_slicer.create_slice_jobs(
+                slice_params=slices, job_scheduling_information=jsi
+            )
+
+            job_history = {}
+            for job_id, jsi in enumerate(jsi_list):
+                status_info = job_statuses[0][job_id]
+                stdout_path = stdout_paths[
+                    job_id
+                ]  # Only works because test IDs are 0, 1, 2, 3
+                jsi.log_directory = cluster_output_dir / "logs"
+                jsi.stdout_filename = stdout_path.name
+                jsi.stderr_filename = stdout_path.name + "_err"
+                jsi.output_dir = output_paths[job_id].parent
+                jsi.output_filename = output_paths[job_id].name
+                jsi.set_job_id(job_id)
+                jsi.update_status_info(status_info)
+                jsi.set_completion_status(job_completion_status[job_id])
+                job_history[job_id] = jsi
+
+            js = create_js(cluster_output_dir)
+            js.job_history.append(job_history)
 
             if raises_error:
                 with self.assertRaises(RuntimeError) as context:
-                    js.resubmit_killed_jobs(allow_all_failed)
+                    js.resubmit_killed_jobs(allow_all_failed=allow_all_failed)
                 self.assertTrue(
                     "All jobs failed. job_history: " in str(context.exception)
                 )
-                self.assertEqual(js.batch_number, 0)
+                self.assertEqual(js.get_batch_number(), 0)
                 return
 
-            success = js.resubmit_killed_jobs(allow_all_failed)
+            success = js.resubmit_killed_jobs(allow_all_failed=allow_all_failed)
             self.assertEqual(success, expected_success)
-            self.assertEqual(js.output_paths, output_paths)
+            latest_batch = js.get_job_history_batch()
+
             if runs:
-                self.assertEqual(js.batch_number, 1)
+                self.assertEqual(js.get_batch_number(), 1)
+
                 resubmitted_output_paths = [output_paths[i] for i in indices]
+                self.assertEqual(
+                    list(js.get_output_paths(latest_batch.values())),
+                    resubmitted_output_paths,
+                )
                 for output in resubmitted_output_paths:
                     self.assertTrue(output.is_file())
             else:
-                self.assertEqual(js.batch_number, 0)
+                self.assertEqual(js.get_batch_number(), 0)
+                self.assertEqual(
+                    list(js.get_output_paths(latest_batch.values())),
+                    output_paths,
+                )
 
 
 if __name__ == "__main__":

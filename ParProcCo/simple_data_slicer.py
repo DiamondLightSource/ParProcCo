@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
-from ParProcCo.slicer_interface import SlicerInterface
+from ParProcCo.data_slicer_interface import DataSlicerInterface
 
 
-class SimpleDataSlicer(SlicerInterface):
+class SimpleDataSlicer(DataSlicerInterface):
     def __init__(self):
         pass
 
-    def slice(
-        self, number_jobs: int, stop: Optional[int] = None
-    ) -> List[Optional[slice]]:
-        """Overrides SlicerInterface.slice"""
+    def slice(self, number_jobs: int, stop: int | None = None) -> list[slice] | None:
+        """Overrides DataSlicerInterface.slice"""
         if not isinstance(number_jobs, int):
             raise TypeError(f"number_jobs is {type(number_jobs)}, should be int\n")
 
@@ -21,7 +17,7 @@ class SimpleDataSlicer(SlicerInterface):
 
         if stop:
             number_jobs = min(stop, number_jobs)
-        slices: List[Optional[slice]] = [
-            slice(i, stop, number_jobs) for i in range(number_jobs)
-        ]
+        if number_jobs < 1:
+            return None
+        slices: list[slice] = [slice(i, stop, number_jobs) for i in range(number_jobs)]
         return slices

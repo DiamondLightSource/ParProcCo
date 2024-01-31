@@ -2,26 +2,30 @@ from __future__ import annotations
 
 import logging
 import os
-import pytest
 import unittest
 from datetime import timedelta
 from pathlib import Path
 
+import pytest
+
 from example.simple_wrapper import SimpleWrapper
 from ParProcCo.job_controller import JobController
 from ParProcCo.test import TemporaryDirectory
-from .utils import (
+from tests.utils import (
+    PARTITION,
     get_slurm_rest_url,
     get_tmp_base_dir,
     setup_aggregation_script,
     setup_data_file,
-    setup_runner_script,
     setup_jobscript,
-    PARTITION,
+    setup_runner_script,
 )
 
 slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
+
+if not gh_testing and not PARTITION:
+    raise ValueError("Need to define default partition in DEFAULT_SLURM_PARTITION")
 
 
 @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
@@ -31,7 +35,9 @@ class TestJobController(unittest.TestCase):
         self.base_dir: str = get_tmp_base_dir()
         self.current_dir: str = os.getcwd()
         self.starting_path = os.environ["PATH"]
+        assert slurm_rest_url and PARTITION
         self.url = slurm_rest_url
+        self.partition = PARTITION
 
     def tearDown(self) -> None:
         os.environ["PATH"] = self.starting_path
@@ -62,16 +68,15 @@ class TestJobController(unittest.TestCase):
             )
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
-            wrapper.set_cores(6)
             jc = JobController(
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                PARTITION,
+                self.partition,
                 timeout=timedelta(seconds=1),
             )
             with self.assertRaises(RuntimeError) as context:
-                jc.run(4, jobscript_args=runner_script_args)
+                jc.run(4, runner_script_args)
             self.assertTrue("All jobs failed. job_history: " in str(context.exception))
 
     def test_end_to_end(self) -> None:
@@ -93,14 +98,13 @@ class TestJobController(unittest.TestCase):
             runner_script_args = [str(jobscript), "--input-path", str(input_path)]
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
-            wrapper.set_cores(6)
             jc = JobController(
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                PARTITION,
+                self.partition,
             )
-            jc.run(4, jobscript_args=runner_script_args)
+            jc.run(4, runner_script_args)
 
             assert jc.aggregated_result
             with open(jc.aggregated_result, "r") as af:
@@ -135,14 +139,13 @@ class TestJobController(unittest.TestCase):
             )
 
             wrapper = SimpleWrapper(runner_script, aggregation_script)
-            wrapper.set_cores(6)
             jc = JobController(
                 self.url,
                 wrapper,
                 Path(cluster_output_name),
-                PARTITION,
+                self.partition,
             )
-            jc.run(1, jobscript_args=runner_script_args)
+            jc.run(1, runner_script_args)
 
             assert jc.sliced_results
             self.assertEqual(len(jc.sliced_results), 1)

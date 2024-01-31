@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import logging
 import os
-import requests
 from getpass import getuser
-from typing import Any, Optional
+from typing import Any
+
+import requests
 from pydantic import BaseModel
 
 from .slurm_rest import (
-    JobsResponse,
     JobResponseProperties,
+    JobsResponse,
     JobSubmission,
     JobSubmissionResponse,
 )
-
 
 _SLURM_VERSION = "v0.0.38"
 
@@ -26,8 +26,8 @@ class SlurmClient:
     def __init__(
         self,
         url: str,
-        user_name: Optional[str] = None,
-        user_token: Optional[str] = None,
+        user_name: str | None = None,
+        user_token: str | None = None,
     ):
         """Slurm client that communicates to Slurm via its RESTful API"""
         self._slurm_endpoint_url = f"{url}/slurm/{_SLURM_VERSION}"
@@ -85,8 +85,8 @@ class SlurmClient:
             if n == 1:
                 return ji.jobs[0]
             if n > 1:
-                raise ValueError("Multiple jobs returned {ji.jobs}")
-        raise ValueError("No job info found for job id {job_id}")
+                raise ValueError(f"Multiple jobs returned {ji.jobs}")
+        raise ValueError(f"No job info found for job id {job_id}")
 
     def submit_job(self, job_submission: JobSubmission) -> JobSubmissionResponse:
         response = self._post("job/submit", job_submission)

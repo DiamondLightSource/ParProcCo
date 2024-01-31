@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 from ParProcCo import __version__
 
@@ -18,4 +18,5 @@ setup(
         "scripts/ppc_cluster_submit",
     ],
     url="https://github.com/DiamondLightSource/ParProcCo",
+    python_requires=">=3.10",
 )
