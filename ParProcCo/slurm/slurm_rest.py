@@ -2067,7 +2067,7 @@ class Limits1(BaseModel):
 
 class Preempt(BaseModel):
     exempt_time: Uint32NoVal | None = None
-    list: QosPreemptList | None = None
+    list_: QosPreemptList | None = Field(default=None, alias="list")
     mode: list[ModeEnum] | None = None
 
 
@@ -3034,7 +3034,7 @@ class Tres7(BaseModel):
 
 
 class Step(BaseModel):
-    CPU: CPU | None = None
+    CPU_: CPU | None = Field(default=None, alias="CPU")
     exit_code: ProcessExitCodeVerbose | None = None
     """
     return code returned by process
