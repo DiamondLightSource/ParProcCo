@@ -13,12 +13,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class JobResources:
-    "Memory per cpu in MB"
     memory: int = 4000
-    "CPU cores per task"
+    "Memory per cpu in MB"
     cpu_cores: int = 6
-    "GPU per task"
+    "CPU cores per task"
     gpus: int = 0
+    "GPU per task"
     extra_properties: dict[str, str] = field(default_factory=dict)
 
 
