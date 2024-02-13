@@ -4,10 +4,10 @@ import logging
 import unittest
 from pathlib import Path
 
-import h5py
+import h5py  # type: ignore
 import numpy as np
 import pytest
-from parameterized import parameterized
+from parameterized import parameterized  # type: ignore
 
 from ParProcCo.nxdata_aggregator import NXdataAggregator
 from ParProcCo.test import TemporaryDirectory

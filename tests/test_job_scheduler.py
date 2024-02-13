@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
 
 import getpass
@@ -10,12 +11,19 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from parameterized import parameterized
+from parameterized import parameterized  # type: ignore
 
 from example.simple_processing_slicer import SimpleProcessingSlicer
 from ParProcCo.job_scheduler import SLURMSTATE, JobScheduler, StatusInfo
 from ParProcCo.job_scheduling_information import JobResources, JobSchedulingInformation
-from ParProcCo.slurm.slurm_rest import JobDescMsg, JobInfo, JobSubmitReq
+from ParProcCo.slurm.slurm_rest import (
+    JobDescMsg,
+    JobInfo,
+    JobSubmitReq,
+    StringArray,
+    Uint32NoVal,
+    Uint64NoVal,
+)
 from ParProcCo.test import TemporaryDirectory
 from tests.utils import (
     PARTITION,
@@ -106,11 +114,11 @@ class TestJobScheduler(unittest.TestCase):
                 partition=PARTITION,
                 cpus_per_task=5,
                 tres_per_task="gres/gpu:0",
-                time_limit=dict(
-                    number=(jsi.timeout.total_seconds() + 59) // 60, set=True
+                time_limit=Uint32NoVal(
+                    number=int((jsi.timeout.total_seconds() + 59) // 60), set=True
                 ),
-                environment=env_list,
-                memory_per_cpu=dict(number=jsi.job_resources.memory, set=True),
+                environment=StringArray(env_list),
+                memory_per_cpu=Uint64NoVal(number=jsi.job_resources.memory, set=True),
                 current_working_directory=str(working_directory),
                 standard_output=str(jsi_list[0].get_stdout_path()),
                 standard_error=str(jsi_list[0].get_stderr_path()),
@@ -414,7 +422,7 @@ class TestJobScheduler(unittest.TestCase):
                 cluster_output_dir / "out2.nxs",
             )
 
-            jsi_list = []
+            jsi_list: list[JobSchedulingInformation] = []
             for i, output in enumerate(output_paths, 1):
                 jsi = MagicMock(spec=JobSchedulingInformation, name=f"JSI_{i}")
                 jsi.get_output_path.return_value = output
@@ -437,7 +445,7 @@ class TestJobScheduler(unittest.TestCase):
             cluster_output_dir = Path(working_directory) / "cluster_output"
             js = create_js(cluster_output_dir)
 
-            jsi_list = []
+            jsi_list: list[JobSchedulingInformation] = []
             for i, complete in enumerate([stat_0, stat_1], 1):
                 jsi = MagicMock(spec=JobSchedulingInformation, name=f"JSI_{i}")
                 jsi.completion_status = complete
@@ -535,7 +543,7 @@ class TestJobScheduler(unittest.TestCase):
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
             js = create_js(cluster_output_dir)
-            jsi_list = []
+            jsi_list: list[JobSchedulingInformation] = []
             for status_info in job_statuses:
                 jsi = MagicMock(
                     spec=JobSchedulingInformation, name="JobSchedulingInformation"

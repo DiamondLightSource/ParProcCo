@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
-import h5py
+import h5py  # type: ignore
 import numpy as np
 
 from ParProcCo.aggregator_interface import AggregatorInterface
