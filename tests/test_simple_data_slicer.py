@@ -4,7 +4,7 @@ import logging
 import unittest
 from typing import TYPE_CHECKING
 
-from parameterized import parameterized
+from parameterized import parameterized  # type: ignore
 
 from ParProcCo.simple_data_slicer import SimpleDataSlicer
 

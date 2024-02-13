@@ -1,3 +1,4 @@
+# mypy: disable-error-code="attr-defined"
 from __future__ import annotations
 
 import logging
@@ -12,11 +13,18 @@ from pathlib import Path
 
 from .job_scheduling_information import JobSchedulingInformation
 from .slurm.slurm_client import SlurmClient
-from .slurm.slurm_rest import JobDescMsg, JobSubmitReq, JobStateEnum
+from .slurm.slurm_rest import (
+    JobDescMsg,
+    JobSubmitReq,
+    JobStateEnum,
+    StringArray,
+    Uint32NoVal,
+    Uint64NoVal,
+)
 from .utils import check_jobscript_is_readable
 
 
-SLURMSTATE = Enum(
+SLURMSTATE = Enum(  # type: ignore
     "SLURMSTATE",
     [(js.name, js.value) for js in JobStateEnum]
     + [
@@ -36,7 +44,7 @@ SLURMSTATE = Enum(
 #    POWER_UP_NODE = "POWER_UP_NODE" #
 
 
-class STATEGROUP(tuple[SLURMSTATE], Enum):
+class STATEGROUP(tuple[SLURMSTATE], Enum):  # type: ignore
     OUTOFTIME = (SLURMSTATE.TIMEOUT, SLURMSTATE.DEADLINE)
     FINISHED = (
         SLURMSTATE.COMPLETED,
@@ -115,7 +123,7 @@ class JobScheduler:
     ) -> SLURMSTATE | None:
         job_info = self.client.get_job(job_scheduling_info.job_id)
         job_id = job_info.job_id
-        if job_id < 0:
+        if job_id is None or job_id < 0:
             raise ValueError(f"Job info has invalid job id: {job_info}")
         state = job_info.job_state
         slurm_state = SLURMSTATE[state[0].value] if state else None
@@ -259,6 +267,7 @@ class JobScheduler:
                     except Exception:
                         logging.error("Job submission failed", exc_info=True)
                         raise ValueError("Job submission failed")
+                assert resp.job_id
                 job_scheduling_info.set_job_id(resp.job_id)
                 job_scheduling_info.update_status_info(
                     StatusInfo(
@@ -322,12 +331,12 @@ class JobScheduler:
             partition=self.partition,
             cpus_per_task=job_scheduling_info.job_resources.cpu_cores,
             tres_per_task=f"gres/gpu:{job_scheduling_info.job_resources.gpus}",
-            time_limit=dict(
-                number=(job_scheduling_info.timeout.total_seconds() + 59) // 60,
+            time_limit=Uint32NoVal(
+                number=int((job_scheduling_info.timeout.total_seconds() + 59) // 60),
                 set=True,
             ),
-            environment=env_list,
-            memory_per_cpu=dict(
+            environment=StringArray(env_list),
+            memory_per_cpu=Uint64NoVal(
                 number=job_scheduling_info.job_resources.memory, set=True
             ),
             current_working_directory=str(job_scheduling_info.working_directory),

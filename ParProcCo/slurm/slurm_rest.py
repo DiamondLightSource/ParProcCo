@@ -156,7 +156,7 @@ class Float64NoVal(BaseModel):
     64 bit floating point number with flags
     """
 
-    infinite: bool | None = 0.0
+    infinite: bool | None = None
     """
     True if number has been set to infinite. "set" and "number" will be ignored.
     """
@@ -1105,7 +1105,7 @@ class Uint16NoVal(BaseModel):
     Integer number with flags
     """
 
-    infinite: bool | None = 0
+    infinite: bool | None = None
     """
     True if number has been set to infinite. "set" and "number" will be ignored.
     """
@@ -1124,7 +1124,7 @@ class Uint32NoVal(BaseModel):
     Integer number with flags
     """
 
-    infinite: bool | None = 0
+    infinite: bool | None = None
     """
     True if number has been set to infinite. "set" and "number" will be ignored.
     """
@@ -1143,7 +1143,7 @@ class Uint64NoVal(BaseModel):
     Integer number with flags
     """
 
-    infinite: bool | None = 0
+    infinite: bool | None = None
     """
     True if number has been set to infinite. "set" and "number" will be ignored.
     """

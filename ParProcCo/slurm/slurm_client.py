@@ -74,15 +74,20 @@ class SlurmClient:
             logging.error("Response not json: %s", response.content, exc_info=True)
             raise
 
-    def _has_openapi_errors(self, heading: str, oar: OpenapiJobInfoResp) -> bool:
-        if oar.warnings.root:
+    def _has_openapi_errors(
+        self,
+        heading: str,
+        oar: OpenapiResp | OpenapiJobInfoResp | OpenapiJobSubmitResponse,
+    ) -> bool:
+        if oar.warnings and oar.warnings.root:
             logging.warning(heading)
             for w in oar.warnings.root:
                 logging.warning("    : %s", w)
 
-        has_errors = len(oar.errors.root) > 0
+        has_errors = oar.errors is not None and len(oar.errors.root) > 0
         if has_errors:
             logging.error(heading)
+            assert oar.errors
             for e in oar.errors.root:
                 logging.error("    : %s", e)
 
@@ -117,6 +122,7 @@ class SlurmClient:
             f"Job submit {ojsr.result.job_id if ojsr.result else 'None'}:", ojsr
         )
         response.raise_for_status()
+        assert ojsr.result
         return ojsr.result
 
     def cancel_job(self, job_id: int) -> bool:
