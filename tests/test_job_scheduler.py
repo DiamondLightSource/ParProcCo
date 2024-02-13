@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import getpass
 import logging
 import os
 import time
@@ -14,7 +15,7 @@ from parameterized import parameterized
 from example.simple_processing_slicer import SimpleProcessingSlicer
 from ParProcCo.job_scheduler import SLURMSTATE, JobScheduler, StatusInfo
 from ParProcCo.job_scheduling_information import JobResources, JobSchedulingInformation
-from ParProcCo.slurm.slurm_rest import JobProperties, JobsResponse, JobSubmission
+from ParProcCo.slurm.slurm_rest import JobDescMsg, JobInfo, JobSubmitReq
 from ParProcCo.test import TemporaryDirectory
 from tests.utils import (
     PARTITION,
@@ -96,19 +97,23 @@ class TestJobScheduler(unittest.TestCase):
             job_submission = scheduler.make_job_submission(jsi_list[0])
             cluster_output_dir_exists = cluster_output_dir.is_dir()
 
-        expected = JobSubmission(
+        env_list = [f"{k}={v}" for k, v in jsi.job_env.items()]
+        env_list.append(f"USER={getpass.getuser()}")
+        expected = JobSubmitReq(
             script=expected_command,
-            job=JobProperties(
+            job=JobDescMsg(
                 name="create_template_test",
                 partition=PARTITION,
                 cpus_per_task=5,
-                gpus_per_task="0",
-                environment={"ParProcCo": "0"},
-                memory_per_cpu=4000,
+                tres_per_task="gres/gpu:0",
+                time_limit=dict(
+                    number=(jsi.timeout.total_seconds() + 59) // 60, set=True
+                ),
+                environment=env_list,
+                memory_per_cpu=dict(number=jsi.job_resources.memory, set=True),
                 current_working_directory=str(working_directory),
                 standard_output=str(jsi_list[0].get_stdout_path()),
                 standard_error=str(jsi_list[0].get_stderr_path()),
-                get_user_environment="10L",
             ),
             jobs=None,
         )
@@ -213,19 +218,27 @@ class TestJobScheduler(unittest.TestCase):
             js._wait_for_jobs(jsi_list)
             for jsi in jsi_list:
                 assert jsi.status_info
-                jsi.status_info.start_time = datetime.now() + timedelta(seconds=20)
+                jsi.status_info.start_time = datetime.now() + timedelta(seconds=60)
+                logging.debug(
+                    "Job %i: %s; %s; %s",
+                    jsi.job_id,
+                    jsi.status_info.current_state,
+                    jsi.status_info.start_time,
+                    jsi.get_stdout_path(),
+                )
 
             with self.assertLogs(level="WARNING") as context:
                 js._report_job_info(jsi_list)
                 self.assertEqual(len(context.output), 4)
+                logging.debug("Logs are: %s", context.output)
                 for i, err_msg in enumerate(context.output):
                     test_msg = (
                         f"'--input-path', '{input_path}') has not created a "
-                        f"new output file {jsi_list[i].get_stdout_path()}"
+                        f"new output file '{jsi_list[i].get_stdout_path()}'"
                     )
                     self.assertTrue(
                         test_msg in err_msg,
-                        msg=f"'{test_msg}' was  not found in '{err_msg}'",
+                        msg=f"'{test_msg}' was not found in '{err_msg}'",
                     )
             js._report_job_info(jsi_list)
 
@@ -460,11 +473,16 @@ class TestJobScheduler(unittest.TestCase):
         ) as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output_dir"
             js = create_js(cluster_output_dir)
-            jobs = js.client.get_jobs_response()
+            jobs = js.client.get_job_response()
         self.assertTrue(
-            isinstance(jobs, JobsResponse),
-            msg="jobs is not instance of JobsResponse\n",
+            isinstance(jobs, list),
+            msg="jobs is not instance of list\n",
         )
+        if jobs:
+            self.assertTrue(
+                isinstance(jobs[0], JobInfo),
+                msg="job is not instance of JobInfo\n",
+            )
 
     @parameterized.expand(
         [

@@ -9,13 +9,15 @@ import requests
 from pydantic import BaseModel
 
 from .slurm_rest import (
-    JobResponseProperties,
-    JobsResponse,
-    JobSubmission,
-    JobSubmissionResponse,
+    JobInfo,
+    JobSubmitResponseMsg,
+    JobSubmitReq,
+    OpenapiJobInfoResp,
+    OpenapiJobSubmitResponse,
+    OpenapiResp,
 )
 
-_SLURM_VERSION = "v0.0.38"
+_SLURM_VERSION = "v0.0.40"
 
 
 def get_slurm_token() -> str:
@@ -52,7 +54,7 @@ class SlurmClient:
     def _post(self, endpoint: str, data: BaseModel) -> requests.Response:
         return self._session.post(
             f"{self._slurm_endpoint_url}/{endpoint}",
-            data.model_dump_json(exclude_defaults=True),
+            json=data.model_dump(exclude_defaults=True),
         )
 
     def _delete(
@@ -66,32 +68,58 @@ class SlurmClient:
         )
 
     def _get_response_json(self, response: requests.Response) -> dict:
-        response.raise_for_status()
         try:
             return response.json()
         except:
             logging.error("Response not json: %s", response.content, exc_info=True)
             raise
 
-    def get_jobs_response(self, job_id: int | None = None) -> JobsResponse:
+    def _has_openapi_errors(self, heading: str, oar: OpenapiJobInfoResp) -> bool:
+        if oar.warnings.root:
+            logging.warning(heading)
+            for w in oar.warnings.root:
+                logging.warning("    : %s", w)
+
+        has_errors = len(oar.errors.root) > 0
+        if has_errors:
+            logging.error(heading)
+            for e in oar.errors.root:
+                logging.error("    : %s", e)
+
+        return has_errors
+
+    def get_job_response(self, job_id: int | None = None) -> list[JobInfo]:
         endpoint = f"job/{job_id}" if job_id is not None else "jobs"
         response = self._get(endpoint)
-        return JobsResponse.model_validate(self._get_response_json(response))
+        ojir = OpenapiJobInfoResp.model_validate(self._get_response_json(response))
+        if self._has_openapi_errors(f"Job query {job_id}:", ojir):
+            return []
+        return ojir.jobs.root
 
-    def get_job(self, job_id: int) -> JobResponseProperties:
-        ji = self.get_jobs_response(job_id)
-        if ji.jobs:
-            n = len(ji.jobs)
+    def get_job(self, job_id: int) -> JobInfo:
+        jobs = self.get_job_response(job_id)
+        if jobs:
+            n = len(jobs)
             if n == 1:
-                return ji.jobs[0]
+                return jobs[0]
             if n > 1:
-                raise ValueError(f"Multiple jobs returned {ji.jobs}")
+                raise ValueError(f"Multiple jobs returned {jobs}")
         raise ValueError(f"No job info found for job id {job_id}")
 
-    def submit_job(self, job_submission: JobSubmission) -> JobSubmissionResponse:
+    def submit_job(self, job_submission: JobSubmitReq) -> JobSubmitResponseMsg:
         response = self._post("job/submit", job_submission)
-        return JobSubmissionResponse.model_validate(self._get_response_json(response))
+        if not response.ok:
+            logging.error(job_submission.model_dump(exclude_defaults=True))
+        ojsr = OpenapiJobSubmitResponse.model_validate(
+            self._get_response_json(response)
+        )
+        self._has_openapi_errors(
+            f"Job submit {ojsr.result.job_id if ojsr.result else 'None'}:", ojsr
+        )
+        response.raise_for_status()
+        return ojsr.result
 
-    def cancel_job(self, job_id: int) -> JobsResponse:
+    def cancel_job(self, job_id: int) -> bool:
         response = self._delete(f"job/{job_id}")
-        return JobsResponse.model_validate(self._get_response_json(response))
+        oar = OpenapiResp.model_validate(self._get_response_json(response))
+        return not self._has_openapi_errors(f"Job query {job_id}:", oar)
