@@ -102,7 +102,6 @@ class JobScheduler:
         self,
         url: str,
         partition: str,
-        cluster_output_dir: Path | str | None,
         user_name: str | None = None,
         user_token: str | None = None,
         wait_timeout: timedelta = timedelta(hours=2),
@@ -112,9 +111,6 @@ class JobScheduler:
         self.job_history: list[dict[int, JobSchedulingInformation]] = []
         self.client = SlurmClient(url, user_name, user_token)
         self.partition = partition
-        self.cluster_output_dir: Path | None = (
-            Path(cluster_output_dir) if cluster_output_dir else None
-        )
         self.wait_timeout = wait_timeout
         self.terminate_after_wait = terminate_after_wait
 
@@ -288,20 +284,8 @@ class JobScheduler:
         self, job_scheduling_info: JobSchedulingInformation
     ) -> JobSubmitReq:
         if job_scheduling_info.log_directory is None:
-            if self.cluster_output_dir:
-                if not self.cluster_output_dir.is_dir():
-                    logging.debug("Making directory '%s'", self.cluster_output_dir)
-                    self.cluster_output_dir.mkdir(exist_ok=True, parents=True)
-                else:
-                    logging.debug(
-                        "Directory '%s' already exists", self.cluster_output_dir
-                    )
-
-                error_dir = self.cluster_output_dir / "cluster_logs"
-            else:
-                assert job_scheduling_info.working_directory
-                error_dir = job_scheduling_info.working_directory / "cluster_logs"
-            job_scheduling_info.log_directory = error_dir
+            assert job_scheduling_info.working_directory
+            job_scheduling_info.log_directory = job_scheduling_info.working_directory / "cluster_logs"
 
         if not job_scheduling_info.log_directory.is_dir():
             logging.debug("Making directory '%s'", job_scheduling_info.log_directory)

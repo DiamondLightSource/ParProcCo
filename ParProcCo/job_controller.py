@@ -157,7 +157,6 @@ class JobController:
             partition=self.partition,
             user_name=self.user_name,
             user_token=self.user_token,
-            cluster_output_dir=self.cluster_output_dir,
         )
 
         processing_jobs = self.program_wrapper.processing_slicer.create_slice_jobs(
@@ -208,7 +207,6 @@ class JobController:
             partition=self.partition,
             user_name=self.user_name,
             user_token=self.user_token,
-            cluster_output_dir=self.cluster_output_dir,
         )
 
         aggregation_jobs = aggregating_slicer.create_slice_jobs(
