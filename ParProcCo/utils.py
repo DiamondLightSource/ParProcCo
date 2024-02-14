@@ -13,6 +13,8 @@ from yaml import SafeLoader, YAMLObject
 from .slurm.slurm_client import get_slurm_token
 
 
+VALID_TOP_DIRECTORIES = ("dls", "dls_sw", "home")  # these directories are available on the cluster for job scripts and working and log directories
+
 def check_jobscript_is_readable(jobscript: Path) -> Path:
     if not jobscript.is_file():
         raise FileNotFoundError(f"{jobscript} not found")
@@ -59,10 +61,10 @@ def get_ppc_dir() -> str | None:
 def check_location(location: Path | str) -> Path:
     location_path = Path(location).resolve()
     top = location_path.parts[1]
-    if top in ("dls", "dls_sw", "home"):
+    if top in VALID_TOP_DIRECTORIES:
         return location_path
     raise ValueError(
-        f"{location_path} must be located within /dls, /dls_sw or /home (to be accessible from the cluster)"
+        f"{location_path} must be located within {VALID_TOP_DIRECTORIES} (to be accessible from the cluster)"
     )
 
 
@@ -106,7 +108,8 @@ class PPCConfig(YAMLObject):
     url: str  # slurm rest url
     extra_property_envs: dict[
         str, str
-    ] | None = None  # mapping of extra properties to environment variables to pass to slurm's JobProperties
+    ] | None = None  # dictionary of extra properties to environment variables to pass to Slurm's JobDescMsg
+    valid_top_directories: list[str] | None = None  # top directories accessible on cluster nodes
 
 
 PPC_YAML = "par_proc_co.yaml"
@@ -120,10 +123,19 @@ def load_cfg() -> PPCConfig:
         blah1: whatever_package1 # program name: python package (module expected to be called blah1_wrapper and contain a Wrapper class)
         blah2: whatever_package2
     url: slurm rest url
+    extra_property_envs: # optional mapping of properties to pass to Slurm's JobDescMsg
+        comment: mega job
+    valid_top_directories: # optional list of top directories accessible from cluster nodes
+                           # (used to check job scripts, log and working directories)
     """
     cfg = find_cfg_file(PPC_YAML)
     with open(cfg, "r") as cff:
         ppc_config = yaml.safe_load(cff)
+
+    if ppc_config.valid_top_directories is not None:
+        global VALID_TOP_DIRECTORIES
+        logging.info("Replace valid top directories: %s with %s", VALID_TOP_DIRECTORIES, ppc_config.valid_top_directories)
+        VALID_TOP_DIRECTORIES = tuple(ppc_config.valid_top_directories)
 
     return ppc_config
 
