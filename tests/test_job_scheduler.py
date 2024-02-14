@@ -41,9 +41,9 @@ if not gh_testing and not PARTITION:
     raise ValueError("Need to define default partition in DEFAULT_SLURM_PARTITION")
 
 
-def create_js(out_dir, timeout=timedelta(seconds=20)) -> JobScheduler:
+def create_js(timeout=timedelta(seconds=20)) -> JobScheduler:
     assert slurm_rest_url and PARTITION
-    return JobScheduler(slurm_rest_url, PARTITION, out_dir, wait_timeout=timeout)
+    return JobScheduler(slurm_rest_url, PARTITION, wait_timeout=timeout)
 
 
 @pytest.mark.skipif(gh_testing, reason="running GitHub workflow")
@@ -57,11 +57,7 @@ class TestJobScheduler(unittest.TestCase):
             os.rmdir(self.base_dir)
 
     def test_create_job_scheduler(self) -> None:
-        with TemporaryDirectory(
-            prefix="test_dir_", dir=self.base_dir
-        ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output_dir"
-            js = create_js(cluster_output_dir)
+        js = create_js()
         self.assertTrue(
             js.client._session.headers["X-SLURM-USER-NAME"] == os.environ["USER"],
             msg="User name not set correctly\n",
@@ -74,7 +70,7 @@ class TestJobScheduler(unittest.TestCase):
             working_directory = Path(working_directory)
             input_path = Path("path/to/file.extension")
             cluster_output_dir = working_directory / "cluster_output_dir"
-            scheduler = create_js(cluster_output_dir)
+            scheduler = create_js()
             job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
             runner_script_args = (str(job_script), "--input-path", str(input_path))
@@ -170,7 +166,7 @@ class TestJobScheduler(unittest.TestCase):
             )
 
             # submit jobs
-            js = create_js(cluster_output_dir)
+            js = create_js()
             js.run(jsi_list)
 
             # check output files
@@ -217,7 +213,7 @@ class TestJobScheduler(unittest.TestCase):
                 slice_params=slices, job_scheduling_information=jsi
             )
 
-            js = create_js(cluster_output_dir, timeout=timedelta(seconds=120))
+            js = create_js(timeout=timedelta(seconds=120))
 
             # submit jobs
 
@@ -301,7 +297,7 @@ class TestJobScheduler(unittest.TestCase):
             )
 
             # submit jobs
-            js = create_js(cluster_output_dir, timeout=timedelta(seconds=10))
+            js = create_js(timeout=timedelta(seconds=10))
 
             with self.assertLogs(level="WARNING") as context:
                 js.run(jsi_list)
@@ -362,7 +358,7 @@ class TestJobScheduler(unittest.TestCase):
             working_directory = Path(working_directory)
             cluster_output_dir = working_directory / "cluster_output"
 
-            js = create_js(working_directory, cluster_output_dir)
+            js = create_js()
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
@@ -415,7 +411,7 @@ class TestJobScheduler(unittest.TestCase):
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
             cluster_output_dir = Path(working_directory) / "cluster_output"
 
-            js = create_js(cluster_output_dir)
+            js = create_js()
 
             output_paths = (
                 cluster_output_dir / "out1.nxs",
@@ -441,17 +437,15 @@ class TestJobScheduler(unittest.TestCase):
         ]
     )
     def test_get_success(self, _name, stat_0, stat_1, success) -> None:
-        with TemporaryDirectory(prefix="test_dir_") as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output"
-            js = create_js(cluster_output_dir)
+        js = create_js()
 
-            jsi_list: list[JobSchedulingInformation] = []
-            for i, complete in enumerate([stat_0, stat_1], 1):
-                jsi = MagicMock(spec=JobSchedulingInformation, name=f"JSI_{i}")
-                jsi.completion_status = complete
-                jsi_list.append(jsi)
+        jsi_list: list[JobSchedulingInformation] = []
+        for i, complete in enumerate([stat_0, stat_1], 1):
+            jsi = MagicMock(spec=JobSchedulingInformation, name=f"JSI_{i}")
+            jsi.completion_status = complete
+            jsi_list.append(jsi)
 
-            self.assertEqual(js.get_success(jsi_list), success)
+        self.assertEqual(js.get_success(jsi_list), success)
 
     @parameterized.expand([("true", True), ("false", False)])
     def test_timestamp_ok_true(self, _name, start_time_before) -> None:
@@ -470,18 +464,14 @@ class TestJobScheduler(unittest.TestCase):
                 time.sleep(2)
                 start_time = datetime.now()
 
-            js = create_js(cluster_output_dir)
+            js = create_js()
             self.assertEqual(
                 js.timestamp_ok(filepath, start_time=start_time), start_time_before
             )
 
     def test_get_jobs_response(self) -> None:
-        with TemporaryDirectory(
-            prefix="test_dir_", dir=self.base_dir
-        ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output_dir"
-            js = create_js(cluster_output_dir)
-            jobs = js.client.get_job_response()
+        js = create_js()
+        jobs = js.client.get_job_response()
         self.assertTrue(
             isinstance(jobs, list),
             msg="jobs is not instance of list\n",
@@ -537,21 +527,16 @@ class TestJobScheduler(unittest.TestCase):
         ]
     )
     def test_filter_killed_jobs(self, _name, job_statuses, result) -> None:
-        with TemporaryDirectory(
-            prefix="test_dir_", dir=self.base_dir
-        ) as working_directory:
-            cluster_output_dir = Path(working_directory) / "cluster_output"
-
-            js = create_js(cluster_output_dir)
-            jsi_list: list[JobSchedulingInformation] = []
-            for status_info in job_statuses:
-                jsi = MagicMock(
-                    spec=JobSchedulingInformation, name="JobSchedulingInformation"
-                )
-                jsi.status_info = status_info
-                jsi_list.append(jsi)
-            killed_jobs = js.filter_killed_jobs(jsi_list)
-            self.assertEqual(killed_jobs, [jsi_list[i] for i in result])
+        js = create_js()
+        jsi_list: list[JobSchedulingInformation] = []
+        for status_info in job_statuses:
+            jsi = MagicMock(
+                spec=JobSchedulingInformation, name="JobSchedulingInformation"
+            )
+            jsi.status_info = status_info
+            jsi_list.append(jsi)
+        killed_jobs = js.filter_killed_jobs(jsi_list)
+        self.assertEqual(killed_jobs, [jsi_list[i] for i in result])
 
     def test_resubmit_jobs(self) -> None:
         with TemporaryDirectory(
@@ -621,7 +606,7 @@ class TestJobScheduler(unittest.TestCase):
                 jsi.set_completion_status(completed)
                 job_history[job_id] = jsi
 
-            js = create_js(cluster_output_dir)
+            js = create_js()
             js.job_history.append(job_history)
 
             success = js.resubmit_jobs(job_ids=[0, 2], batch=0)
@@ -817,7 +802,7 @@ class TestJobScheduler(unittest.TestCase):
                 jsi.set_completion_status(job_completion_status[job_id])
                 job_history[job_id] = jsi
 
-            js = create_js(cluster_output_dir)
+            js = create_js()
             js.job_history.append(job_history)
 
             if raises_error:
