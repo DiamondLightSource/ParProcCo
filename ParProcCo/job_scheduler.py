@@ -96,7 +96,7 @@ class StatusInfo:
 
 class JobScheduler:
     RE_CPU = re.compile(r"cpu=(\d+)")
-    RE_GPU = re.compile(r"cpu=(\d+)")
+    RE_GPU = re.compile(r"gpu=(\d+)")
 
     def __init__(
         self,
