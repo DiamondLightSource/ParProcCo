@@ -143,7 +143,7 @@ def load_cfg() -> PPCConfig:
 PPC_ENTRY_POINT = "ParProcCo.allowed_programs"
 
 
-def get_token(filepath: str | None) -> str:
+def get_token(filepath: str | None = None) -> str:
     if filepath is None:
         try:
             return get_slurm_token()
