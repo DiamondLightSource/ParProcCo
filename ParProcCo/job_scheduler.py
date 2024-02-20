@@ -15,6 +15,7 @@ from .job_scheduling_information import JobSchedulingInformation
 from .slurm.slurm_client import SlurmClient
 from .slurm.slurm_rest import (
     JobDescMsg,
+    JobInfo,
     JobSubmitReq,
     JobStateEnum,
     StringArray,
@@ -114,6 +115,34 @@ class JobScheduler:
         self.wait_timeout = wait_timeout
         self.terminate_after_wait = terminate_after_wait
 
+    def _update_processors(
+        self, status_info: StatusInfo, allocated: str, job_info: JobInfo
+    ):
+        if status_info.cpus is None:
+            try:
+                cpu_match = JobScheduler.RE_CPU.search(allocated)
+                status_info.cpus = int(cpu_match.group(1)) if cpu_match else None
+            except Exception as e:
+                logging.warning(
+                    "Failed to get cpus for job %i; setting cpus to 0. Job info: %s",
+                    job_info.job_id,
+                    job_info,
+                    exc_info=e,
+                )
+                status_info.cpus = 0
+        if status_info.gpus is None:
+            try:
+                gpu_match = JobScheduler.RE_GPU.search(allocated)
+                status_info.gpus = int(gpu_match.group(1)) if gpu_match else None
+            except Exception as e:
+                logging.warning(
+                    "Failed to get gpus for job %i; setting gpus to 0. Job info: %s",
+                    job_info.job_id,
+                    job_info,
+                    exc_info=e,
+                )
+                status_info.gpus = 0
+
     def fetch_and_update_state(
         self, job_scheduling_info: JobSchedulingInformation
     ) -> SLURMSTATE | None:
@@ -123,34 +152,6 @@ class JobScheduler:
             raise ValueError(f"Job info has invalid job id: {job_info}")
         state = job_info.job_state
         slurm_state = SLURMSTATE[state[0].value] if state else None
-
-        tres_alloc_str = job_info.tres_alloc_str
-        if not tres_alloc_str:
-            cpus = None
-            gpus = None
-        else:
-            try:
-                cpu_match = JobScheduler.RE_CPU.search(tres_alloc_str)
-                cpus = int(cpu_match.group(1)) if cpu_match else None
-            except Exception as e:
-                logging.warning(
-                    "Failed to get cpus for job %i; setting cpus to 0. Job info: %s",
-                    job_id,
-                    job_info,
-                    exc_info=e,
-                )
-                cpus = None
-            try:
-                gpu_match = JobScheduler.RE_CPU.search(tres_alloc_str)
-                gpus = int(gpu_match.group(1)) if gpu_match else None
-            except Exception as e:
-                logging.warning(
-                    "Failed to get gpus for job %i; setting gpus to 0. Job info: %s",
-                    job_id,
-                    job_info,
-                    exc_info=e,
-                )
-                gpus = None
 
         start_time = (
             job_info.start_time.number if job_info.start_time is not None else 0
@@ -167,8 +168,11 @@ class JobScheduler:
             end_time,
         )
 
-        if start_time and submit_time and end_time:
+        if start_time and submit_time:
             time_to_dispatch = timedelta(seconds=start_time - submit_time)
+            now = datetime.now().timestamp()
+            if end_time and end_time > now:
+                end_time = now
             wall_time = timedelta(seconds=end_time - start_time)
         else:
             time_to_dispatch = None
@@ -181,13 +185,18 @@ class JobScheduler:
             status_info.submit_time = datetime.fromtimestamp(submit_time)
         if start_time:
             status_info.start_time = datetime.fromtimestamp(start_time)
-        status_info.cpus = cpus
-        status_info.gpus = gpus
+        tres_alloc_str = job_info.tres_alloc_str
+        if tres_alloc_str:
+            self._update_processors(status_info, tres_alloc_str, job_info)
+
         status_info.time_to_dispatch = time_to_dispatch
         status_info.wall_time = wall_time
         status_info.current_state = slurm_state
         logging.debug(
             "Updating current state of %i to %s: %s", job_id, slurm_state, status_info
+        )
+        logging.info(
+            "Job %i: %s %ss", job_id, slurm_state, wall_time if wall_time else 0
         )
         return slurm_state
 
@@ -285,7 +294,9 @@ class JobScheduler:
     ) -> JobSubmitReq:
         if job_scheduling_info.log_directory is None:
             assert job_scheduling_info.working_directory
-            job_scheduling_info.log_directory = job_scheduling_info.working_directory / "cluster_logs"
+            job_scheduling_info.log_directory = (
+                job_scheduling_info.working_directory / "cluster_logs"
+            )
 
         if not job_scheduling_info.log_directory.is_dir():
             logging.debug("Making directory '%s'", job_scheduling_info.log_directory)
