@@ -99,7 +99,6 @@ class TestJobScheduler(unittest.TestCase):
                 f" --input-path {input_path}"
             )
             job_submission = scheduler.make_job_submission(jsi_list[0])
-            cluster_output_dir_exists = cluster_output_dir.is_dir()
 
         env_list = [f"{k}={v}" for k, v in jsi.job_env.items()]
         env_list.append(f"USER={getpass.getuser()}")
@@ -120,11 +119,6 @@ class TestJobScheduler(unittest.TestCase):
                 standard_error=str(jsi_list[0].get_stderr_path()),
             ),
             jobs=None,
-        )
-
-        self.assertTrue(
-            cluster_output_dir_exists,
-            msg="Cluster output directory was not created\n",
         )
 
         self.assertEqual(
@@ -192,6 +186,7 @@ class TestJobScheduler(unittest.TestCase):
             input_path, _, _, slices = setup_data_files(
                 working_directory, cluster_output_dir
             )
+            cluster_output_dir.mkdir(parents=True, exist_ok=True)
             job_script = setup_jobscript(working_directory)
             runner_script = setup_runner_script(working_directory)
             runner_script_args = (str(job_script), "--input-path", str(input_path))

@@ -508,7 +508,9 @@ class JobScheduler:
         }
 
         if not running_jobs:
-            logging.warning("All jobs ended before wait began")
+            logging.info("All jobs ended before wait began")
+            for jsi in job_scheduling_info_list:
+                self.fetch_and_update_state(jsi)
             return
 
         logging.info("Jobs running: %i", len(running_jobs))
