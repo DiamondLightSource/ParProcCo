@@ -279,10 +279,8 @@ class JobScheduler:
                         submit_time=datetime.now(),
                     )
                 )
-                logging.debug(
-                    "Job for job script '%s' and args '%s' has been submitted with id %d",
-                    job_scheduling_info.job_script_path,
-                    submission.job.argv,
+                logging.info(
+                    "Submitted job with id %d",
                     resp.job_id,
                 )
         except Exception:
@@ -435,7 +433,7 @@ class JobScheduler:
                 deadline,
                 sleep_time,
             )
-            ended_jobs = handle_ended_jobs(job_scheduling_info_list)
+            ended_jobs = handle_ended_jobs(False, job_scheduling_info_list)
             logging.info(
                 "Jobs remaining = %d after %.3fs",
                 len(job_scheduling_info_list) - len(ended_jobs),
@@ -444,12 +442,14 @@ class JobScheduler:
             return ended_jobs
 
         def handle_ended_jobs(
+            update: bool,
             job_scheduling_info_list: Sequence[JobSchedulingInformation]
             | ValuesView[JobSchedulingInformation],
         ) -> list[JobSchedulingInformation]:
             ended_jobs = []
             for job_scheduling_info in job_scheduling_info_list:
-                self.fetch_and_update_state(job_scheduling_info)
+                if update:
+                    self.fetch_and_update_state(job_scheduling_info)
                 assert job_scheduling_info.status_info
                 if job_scheduling_info.status_info.current_state in STATEGROUP.ENDED:
                     logging.debug("Removing ended %i", job_scheduling_info.job_id)
@@ -474,12 +474,18 @@ class JobScheduler:
                 self.client.cancel_job(job_scheduling_info.job_id)
             return timed_out_jobs
 
+        time.sleep(10)
         ended_jobs = {
             jsi.job_id: jsi
             for jsi in handle_ended_jobs(
-                job_scheduling_info_list=job_scheduling_info_list
-            )  # Returns ended jobs
+                True, job_scheduling_info_list=job_scheduling_info_list
+            )
         }
+        not_started = [
+            jsi
+            for jsi in job_scheduling_info_list
+            if jsi.status_info.current_state in STATEGROUP.STARTING
+        ]
         logging.debug("Ended jobs: %s", ended_jobs)
         job_scheduling_info_dict = {jsi.job_id: jsi for jsi in job_scheduling_info_list}
         unfinished_jobs = {
@@ -492,7 +498,7 @@ class JobScheduler:
             jsi.job_id: jsi
             for jsi in handle_timeouts(
                 job_scheduling_info_list=job_scheduling_info_list
-            )  # Returns timed out jobs
+            )
         }
         logging.debug("Timed out jobs: %s", timed_out_jobs)
 
@@ -501,14 +507,12 @@ class JobScheduler:
             for k in set(unfinished_jobs.keys()) - timed_out_jobs.keys()
         }
 
-        # Check for any jobs that ended while waiting for jobs to start
-        for jsi in handle_ended_jobs(job_scheduling_info_list=running_jobs.values()):
-            ended_jobs[jsi.job_id] = jsi
-            running_jobs.pop(jsi.job_id, None)
-
         if not running_jobs:
             logging.warning("All jobs ended before wait began")
             return
+
+        logging.info("Jobs running: %i", len(running_jobs))
+        time.sleep(10)
 
         try:
             while datetime.now() < wait_deadline and len(running_jobs) > 0:
@@ -526,9 +530,10 @@ class JobScheduler:
                     ((next_deadline - datetime.now()) / 2), timedelta(minutes=1)
                 )
 
-                not_started = handle_not_started(
-                    running_jobs.values(), check_time=check_time
-                )
+                if not_started:
+                    not_started = handle_not_started(not_started, check_time=check_time)
+                    logging.info("Not started: %i", len(not_started))
+
                 for jsi in wait_for_ended(
                     [v for k, v in running_jobs.items() if k not in not_started],
                     deadline=next_deadline,
