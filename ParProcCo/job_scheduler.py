@@ -280,7 +280,8 @@ class JobScheduler:
                     )
                 )
                 logging.info(
-                    "Submitted job with id %d",
+                    "Submitted job '%s' with id %d",
+                    job_scheduling_info.job_name,
                     resp.job_id,
                 )
         except Exception:
