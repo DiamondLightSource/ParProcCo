@@ -13,7 +13,7 @@ from yaml import SafeLoader, YAMLObject
 from .slurm.slurm_client import get_slurm_token
 
 
-VALID_TOP_DIRECTORIES = (
+VALID_TOP_DIRECTORIES: tuple[str, ...] = (
     "dls",
     "dls_sw",
     "home",
@@ -111,12 +111,12 @@ class PPCConfig(YAMLObject):
 
     allowed_programs: dict[str, str]  # program name, python package with wrapper module
     url: str  # slurm rest url
-    extra_property_envs: dict[
-        str, str
-    ] | None = None  # dictionary of extra properties to environment variables to pass to Slurm's JobDescMsg
-    valid_top_directories: list[
-        str
-    ] | None = None  # top directories accessible on cluster nodes
+    extra_property_envs: dict[str, str] | None = (
+        None  # dictionary of extra properties to environment variables to pass to Slurm's JobDescMsg
+    )
+    valid_top_directories: list[str] | None = (
+        None  # top directories accessible on cluster nodes
+    )
 
 
 PPC_YAML = "par_proc_co.yaml"
