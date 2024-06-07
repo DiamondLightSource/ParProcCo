@@ -329,7 +329,7 @@ class JobScheduler:
                 number=int((job_scheduling_info.timeout.total_seconds() + 59) // 60),
                 set=True,
             ),
-            environment=StringArray(env_list),
+            environment=StringArray(root=env_list),
             memory_per_cpu=Uint64NoVal(
                 number=job_scheduling_info.job_resources.memory, set=True
             ),

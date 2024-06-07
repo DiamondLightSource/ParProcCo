@@ -112,7 +112,7 @@ class TestJobScheduler(unittest.TestCase):
                 time_limit=Uint32NoVal(
                     number=int((jsi.timeout.total_seconds() + 59) // 60), set=True
                 ),
-                environment=StringArray(env_list),
+                environment=StringArray(root=env_list),
                 memory_per_cpu=Uint64NoVal(number=jsi.job_resources.memory, set=True),
                 current_working_directory=str(working_directory),
                 standard_output=str(jsi_list[0].get_stdout_path()),
