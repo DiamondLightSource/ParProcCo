@@ -38,7 +38,7 @@ slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
 
 if not gh_testing and not PARTITION:
-    raise ValueError("Need to define default partition in DEFAULT_SLURM_PARTITION")
+    raise ValueError("Need to define default partition in SLURM_PARTITION")
 
 
 def create_js(timeout=timedelta(seconds=20)) -> JobScheduler:
