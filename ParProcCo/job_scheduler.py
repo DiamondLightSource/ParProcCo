@@ -325,6 +325,7 @@ class JobScheduler:
             partition=self.partition,
             cpus_per_task=job_scheduling_info.job_resources.cpu_cores,
             tres_per_task=f"gres/gpu:{job_scheduling_info.job_resources.gpus}",
+            tasks=1,
             time_limit=Uint32NoVal(
                 number=int((job_scheduling_info.timeout.total_seconds() + 59) // 60),
                 set=True,
