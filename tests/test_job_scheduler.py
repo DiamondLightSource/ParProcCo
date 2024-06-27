@@ -110,6 +110,7 @@ class TestJobScheduler(unittest.TestCase):
                 partition=PARTITION,
                 cpus_per_task=5,
                 tres_per_task=f"gres/gpu:{gpus}",
+                tasks=1,
                 time_limit=Uint32NoVal(
                     number=int((jsi.timeout.total_seconds() + 59) // 60), set=True
                 ),
