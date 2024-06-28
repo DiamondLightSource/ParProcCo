@@ -43,3 +43,19 @@ SLURM_REST_URL  # URL for server and port where the REST endpoints are hosted
 SLURM_PARTITION # Slurm cluster parition 
 SLURM_JWT       # JSON web token for access to REST endpoints
 ```
+
+The environment can be set up and managed by running the `create_env` task in VSCode. This will read the token from
+`~/.ssh/slurm.tkn` but will not check or generate the key. The resulting file `.vscode/.env` is used by the
+`python.envFile` setting to propagate these values automatically.
+
+On the initial run, `SLURM_REST_URL` and `SLURM_PARTITION` will need to be given values manually (unless already set as
+environment variables). Those values will be kept whenever the task is rerun, with only the token being updated. As
+`.vscode/.env` is ignored by git, it is safe to save these values in that file.
+
+If you are not using VSCode, running `.vscode/create_env.sh` will create the env file, and the variables can be exported
+using:
+```
+set -a
+source ".vscode/.env"
+set +a
+```
