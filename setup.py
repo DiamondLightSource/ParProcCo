@@ -1,4 +1,4 @@
-from setuptools import find_packages, setup
+from setuptools import setup
 
 from ParProcCo import __version__
 
@@ -9,7 +9,7 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author_email="dataanalysis@diamond.ac.uk",
-    packages=find_packages(),
+    packages=["ParProcCo", "ParProcCo.slurm", "ParProcCo.test"],
     install_requires=["h5py", "pydantic", "pyyaml", "requests"],
     extras_require={
         "testing": ["parameterized", "pytest"],
