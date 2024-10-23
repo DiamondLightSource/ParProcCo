@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+import shlex
 from collections.abc import Sequence, ValuesView
 from copy import deepcopy
 from dataclasses import dataclass
@@ -309,9 +310,9 @@ class JobScheduler:
         job_script_path = check_jobscript_is_readable(
             job_scheduling_info.job_script_path
         )
-        job_script_command = " ".join(
+        job_script_command = "#!/bin/bash\n" + shlex.join(
             [
-                f"#!/bin/bash\n{job_script_path}",
+                str(job_script_path),
                 *job_scheduling_info.job_script_arguments,
             ]
         )
