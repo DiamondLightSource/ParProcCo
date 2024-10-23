@@ -398,7 +398,7 @@ class NXdataAggregator(AggregatorInterface):
                             name, old_processed, name=f"process{i}.{j}"
                         )
                         logging.info(
-                            f"Copied '{'/'.join([data_nxentry_group.name, name])}' group in {filepath} to"  # pyright: ignore[reportGeneralTypeIssues]
+                            f"Copied '{'/'.join([data_nxentry_group.name, name])}' group in {filepath} to"  # type: ignore
                             f" '{'/'.join(['old_processed', f'process{i}.{j}'])}' group in {aggregation_output}"
                         )
 
