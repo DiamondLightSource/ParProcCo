@@ -2,3 +2,4 @@
 .settings
 **/__pycache__
 /.*cache/
+.vscode/.env

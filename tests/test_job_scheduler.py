@@ -38,7 +38,7 @@ slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
 
 if not gh_testing and not PARTITION:
-    raise ValueError("Need to define default partition in DEFAULT_SLURM_PARTITION")
+    raise ValueError("Need to define default partition in SLURM_PARTITION")
 
 
 def create_js(timeout=timedelta(seconds=20)) -> JobScheduler:
@@ -63,7 +63,8 @@ class TestJobScheduler(unittest.TestCase):
             msg="User name not set correctly\n",
         )
 
-    def test_create_job_submission(self) -> None:
+    @parameterized.expand([("cpu only", 0), ("gpu", 1)])
+    def test_create_job_submission(self, _name, gpus) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
@@ -80,7 +81,7 @@ class TestJobScheduler(unittest.TestCase):
                 job_name="create_template_test",
                 job_script_path=runner_script,
                 job_script_arguments=runner_script_args,
-                job_resources=JobResources(memory=4000, cpu_cores=5),
+                job_resources=JobResources(memory=4000, cpu_cores=5, gpus=gpus),
                 working_directory=working_directory,
                 job_env={"ParProcCo": "0"},
                 timestamp=timestamp_time,
@@ -108,11 +109,12 @@ class TestJobScheduler(unittest.TestCase):
                 name="create_template_test",
                 partition=PARTITION,
                 cpus_per_task=5,
-                tres_per_task="gres/gpu:0",
+                tres_per_task=f"gres/gpu:{gpus}",
+                tasks=1,
                 time_limit=Uint32NoVal(
                     number=int((jsi.timeout.total_seconds() + 59) // 60), set=True
                 ),
-                environment=StringArray(env_list),
+                environment=StringArray(root=env_list),
                 memory_per_cpu=Uint64NoVal(number=jsi.job_resources.memory, set=True),
                 current_working_directory=str(working_directory),
                 standard_output=str(jsi_list[0].get_stdout_path()),
@@ -127,7 +129,8 @@ class TestJobScheduler(unittest.TestCase):
             msg="JobSubmission has incorrect parameter values\n",
         )
 
-    def test_job_scheduler_runs(self) -> None:
+    @parameterized.expand([("cpu only", 0), ("gpu", 1)])
+    def test_job_scheduler_runs(self, _name, gpus) -> None:
         with TemporaryDirectory(
             prefix="test_dir_", dir=self.base_dir
         ) as working_directory:
@@ -146,7 +149,7 @@ class TestJobScheduler(unittest.TestCase):
                 job_name="scheduler_runs_test",
                 job_script_path=runner_script,
                 job_script_arguments=runner_script_args,
-                job_resources=JobResources(memory=4000, cpu_cores=5),
+                job_resources=JobResources(memory=4000, cpu_cores=5, gpus=gpus),
                 working_directory=working_directory,
                 job_env={"ParProcCo": "0"},
                 timestamp=datetime.now(),

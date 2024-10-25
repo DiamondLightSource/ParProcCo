@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "load_modules",
+            "command": "module load python/3.11",
+            "type": "shell",
+            "problemMatcher": []
+        },
+        {
+            "label": "create_env",
+            "command": "${workspaceFolder}/.vscode/create_env.sh",
+            "type": "shell",
+            "problemMatcher": []
+        }
+    ]
+}

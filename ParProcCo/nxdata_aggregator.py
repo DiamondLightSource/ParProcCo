@@ -73,7 +73,7 @@ class NXdataAggregator(AggregatorInterface):
         self._get_all_axes()
 
         self.axes_mins = [np.inf] * self.data_dimensions
-        self.axes_maxs = [np.NINF] * self.data_dimensions
+        self.axes_maxs = [-np.inf] * self.data_dimensions
 
         for axis_set in self.all_axes:
             for j, axis in enumerate(axis_set):
@@ -398,7 +398,7 @@ class NXdataAggregator(AggregatorInterface):
                             name, old_processed, name=f"process{i}.{j}"
                         )
                         logging.info(
-                            f"Copied '{'/'.join([data_nxentry_group.name, name])}' group in {filepath} to"  # pyright: ignore[reportGeneralTypeIssues]
+                            f"Copied '{'/'.join([data_nxentry_group.name, name])}' group in {filepath} to"  # type: ignore
                             f" '{'/'.join(['old_processed', f'process{i}.{j}'])}' group in {aggregation_output}"
                         )
 
