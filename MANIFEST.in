@@ -1,0 +1,7 @@
+graft ParProcCo
+graft scripts
+graft example
+graft tests
+recursive-exclude **/.ruff_cache/ *
+global-exclude *.py[cod]
+include LICENSE README.md *.toml setup.*
