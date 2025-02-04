@@ -1,3 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ParProcCo"
+dynamic = ["version"]
+description = "Parallel Processing Coordinator. Splits dataset processing to run parallel cluster jobs and aggregates outputs"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    {name = "Peter Chang"}
+]
+maintainers = [
+    {name = "Data Analysis group", email = "dataanalysis@diamond.ac.uk"}
+]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3 :: Only",
+]
+requires-python = ">= 3.10"
+dependencies = [
+    "h5py",
+    "pydantic",
+    "pyyaml",
+    "requests"
+]
+
+[project.optional-dependencies]
+testing = [
+    "parameterized",
+    "pytest",
+]
+dev = [
+    "datamodel-code-generator",
+]
+
+[project.urls]
+repository = "https://github.com/DiamondLightSource/ParProcCo"
+
+[tool.setuptools.dynamic]
+version = {attr = "ParProcCo.__version__"} 
+
+[tool.setuptools.packages.find]
+include = ["ParProcCo", "ParProcCo.slurm", "ParProcCo.test"]
+namespaces = false
+
+[tool.setuptools]
+script-files = [
+    "scripts/nxdata_aggregate",
+    "scripts/ppc_cluster_runner",
+    "scripts/ppc_cluster_submit",
+]
+
 [tool.pytest.ini_options]
 log_cli = true
 
@@ -6,3 +61,4 @@ plugins = "numpy.typing.mypy_plugin"
 
 [tool.ruff]
 line-length = 88
+
