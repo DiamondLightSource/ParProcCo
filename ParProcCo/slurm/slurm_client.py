@@ -10,14 +10,13 @@ from pydantic import BaseModel
 
 from .slurm_rest import (
     JobInfo,
-    JobSubmitResponseMsg,
     JobSubmitReq,
     OpenapiJobInfoResp,
     OpenapiJobSubmitResponse,
-    OpenapiResp,
+    OpenapiKillJobResp,
 )
 
-_SLURM_VERSION = "v0.0.40"
+_SLURM_VERSION = "v0.0.42"
 
 
 def get_slurm_token() -> str:
@@ -77,7 +76,7 @@ class SlurmClient:
     def _has_openapi_errors(
         self,
         heading: str,
-        oar: OpenapiResp | OpenapiJobInfoResp | OpenapiJobSubmitResponse,
+        oar: OpenapiJobInfoResp | OpenapiJobSubmitResponse | OpenapiKillJobResp,
     ) -> bool:
         if oar.warnings and oar.warnings.root:
             logging.warning(heading)
@@ -111,7 +110,7 @@ class SlurmClient:
                 raise ValueError(f"Multiple jobs returned {jobs}")
         raise ValueError(f"No job info found for job id {job_id}")
 
-    def submit_job(self, job_submission: JobSubmitReq) -> JobSubmitResponseMsg:
+    def submit_job(self, job_submission: JobSubmitReq) -> OpenapiJobSubmitResponse:
         response = self._post("job/submit", job_submission)
         if not response.ok:
             logging.error(job_submission.model_dump(exclude_defaults=True))
@@ -119,13 +118,13 @@ class SlurmClient:
             self._get_response_json(response)
         )
         self._has_openapi_errors(
-            f"Job submit {ojsr.result.job_id if ojsr.result else 'None'}:", ojsr
+            f"Job submit {ojsr.job_id if ojsr.job_id else 'None'}:", ojsr
         )
         response.raise_for_status()
-        assert ojsr.result
-        return ojsr.result
+        assert ojsr.job_id is not None
+        return ojsr
 
     def cancel_job(self, job_id: int) -> bool:
         response = self._delete(f"job/{job_id}")
-        oar = OpenapiResp.model_validate(self._get_response_json(response))
-        return not self._has_openapi_errors(f"Job query {job_id}:", oar)
+        oar = OpenapiKillJobResp.model_validate(self._get_response_json(response))
+        return not self._has_openapi_errors(f"Job delete {job_id}:", oar)
