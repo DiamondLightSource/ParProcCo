@@ -21,8 +21,8 @@ from ParProcCo.slurm.slurm_rest import (
     JobInfo,
     JobSubmitReq,
     StringArray,
-    Uint32NoVal,
-    Uint64NoVal,
+    Uint32NoValStruct,
+    Uint64NoValStruct,
 )
 from ParProcCo.test import TemporaryDirectory
 from tests.utils import (
@@ -104,21 +104,21 @@ class TestJobScheduler(unittest.TestCase):
         env_list = [f"{k}={v}" for k, v in jsi.job_env.items()]
         env_list.append(f"USER={getpass.getuser()}")
         expected = JobSubmitReq(
-            script=expected_command,
             job=JobDescMsg(
                 name="create_template_test",
                 partition=PARTITION,
                 cpus_per_task=5,
                 tres_per_task=f"gres/gpu:{gpus}",
                 tasks=1,
-                time_limit=Uint32NoVal(
+                time_limit=Uint32NoValStruct(
                     number=int((jsi.timeout.total_seconds() + 59) // 60), set=True
                 ),
                 environment=StringArray(root=env_list),
-                memory_per_cpu=Uint64NoVal(number=jsi.job_resources.memory, set=True),
+                memory_per_cpu=Uint64NoValStruct(number=jsi.job_resources.memory, set=True),
                 current_working_directory=str(working_directory),
                 standard_output=str(jsi_list[0].get_stdout_path()),
                 standard_error=str(jsi_list[0].get_stderr_path()),
+                script=expected_command,
             ),
             jobs=None,
         )
