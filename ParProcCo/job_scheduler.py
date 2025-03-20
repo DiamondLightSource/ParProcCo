@@ -20,8 +20,8 @@ from .slurm.slurm_rest import (
     JobSubmitReq,
     JobStateEnum,
     StringArray,
-    Uint32NoVal,
-    Uint64NoVal,
+    Uint32NoValStruct,
+    Uint64NoValStruct,
 )
 from .utils import check_jobscript_is_readable
 
@@ -151,7 +151,7 @@ class JobScheduler:
         job_id = job_info.job_id
         if job_id is None or job_id < 0:
             raise ValueError(f"Job info has invalid job id: {job_info}")
-        state = job_info.job_state
+        state = job_info.job_state.root
         slurm_state = SLURMSTATE[state[0].value] if state else None
 
         start_time = (
@@ -327,23 +327,24 @@ class JobScheduler:
             cpus_per_task=job_scheduling_info.job_resources.cpu_cores,
             tres_per_task=f"gres/gpu:{job_scheduling_info.job_resources.gpus}",
             tasks=1,
-            time_limit=Uint32NoVal(
+            time_limit=Uint32NoValStruct(
                 number=int((job_scheduling_info.timeout.total_seconds() + 59) // 60),
                 set=True,
             ),
             environment=StringArray(root=env_list),
-            memory_per_cpu=Uint64NoVal(
+            memory_per_cpu=Uint64NoValStruct(
                 number=job_scheduling_info.job_resources.memory, set=True
             ),
             current_working_directory=str(job_scheduling_info.working_directory),
             standard_output=str(job_scheduling_info.get_stdout_path()),
             standard_error=str(job_scheduling_info.get_stderr_path()),
+            script=job_script_command,
         )
         if job_scheduling_info.job_resources.extra_properties:
             for k, v in job_scheduling_info.job_resources.extra_properties.items():
                 setattr(job, k, v)
 
-        return JobSubmitReq(script=job_script_command, job=job)
+        return JobSubmitReq(job=job)
 
     def wait_all_jobs(
         self,

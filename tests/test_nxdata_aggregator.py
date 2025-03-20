@@ -18,6 +18,7 @@ from .utils import get_slurm_rest_url
 slurm_rest_url = get_slurm_rest_url()
 gh_testing = slurm_rest_url is None
 
+TEST_DATA_DIR="/dls/science/groups/das/ExampleData/i07/old_data/"
 
 class TestNXdataAggregator(unittest.TestCase):
     def setUp(self) -> None:
@@ -51,16 +52,16 @@ class TestNXdataAggregator(unittest.TestCase):
     def test_renormalise(self) -> None:
         output_file_paths = [
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfa.nxs"
             ),
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfb.nxs"
             ),
         ]
         aggregator = NXdataAggregator()
         aggregator._renormalise(output_file_paths)
         with h5py.File(
-            "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r"
+            TEST_DATA_DIR + "i07-394487-applied-whole.nxs", "r"
         ) as f:
             volumes_array = NXdataAggregator._require_dataset(
                 f, "processed/reciprocal_space/volume"
@@ -81,10 +82,10 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator.data_dimensions = 3
         aggregator.data_files = [
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfa.nxs"
             ),
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfb.nxs"
             ),
         ]
         aggregator.nxentry_name = "processed"
@@ -267,10 +268,10 @@ class TestNXdataAggregator(unittest.TestCase):
     def test_get_nxdata_applied_data(self) -> None:
         output_data_files = [
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfa.nxs"
             ),
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfb.nxs"
             ),
         ]
         aggregator = NXdataAggregator()
@@ -987,10 +988,10 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator = NXdataAggregator()
         aggregator.data_files = [
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfa.nxs"
             ),
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfb.nxs"
             ),
         ]
         aggregator.nxentry_name = "processed"
@@ -1021,7 +1022,7 @@ class TestNXdataAggregator(unittest.TestCase):
         aggregator._accumulate_volumes()
 
         with h5py.File(
-            "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs", "r"
+            TEST_DATA_DIR + "i07-394487-applied-whole.nxs", "r"
         ) as f:
             volumes_array = NXdataAggregator._require_dataset(
                 f, "processed/reciprocal_space/volume"
@@ -1041,10 +1042,10 @@ class TestNXdataAggregator(unittest.TestCase):
     def test_write_aggregation_file(self) -> None:
         sliced_data_files = [
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfa.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfa.nxs"
             ),
             Path(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-halfb.nxs"
+                TEST_DATA_DIR, "i07-394487-applied-halfb.nxs"
             ),
         ]
         with TemporaryDirectory(prefix="test_dir_") as working_directory:
@@ -1058,7 +1059,7 @@ class TestNXdataAggregator(unittest.TestCase):
                 aggregation_file, sliced_data_files
             )
             with h5py.File(
-                "/dls/science/groups/das/ExampleData/i07/i07-394487-applied-whole.nxs",
+                TEST_DATA_DIR + "i07-394487-applied-whole.nxs",
                 "r",
             ) as f:
                 volumes_array = NXdataAggregator._require_dataset(
