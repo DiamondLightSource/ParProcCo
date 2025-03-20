@@ -4,46 +4,47 @@ import json
 import yaml
 
 
-def replace_refs(in_dict: dict, version_prefix: str, db_version_prefix: str):
+def filter_refs(in_dict: dict, version_prefix: str, all_refs: set):
+    sind = len("#/components/schemas/")
     for k, v in in_dict.items():
         if isinstance(v, dict):
-            replace_refs(v, version_prefix, db_version_prefix)
+            filter_refs(v, version_prefix, all_refs)
         elif isinstance(v, list):
             for i in v:
                 if isinstance(i, dict):
-                    replace_refs(i, version_prefix, db_version_prefix)
+                    filter_refs(i, version_prefix, all_refs)
         if k == "$ref":  # and isinstance(v, str):
             assert isinstance(v, str)
-            nv = v.replace(db_version_prefix, "db").replace(version_prefix, "")
-            in_dict[k] = nv
+            if version_prefix in v:
+                nv = v.replace(version_prefix, "")
+                all_refs.add(nv[sind:])
+                in_dict[k] = nv
 
 
 def filter_paths(paths: dict, version: str, slurm_only: bool):
     new_dict = {}
+    path_head = "slurm" if slurm_only else "slurmdb"
     for k, v in paths.items():
-        kparts = k.split("/")
+        kparts = k.split(
+            "/"
+        )  # '/slurm/v0.0.40/shares' => ['', 'slurm', 'v0.0.40', 'shares']
         kp1 = kparts[1]
         if len(kparts) > 2:
-            if kparts[2] == version:
-                if (slurm_only and kp1 == "slurm") or (
-                    not slurm_only and kp1 == "slurmdb"
-                ):
-                    new_dict[k] = v
-        else:
+            if kp1 == path_head and kparts[2] == version:
+                new_dict[k] = v
+        else:  # global paths
             new_dict[k] = v
     print(new_dict.keys())
     return new_dict
 
 
-def filter_components(components: dict, version: str, slurm_only: bool):
+def filter_components(components: dict, version_prefix: str, all_refs: dict):
     new_dict = {}
-    if not slurm_only:
-        version = f"db{version}"
-    vind = len(version) + 1
-    kp = "" if slurm_only else "db_"
+    vind = len(version_prefix)
     for k, v in components.items():
-        if k.startswith(version):
-            new_dict[kp + k[vind:]] = v
+        if k.startswith(version_prefix):
+            filter_refs(v, version_prefix, all_refs)
+            new_dict[k[vind:]] = v
     return new_dict
 
 
@@ -52,10 +53,18 @@ def generate_slurm_models(input_file: str, version: str, slurm_only: bool):
         schema = json.load(f)
 
     schema["paths"] = filter_paths(schema["paths"], version, slurm_only)
-    schema["components"]["schemas"] = filter_components(
-        schema["components"]["schemas"], version, slurm_only
+    all_refs = set()
+    version_prefix = f"{version}_"
+    filter_refs(schema["paths"], version_prefix, all_refs)
+    all_schemas = filter_components(
+        schema["components"]["schemas"], version_prefix, all_refs
     )
-    replace_refs(schema, f"{version}_", f"db{version}")
+    print(
+        "Removing these unreferenced schema parts:", set(all_schemas.keys()) - all_refs
+    )
+    schema["components"]["schemas"] = {
+        k: s for k, s in all_schemas.items() if k in all_refs
+    }
     return schema
 
 
