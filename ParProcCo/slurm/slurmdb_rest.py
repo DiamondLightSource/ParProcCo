@@ -4368,7 +4368,7 @@ class Tres7(BaseModel):
 
 
 class Step(BaseModel):
-    CPU: CPU | None = None
+    CPU_: CPU | None = None
     exit_code: ProcessExitCodeVerbose | None = None
     """
     Exit code
