@@ -15,10 +15,10 @@ from pathlib import Path
 from .job_scheduling_information import JobSchedulingInformation
 from .slurm.slurm_client import SlurmClient
 from .slurm.slurm_rest import (
+    CurrentEnum as JobStateEnum,
     JobDescMsg,
     JobInfo,
     JobSubmitReq,
-    JobStateEnum,
     StringArray,
     Uint32NoValStruct,
     Uint64NoValStruct,
@@ -37,13 +37,6 @@ SLURMSTATE = Enum(  # type: ignore
         )
     ],
 )
-
-# class NewJobStateEnum(Enum):
-#    CANCELLED = "CANCELLED" #
-#    LAUNCH_FAILED = "LAUNCH_FAILED" #
-#    UPDATE_DB = "UPDATE_DB" #
-#    RECONFIG_FAIL = "RECONFIG_FAIL" #
-#    POWER_UP_NODE = "POWER_UP_NODE" #
 
 
 class STATEGROUP(tuple[SLURMSTATE], Enum):  # type: ignore
@@ -151,7 +144,7 @@ class JobScheduler:
         job_id = job_info.job_id
         if job_id is None or job_id < 0:
             raise ValueError(f"Job info has invalid job id: {job_info}")
-        state = job_info.job_state.root
+        state = job_info.job_state
         slurm_state = SLURMSTATE[state[0].value] if state else None
 
         start_time = (
@@ -532,13 +525,14 @@ class JobScheduler:
                         if deadline is not None
                     ]
                 )
+                logging.debug("Next deadline: %s", next_deadline)
                 check_time = min(
                     ((next_deadline - datetime.now()) / 2), timedelta(minutes=1)
                 )
 
                 if not_started:
                     not_started = handle_not_started(not_started, check_time=check_time)
-                    logging.info("Not started: %i", len(not_started))
+                    logging.info("Not started: %i (%s)", len(not_started), check_time)
 
                 for jsi in wait_for_ended(
                     [v for k, v in running_jobs.items() if k not in not_started],
