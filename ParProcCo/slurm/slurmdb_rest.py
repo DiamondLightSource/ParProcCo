@@ -2,10 +2,12 @@
 #   filename:  slurmdb-rest-44.yaml
 #   timestamp: 2026-06-11T15:22:35+00:00
 
-from __future__ import annotations
-from pydantic import BaseModel, Field, RootModel
+# ruff: noqa: F405
 
-from slurm_rest import *
+from __future__ import annotations
+from pydantic import BaseModel, Field
+
+from slurm_rest import * # noqa: F403
 
 class OpenapiSlurmdbdPingResp(BaseModel):
     errors: OpenapiErrors | None = None
