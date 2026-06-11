@@ -158,7 +158,7 @@ def setup_runner_script(working_directory: str) -> Path:
 #!/usr/bin/bash
 . /etc/profile.d/modules.sh
 
-module load python/3.11
+module load python/3.12
 export PYTHONPATH="${{PYTHONPATH}}:{parent_dir}"
 
 echo "Executing |$@|"

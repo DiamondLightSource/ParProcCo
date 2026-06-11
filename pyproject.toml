@@ -59,6 +59,12 @@ log_cli = true
 [tool.mypy]
 plugins = "numpy.typing.mypy_plugin"
 
+[tool.datamodel-codegen]
+formatters = [
+    "ruff-check",
+    "ruff-format",
+]
+
 [tool.ruff]
 line-length = 88
 

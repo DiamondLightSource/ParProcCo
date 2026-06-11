@@ -16,7 +16,7 @@ from .slurm_rest import (
     OpenapiKillJobResp,
 )
 
-_SLURM_VERSION = "v0.0.42"
+_SLURM_VERSION = "v0.0.44"
 
 
 def get_slurm_token() -> str:

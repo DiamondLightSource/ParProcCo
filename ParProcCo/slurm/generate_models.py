@@ -81,7 +81,7 @@ def create_argparser():
         default=False,
     )
     ap.add_argument(
-        "--version", "-v", help="str: slurm OpenAPI version string", default="v0.0.38"
+        "--version", "-v", help="str: slurm OpenAPI version string", default="v0.0.44"
     )
     ap.add_argument(
         "input_file",
