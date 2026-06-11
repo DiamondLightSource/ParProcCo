@@ -2,7 +2,7 @@ name: parprocco
 channels:
   - conda-forge
 dependencies:
-  - python >=3.10
+  - python >=3.11
   - h5py >=3
   - pydantic >=2
   - pyyaml
